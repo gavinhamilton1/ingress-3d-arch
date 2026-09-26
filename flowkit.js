@@ -328,6 +328,8 @@
     }
     // Presentation mode: hide the trace and legend panels (e.g. while a deployment view is open)
     present(tl, pos, v) { tl.set(this, 'present', pos, v, x => this.frame.classList.toggle('fk-presenting', x), false); return pos; }
+    // Toggle a class on the frame for this timeline (e.g. 'fk-notrace' to hide the trace panel)
+    flag(tl, pos, cls, v) { tl.set(this, 'flag:' + cls, pos, v, x => this.frame.classList.toggle(cls, x), false); if (!this._flags) this._flags = new Set(); if (!this._flags.has(cls)) { this._flags.add(cls); this.resetters.push(() => this.frame.classList.remove(cls)); } return pos; }
     onReset(fn) { this.resetters.push(fn); }
     reset() { this.resetters.forEach(f => f()); }
 
@@ -468,6 +470,33 @@
       const rows = plan.filter(r => r.pos <= v).sort((a, b) => a.pos - b.pos), W = 100 / total;
       this.count.textContent = rows.length + ' spans';
       this.rows.innerHTML = rows.slice(-14).map(r => `<div class="row${r.pos === v ? ' nw' : ''}"><div class="svc">${r.svc}</div><div class="lane"><div class="bar ${r.status === 'error' ? 'err' : r.status === 'warn' ? 'warn' : ''}" style="left:${r.start * W}%;width:${Math.max(1.5, r.dur * W)}%"></div></div><div class="ms ${r.status === 'error' ? 'err' : ''}">${r.status === 'error' ? 'ERR' : r.dur + 'ms'}</div></div>`).join('');
+    }
+  }
+
+  /* ---------- Latency budget (HUD): legs fill as a request spends time in each layer ---------- */
+  class Budget {
+    constructor(stage, { target, legs, title = 'Latency budget' }) {
+      this.stage = stage; this.target = target; this.legs = legs;
+      this.el = el('div', 'fk-budget', stage.hud, `<div class="bh"><b>${title}</b><span class="tot"></span></div><div class="bar">${legs.map(l => `<div class="sg" style="width:${(l.ms / target * 100).toFixed(2)}%;--c:${l.color}"><i></i></div>`).join('')}</div><div class="lg">${legs.map(l => `<span style="width:${(l.ms / target * 100).toFixed(2)}%">${l.label}<small>${l.ms}</small></span>`).join('')}</div>`);
+      this.segs = [...this.el.querySelectorAll('.sg')]; this.labs = [...this.el.querySelectorAll('.lg span')]; this.tot = this.el.querySelector('.tot');
+      this.paint(-1, [], null); stage.onReset(() => this.paint(-1, [], null));
+    }
+    // Show the bar for this timeline; focus: optional leg indexes to emphasise (a layer chapter)
+    begin(tl, pos, focus = null) {
+      const plan = this.plan = [];
+      this._apply = v => this.paint(v, plan, focus);
+      tl.set(this, 'spend', pos, -1, this._apply, null);
+      return pos;
+    }
+    spend(tl, pos, i, ms) { this.plan.push({ pos, i, ms }); tl.set(this, 'spend', pos, pos, this._apply, null); return pos; }
+    paint(v, plan, focus) {
+      this.el.style.display = v === null ? 'none' : ''; if (v === null) return;
+      const used = this.legs.map(() => null);
+      plan.filter(p => p.pos <= v).forEach(p => { used[p.i] = (used[p.i] || 0) + p.ms; });
+      const total = used.reduce((a, b) => a + (b || 0), 0);
+      this.segs.forEach((sg, i) => { const u = used[i], l = this.legs[i]; sg.firstChild.style.width = u == null ? '0%' : Math.min(100, u / l.ms * 100) + '%'; sg.classList.toggle('over', u != null && u > l.ms); sg.classList.toggle('dim', !!(focus && !focus.includes(i))); });
+      this.labs.forEach((lb, i) => { lb.classList.toggle('dim', !!(focus && !focus.includes(i))); lb.querySelector('small').textContent = used[i] == null ? this.legs[i].ms : `${used[i]}/${this.legs[i].ms}`; });
+      this.tot.innerHTML = `<b class="${total > this.target ? 'over' : ''}">${total} ms</b> / ${this.target} ms target`;
     }
   }
 
@@ -1064,7 +1093,7 @@
           <b>Timeline</b><span>Drag to scrub · hold Shift while dragging for 10× finer control · wheel over the timeline steps frame by frame · click a step to jump to it</span>
           <b>Camera</b><span>Drag the scene to orbit · right-drag or Shift-drag to pan · wheel to zoom · double-click or R to reset · F to follow the script</span>
           <b>Explore</b><span>Click any device for details · hover a layer in the legend to isolate it · click a layer to fly there</span>
-          <b>Chapters</b><span>1–9 select a chapter · T trace · N labels · Y layers · Esc close panels</span>
+          <b>Chapters</b><span>1–9 pick from the first row · Shift+1–9 from the second · T trace · N labels · Y layers · Esc close panels</span>
         </div>`;
       const q = s => host.querySelector(s);
       this.ui = {
@@ -1072,7 +1101,15 @@
         head: q('.fk-head'), tip: q('.fk-tip'), cur: q('.fk-time .cur'), dur: q('.fk-time .dur'), stepname: q('.fk-stepname'),
         play: q('[data-a=play]'), rev: q('[data-a=rev]'), loop: q('[data-a=loop]'), all: q('[data-a=all]'), help: q('.fk-help'), scrub: q('.fk-scrub')
       };
-      this.chBtns = this.chapters.map((c, i) => { const b = el('button', '', this.ui.chapters, `<em>${i + 1}</em>${c.title}`); b.onclick = () => { this.load(i); this.play(); }; return b; });
+      // Chapters can be grouped into labelled rows (e.g. Layers / Journeys); keys 1-9 pick from the first row, Shift+1-9 from the second
+      const groups = this.groups = [...new Set(this.chapters.map(c => c.group || ''))];
+      const rows = groups.map((gname, gi) => { const r = el('div', 'fk-chrow', this.ui.chapters, gname ? `<span class="lbl">${gname}</span>` : ''); r.dataset.g = gi; return r; });
+      const seen = groups.map(() => 0);
+      this.chBtns = this.chapters.map((c, i) => {
+        const gi = groups.indexOf(c.group || ''), n = ++seen[gi];
+        c._key = gi === 0 ? String(n) : gi === 1 ? '⇧' + n : '';
+        const b = el('button', '', rows[gi], `<em>${c._key}</em>${c.title}`); b.onclick = () => { this.load(i); this.play(); }; return b;
+      });
       host.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
         if (b.dataset.s) { this.setRate(+b.dataset.s); return; }
@@ -1246,7 +1283,11 @@
           '?': () => { this.ui.help.hidden = !this.ui.help.hidden; },
           Escape: () => { this.ui.help.hidden = true; this.stage.select(null); }
         };
-        if (/^[1-9]$/.test(k) && +k <= this.chapters.length) { this.load(+k - 1); this.play(); e.preventDefault(); return; }
+        const dm = /^Digit([1-9])$/.exec(e.code || '');
+        if (dm) {
+          const gi = e.shiftKey ? 1 : 0, list = this.chapters.map((c, i) => [c, i]).filter(([c]) => (this.groups.indexOf(c.group || '')) === gi), hit = list[+dm[1] - 1];
+          if (hit) { this.load(hit[1]); this.play(); e.preventDefault(); return; }
+        }
         if (map[k]) { map[k](); e.preventDefault(); }
       });
     }
@@ -1257,5 +1298,5 @@
     }
   }
 
-  global.FlowKit = { el, g, box, plane, orient, pathFn, arc, lerp3, route, shade, ease, invEase, Timeline, Stage, Trace, ObsWall, Device, Wall, Link, Packet, Dot, Drill, zone, outline, ring, fly, Player, COLORS };
+  global.FlowKit = { el, g, box, plane, orient, pathFn, arc, lerp3, route, shade, ease, invEase, Timeline, Stage, Trace, Budget, ObsWall, Device, Wall, Link, Packet, Dot, Drill, zone, outline, ring, fly, Player, COLORS };
 })(window);

@@ -33,7 +33,11 @@ L1 is a DNS control plane box to the left of the clients, outside the request pa
 
 Deployment views (modelled on `../jpmc/ingress-poc`): the T2 node expands into its deployment. Top row: gateway-envoy's filter chain (listener → route match → ext_authz → router). Bottom row: auth-service, the ext_authz server, which checks the session JWT (iss = session manager, aud = ingress-gateway, ES256 via JWKS, DPoP cnf.jkt) and then evaluates the Rego payload policies in order: the global policy (`ingress.policy.payload.global`, blocklist, every route with a body) and the route policy (e.g. `route_users_register`, default deny). An evaluation panel shows the policies executing: the request JSON with the field under evaluation highlighted, the global policy scanning each string field, then each route-policy rule (body_ok, all_required_present, full_name_valid, email_valid, phone_valid, dob_valid) with its regex, the resulting allow / deny_reason, and the response (201, or 403 with the reason). Chapter 2 runs a GET (payload policies skipped, no body); chapter 3 runs the three TrafficFlow test payloads (valid → 201, SQL injection → 403 from the global policy, malformed email → 403 from the route policy). Content lives in `T2D`, `PAY` and `t2Run` in `scenes/ingress.js`.
 
-Chapters: 1 The seven layers (build-up tour) · 2 Web, on-prem · 3 Payload policies at T2 · 4 API, AWS · 5 Private connectivity (BP PSaaS and Private Link) · 6 Failover · 7 Defense in depth.
+Chapters are in two rows. **Layers** (keys 1–9): The seven layers, L0 Client, L1 DNS Control Plane, L2 Edge Protection / CDN, L3 Regional Perimeter, L4 SESF / Tier 2 Proxy, L5 ESF / Tier 3 Session & Signals, L6 Workloads, P Private Connectivity. Each explains what the layer is, what it does, why it exists and its latency budget (draft text in `LAYER_CH`). **Journeys** (Shift+1–6): Web on-prem, Payload policies at T2, API into AWS, Private connectivity, Failover, Defense in depth.
+
+Latency budget: 50 ms from L0 to L5, split client → edge 12, edge 5, edge → region 15, perimeter 3, T2 proxy 8, T3 session 7 (draft, in `BUDGET`). DNS is cached per TTL and workload time is the application's own, so both sit outside it. The bar at the bottom right fills as a request spends time in each leg.
+
+L5 Session & Signals (draft): the T3 deployment view shows Envoy → session manager, and a CAEP receiver (OpenID Shared Signals) that verifies Security Event Tokens from transmitters such as fraud detection; an enforcement policy turns them into step-up, revoke or re-auth. Content lives in `T3D`, `t3Html`, `t3Run` and `t3Signal`.
 
 ## Player controls
 
@@ -86,6 +90,8 @@ Do not start real-time animations or change the DOM from a chapter's build funct
 | `stage.caption.at(tl, pos, step, text)` | Caption bar and scrubber step |
 | `stage.shot(tl, pos, shot, dur)` | Camera move; a shot is `{x, y, z, rx, ry, d}` |
 | `new Drill(stage, {at, title, sub, frame, stages, side})` | Deployment view that slides out of a node: `open`, `enter`, `visit(i)`, `sideVisit`, `exit`, `close`. A token walks the internal stages; each stage ticks its checks |
+| `new Budget(stage, {target, legs, title})` | Latency budget HUD: `begin(tl, pos, focusLegs)`, `spend(tl, pos, leg, ms)` |
+| `stage.flag(tl, pos, cls, on)` | Toggle a frame class for a timeline (e.g. `fk-notrace`) |
 | `stage.present(tl, pos, on)` | Presentation mode: hides the trace and legend panels (used while a deployment view is open) |
 | `new Dot(stage, world)` | Small glowing token with a fading tail: `show`, `travel` (subtle flows such as DNS lookups) |
 | `fly(...)`, `ring(...)`, `arc(a, b, h)` | Tokens flying between points, pulse rings, arc paths |

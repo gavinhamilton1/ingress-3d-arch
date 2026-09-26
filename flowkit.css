@@ -123,6 +123,7 @@
 .fk-drill .tok { position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; background: #F8FAFC; box-shadow: 0 0 12px 3px #38BDF8; z-index: 3; }
 .fk-drill .tok.bad { background: #FECDD3; box-shadow: 0 0 14px 4px #F43F5E; }
 .fk-drill .tok.ok { box-shadow: 0 0 14px 4px #34D399; }
+.fk-drill .tok.sig { background: #FBCFE8; box-shadow: 0 0 14px 4px #F472B6; }
 .fk-drill .pl { position: absolute; box-sizing: border-box; border: 1px solid #1E293B; border-radius: 9px; background: #070D1A; padding: 7px 9px; overflow: hidden; }
 .fk-drill .pl .ph { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 6px; font: 700 10px ui-monospace, Menlo, monospace; color: #E2E8F0; }
 .fk-drill .pl .bd { font: 600 9px system-ui; padding: 1px 6px; border-radius: 8px; white-space: nowrap; }
@@ -181,7 +182,7 @@
 .fk-caption .tx { font-size: 17px; margin-top: 3px; color: #F1F5F9; }
 .fk-trace { position: absolute; right: 18px; top: 16px; width: 360px; background: rgba(8, 15, 32, .86); border: 1px solid rgba(167, 139, 250, .35);
   border-radius: 10px; padding: 10px 12px; font-size: 11px; }
-.no-trace .fk-trace { display: none; }
+.no-trace .fk-trace, .fk-notrace .fk-trace { display: none; }
 .fk-presenting .fk-trace, .fk-presenting .fk-legend { opacity: 0; transition: opacity .3s; }
 .fk-trace, .fk-legend { transition: opacity .3s; }
 .fk-trace h4 { margin: 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #C4B5FD; display: flex; justify-content: space-between; }
@@ -244,6 +245,22 @@
 .fk-blink { animation: fkBlink 1.2s linear; }
 @keyframes fkBlink { 0%, 30%, 60% { opacity: 1; } 15%, 45% { opacity: .45; } }
 
+/* Latency budget HUD */
+.fk-budget { position: absolute; right: 18px; bottom: 18px; width: 560px; background: rgba(8, 15, 32, .88); border: 1px solid rgba(148, 163, 184, .25); border-radius: 10px; padding: 8px 11px 7px; font-size: 11px; }
+.fk-budget .bh { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.fk-budget .bh b { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #94A3B8; }
+.fk-budget .tot { color: #64748B; font: 11px ui-monospace, Menlo, monospace; }
+.fk-budget .tot b { color: #34D399; font-size: 13px; } .fk-budget .tot b.over { color: #FB7185; }
+.fk-budget .bar { display: flex; gap: 2px; height: 10px; }
+.fk-budget .sg { position: relative; background: rgba(148, 163, 184, .12); border-radius: 3px; overflow: hidden; transition: opacity .3s; }
+.fk-budget .sg i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--c); box-shadow: 0 0 8px var(--c); transition: width .3s; }
+.fk-budget .sg.over i { background: #F43F5E; box-shadow: 0 0 8px #F43F5E; }
+.fk-budget .sg.dim, .fk-budget .lg span.dim { opacity: .3; }
+.fk-budget .lg { display: flex; gap: 2px; margin-top: 4px; }
+.fk-budget .lg span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #94A3B8; font-size: 9.5px; transition: opacity .3s; }
+.fk-budget .lg small { display: block; font: 9px ui-monospace, Menlo, monospace; color: #64748B; }
+.fk-presenting .fk-budget { opacity: 0; }
+
 /* Player */
 .fk-player { display: flex; flex-direction: column; gap: 10px; width: min(100%, 1280px); font-size: 13px; color: #CBD5E1; }
 .fk-player button { font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 7px; border: 1px solid #334155; background: #111C31; color: #CBD5E1; cursor: pointer;
@@ -251,7 +268,9 @@
 .fk-player button:hover { background: #18253F; }
 .fk-player button.on { border-color: #38BDF8; color: #F1F5F9; background: #0E2A47; }
 .fk-player .sp { flex: 1; }
-.fk-chapters { display: flex; flex-wrap: wrap; gap: 6px; }
+.fk-chapters { display: flex; flex-direction: column; gap: 6px; }
+.fk-chrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fk-chrow .lbl { width: 70px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #64748B; }
 .fk-chapters em { font-style: normal; font: 600 11px ui-monospace, Menlo, monospace; color: #64748B; }
 .fk-chapters button.on em { color: #7DD3FC; }
 

@@ -74,6 +74,7 @@
     wlOn: ['On-prem workloads', 'application services'],
     wlCl: ['Cloud workloads', 'application services'],
     attacker: ['Attacker', 'direct-to-origin probe'],
+    fraud: ['Fraud detection', 'SSF transmitter · CAEP'],
     obs: 'Observability plane',
     w1: 'L3 perimeter · CDN origin traffic only',
     w2: 'SESF firewall · Tier 2',
@@ -105,6 +106,7 @@
     t3web: 'Web gateway in the cross-firewall zone (ESF / Tier 3). Brokers web traffic into the trusted on-prem network.',
     t3api: 'API gateway in the cross-firewall zone (ESF / Tier 3). Authorises and validates API calls into the trusted on-prem network.',
     cweb: 'Web gateway for cloud workloads, running on EKS.', capi: 'API gateway for cloud workloads, running on EKS. Also serves business partners arriving over Private Link.',
+    fraud: 'Fraud detection service. As a Shared Signals (SSF) transmitter it sends CAEP security events, such as a risk-level change for a session, to the Tier 3 receiver, which enforces them in real time.',
     wlOn: 'Trusted on-prem application services.', wlCl: 'Trusted cloud application services.', attacker: 'Tries to reach an origin directly, bypassing the CDN.'
   };
   // Illustrative controls shown in the animation and in the info card. Replace with your real policies.
@@ -134,6 +136,15 @@
   const SL = [], slab = (bb, layer, side) => { SL.push({ bb, layer, side }); return bb; };
   stage.onReset(() => SL.forEach(o => { o.bb.el.style.display = ''; }));
   const trace = new Trace(stage);
+  // Latency budget from the client to Tier 3 (draft split; DNS is cached per TTL and workload time is the application's own)
+  const BUDGET = { target: 50, title: 'Latency budget · L0 → L5', legs: [
+    { label: 'client → edge', ms: 12, color: '#94A3B8' },
+    { label: 'edge', ms: 5, color: '#F97316' },
+    { label: 'edge → region', ms: 15, color: '#FB923C' },
+    { label: 'perimeter', ms: 3, color: '#FBBF24' },
+    { label: 'T2 proxy', ms: 8, color: '#22D3EE' },
+    { label: 'T3 session', ms: 7, color: '#818CF8' }] };
+  const budget = new FK.Budget(stage, BUDGET);
 
   /* ---------- floor: one band per layer; L3 to L6 split into on-prem and AWS ---------- */
   const ZB = [-950, 1000], SPLIT = 30;
@@ -182,6 +193,7 @@
     reg: browserUI(`<b style="font-size:10px;color:#1E3A8A">Create account</b><div style="margin-top:5px;height:7px;border:1px solid #CBD5E1;border-radius:2px"></div><div style="margin-top:3px;height:7px;border:1px solid #CBD5E1;border-radius:2px"></div><div style="margin-top:6px;height:12px;width:54px;border-radius:3px;background:#2563EB;color:#fff;font-size:7px;display:grid;place-items:center">Register</div>`),
     reg201: browserUI(`<div style="text-align:center;margin-top:10px"><div style="width:20px;height:20px;border-radius:50%;background:#D1FAE5;color:#059669;margin:0 auto;display:grid;place-items:center;font-weight:700">&#10003;</div><b style="font-size:9px;color:#065F46">Welcome, Ada</b><div style="font-size:7px;color:#64748B">201 Created</div></div>`),
     reg403: browserUI(`<div style="text-align:center;margin-top:10px"><div style="width:20px;height:20px;border-radius:50%;background:#FFE4E6;color:#E11D48;margin:0 auto;display:grid;place-items:center;font-weight:700">!</div><b style="font-size:9px;color:#9F1239">Request rejected</b><div style="font-size:7px;color:#64748B">403 · payload validation failed</div></div>`),
+    stepup: browserUI(`<div style="text-align:center;margin-top:8px"><b style="font-size:9px;color:#92400E">Verify it's you</b><div style="font-size:7px;color:#64748B;margin-top:3px">Unusual activity on your session</div><div style="margin:6px auto 0;width:66px;height:13px;border-radius:3px;background:#F59E0B;color:#fff;font-size:7px;display:grid;place-items:center">Continue with passkey</div></div>`),
     accounts: browserUI(`<b style="font-size:10px;color:#1E3A8A">Accounts</b><div style="margin-top:5px;font-size:7px;color:#475569">Operating ···4821 &nbsp; USD 1.2M</div><div style="font-size:7px;color:#475569">Payroll ···7710 &nbsp; USD 310K</div><div style="margin-top:6px;font-size:7px;color:#059669">200 OK · 412 ms</div>`)
   };
   const TERM = {
@@ -225,6 +237,7 @@
     cweb: dev('cweb', { layer: 5, x: X[5], z: 250, kind: 'gateway', w: 140, h: 130, d: 110, accent: '#FF9900', icon: ICON.web('#FF9900') }),
     capi: dev('capi', { layer: 5, x: X[5], z: 650, kind: 'gateway', w: 140, h: 130, d: 110, accent: '#FF9900', icon: ICON.api('#FF9900') }),
     wlOn: dev('wlOn', { layer: 6, x: X[6], z: -450, kind: 'pods', color: '#1E3A5F', count: 3, gap: 140 }),
+    fraud: dev('fraud', { layer: 6, x: X[6], z: -820, kind: 'rack', w: 110, h: 130, d: 90, color: '#2A1020', accent: '#F472B6', led: '#F472B6' }),
     wlCl: dev('wlCl', { layer: 6, x: X[6], z: 450, kind: 'pods', color: '#3B2A10', accent: '#FF9900', count: 3, gap: 140 }),
     attacker: dev('attacker', { layer: 0, x: X[1] - 100, z: 880, kind: 'laptop', color: '#4C0519', led: '#F43F5E', accent: '#F43F5E', hidden: true,
       screen: `<div style="background:#0F0A14;height:100%;color:#FB7185;font:8px ui-monospace,monospace;padding:8px 9px">$ curl --resolve \\<br>&nbsp; app:443:203.0.113.10<br><span style="color:#94A3B8">bypass the CDN</span></div>` })
@@ -408,6 +421,73 @@
     t = T2D.visit(tl, t, [0, 3], { tick: 300, hold: 150 });
     return T2D.exit(tl, t, 1) + 300;
   }
+  // T3 deployment view (ESF / Tier 3): Envoy + session manager + CAEP receiver + enforcement policy (draft, to confirm)
+  const T3D = new FK.Drill(stage, {
+    at: [X[5], -240, -650], dx: -280, w: T2W,
+    title: 'T3 · ESF gateway', sub: 'ESF / Tier 3 · Session & Signals · deployment view',
+    frame: 'envoy (T3 IFA web)  →  ext_authz  →  session manager   ·   fraud / IdP / device signals  →  CAEP receiver  →  enforcement policy',
+    lanes: [
+      { label: 'T3 envoy · HTTP filter chain', h: 96, stages: [
+        { label: 'listener :443', sub: 'mTLS from Tier 2', items: ['client cert: T2 gateway', 'workload identity ok'] },
+        { label: 'session check', sub: 'ext_authz → session mgr', items: ['look up live session', 'apply enforcement state'] },
+        { label: 'token exchange', sub: 'internal identity', items: ['internal token minted', 'never leaves ESF'] },
+        { label: 'router', sub: 'forward to workload', items: ['mTLS → L6', 'identity headers'] }] },
+      { box: 'Session & Signals · session manager, CAEP receiver (Shared Signals), enforcement policy', h: 210, stages: [
+        { label: 'session manager', sub: 'live session state', items: ['session active', 'AAL2 · DPoP bound', 'risk level'] },
+        { label: 'CAEP receiver', sub: 'Shared Signals (SSF)', items: ['SET signature valid', 'aud = ingress receiver', 'subject = live session'] },
+        { label: 'enforcement', sub: 'policy · signal → action', items: ['risk high → step-up', 'session-revoked → revoke', 'credential-change → re-auth'] }] }
+    ],
+    panel: { full: true, x: T2P, w: T2W - 18 - T2P }
+  });
+  const T3P = {
+    req: (h, badge, col) => `<div class="eh">${h}<small style="background:${col}22;color:${col}">${badge}</small></div>`,
+    sess: (rows, out) => `<div class="pk route">session manager <span>· session sid-7f3c…e21 (user ada@client.com)</span></div>` + rows.map(([ok, n, v]) => `<div class="rl${ok ? '' : ' x'}"><i>${ok ? '✓' : '✕'}</i><span>${n}</span><em>${v}</em></div>`).join('') + (out ? `<div class="out ${out[1]}">${out[0]}</div>` : '')
+  };
+  const t3Html = {
+    ok: done => `<div class="ev">${T3P.req('GET /accounts', 'session live', '#34D399')}<div class="js"><div>GET /accounts HTTP/2</div><div>x-session-id: sid-7f3c…e21</div><div>x-auth-sub: ada@client.com</div><div>traceparent: 00-4bf9…-01</div></div>` +
+      T3P.sess([[1, 'status', 'active'], [1, 'assurance', 'AAL2 (passkey)'], [1, 'device binding', 'DPoP jkt matches'], [1, 'risk level', 'low'], [1, 'enforcement', 'none']], done ? ['allow → internal token minted → workload (mTLS)', 'ok'] : null) + '</div>',
+    set: step => `<div class="ev">${T3P.req('CAEP event · Security Event Token', 'from fraud detection', '#F472B6')}<div class="js"><div>{ "iss": "https://fraud.jpmc.internal",</div><div>  "aud": "ingress-caep-receiver",</div><div>  "events": { "…/caep/event-type/risk-level-change": {</div><div class="${step >= 1 ? 'scan' : ''}">      "subject": { "format": "opaque", "id": "sid-7f3c…e21" },</div><div class="${step >= 1 ? 'hit' : ''}">      "previous_level": "low", "current_level": "high",</div><div>      "reason_admin": "impossible travel + new payee" } } }</div></div>` +
+      (step >= 1 ? `<div class="pk">CAEP receiver <span>· verify, then match to a live session</span></div><div class="rl"><i>✓</i><span>signature</span><em>ES256 · transmitter JWKS</em></div><div class="rl"><i>✓</i><span>audience</span><em>ingress-caep-receiver</em></div><div class="rl"><i>✓</i><span>subject</span><em>sid-7f3c…e21 is live</em></div>` : '') +
+      (step >= 2 ? `<div class="pk route">enforcement policy <span>· risk-level-change → action</span></div><div class="rl x"><i>!</i><span>current_level</span><em>"high" → require step-up (AAL3)</em></div><div class="out no">action: step_up · session enforcement state updated · effective on the next request</div>` : '') + '</div>',
+    stepup: done => `<div class="ev">${T3P.req('POST /v1/payments', 'same session, next request', '#FBBF24')}<div class="js"><div>POST /v1/payments HTTP/2</div><div>x-session-id: sid-7f3c…e21</div><div>{ "amount": 25000.00, "payee": "···9921" }</div></div>` +
+      T3P.sess([[1, 'status', 'active'], [1, 'assurance', 'AAL2 (passkey)'], [0, 'risk level', 'high (CAEP, 4 s ago)'], [0, 'enforcement', 'step-up to AAL3 required']],
+        done ? ['→ 401 WWW-Authenticate: Bearer error="insufficient_user_authentication", acr_values="aal3"', 'no'] : null) + '</div>'
+  };
+  function t3Run(tl, t, k) {
+    T3D.clear(tl, t); T3D.panel(tl, t, t3Html[k](false));
+    t = T3D.enter(tl, t + 200);
+    t = T3D.visit(tl, t, [0, 0], { tick: 300, hold: 150 });
+    t = T3D.visit(tl, t, [0, 1], { tick: 300, hold: 150, keep: true });
+    const bad = k === 'stepup';
+    t = T3D.visit(tl, t, [1, 0], { st: bad ? ['pass', 'pass', 'fail'] : ['pass', 'pass', 'pass'], note: bad ? 'step-up required' : '', tick: 400 });
+    T3D.panel(tl, t, t3Html[k](true)); t += 700 + stage.readTime;
+    t = T3D.move(tl, t, [0, 1], 500);
+    if (bad) { T3D.tokState(tl, t, 'bad'); T3D.stState(tl, t, [0, 1], 'fail', '401 · step-up (AAL3)'); t += 600 + stage.readTime * .6; return T3D.exit(tl, t, -1) + 300; }
+    T3D.stState(tl, t, [0, 1], 'done');
+    t = T3D.visit(tl, t, [0, 2], { tick: 300, hold: 150 });
+    T3D.tokState(tl, t, 'ok');
+    t = T3D.visit(tl, t, [0, 3], { tick: 300, hold: 150 });
+    return T3D.exit(tl, t, 1) + 300;
+  }
+  // A CAEP signal arrives from outside the request path and changes the session's enforcement state
+  function t3Signal(tl, t) {
+    T3D.clear(tl, t); T3D.panel(tl, t, t3Html.set(0));
+    const rx = [T3D.W + 24, T3D.lanes[1].rowY];
+    tl.add(T3D.tok, { x: [rx[0], rx[0]], y: [rx[1], rx[1]], duration: 0 }, t);
+    T3D.tokState(tl, t, 'sig');
+    tl.add(T3D.tok, { opacity: [0, 1], duration: 200 }, t);
+    t += 900;
+    T3D.panel(tl, t, t3Html.set(1));
+    t = T3D.visit(tl, t, [1, 1], { tick: 450 });
+    T3D.panel(tl, t, t3Html.set(2));
+    t = T3D.visit(tl, t, [1, 2], { st: ['pass', 'skip', 'skip'], note: 'risk high → step-up', tick: 400 });
+    t = T3D.move(tl, t, [1, 0], 600);
+    T3D.stState(tl, t, [1, 0], 'active', 'enforcement: step-up required');
+    [...T3D.st[1][0].querySelectorAll('.ck')].forEach((c, n) => T3D.ckState(tl, t + n * 150, c, n === 2 ? 'fail' : 'pass'));
+    t += 900 + stage.readTime;
+    tl.add(T3D.tok, { opacity: [1, 0], duration: 200 }, t);
+    return t + 300;
+  }
   const dnsDot = new FK.Dot(stage, W, { color: '#E2E8F0', size: 11 });
   const drawDots = Array.from({ length: 6 }, () => new FK.Dot(stage, W, { color: '#E2E8F0', size: 11 }));
   const pkB = new Packet(stage, W, { size: 30 }), pkC = new Packet(stage, W, { size: 30 }), pkD = new Packet(stage, W, { size: 30 }), pkE = new Packet(stage, W, { size: 30 });
@@ -523,6 +603,7 @@
     cloud: { x: 700, y: -170, z: 450, rx: -30, ry: -14, d: 2900 },
     obs: { x: 0, y: -840, z: -1550, rx: -6, ry: 0, d: 5600 },
     t2drill: { x: 1400, y: -925, z: -450, rx: -26, ry: -10, d: 2700 },   // puts the T2 node low-left, the callout opens above it
+    t3drill: { x: 2100, y: -925, z: -650, rx: -26, ry: -10, d: 2700 },
     front: { x: -950, y: -200, z: -260, rx: -34, ry: 6, d: 4600 },
     van: { x: -1100, y: -40, z: -1300, rx: -64, ry: 0, d: 3400 },
     plink: { x: 700, y: -40, z: 1100, rx: -40, ry: -12, d: 2700 }
@@ -637,9 +718,192 @@
     tl.wait(t + 2000 + 7400 + 5500, 1500);
   }
 
+  /* ---------- Layer chapters: what each layer is, what it does, why it exists, and its latency budget ---------- */
+  // say(): a caption beat, optionally lighting devices and showing a panel of points; returns when the beat is done
+  function say(tl, t, h, text, { hold = 4600, devs = [], panel } = {}) {
+    cap(tl, t, h, text);
+    devs.forEach((d, i) => d.activate(tl, t + i * 200, Math.max(1200, hold - 400 - i * 200)));
+    let end = t + hold;
+    if (panel) end = Math.max(end, stage.checklist(tl, t + 400, { at: panel.at.top || panel.at, title: panel.title, items: panel.items.map(x => typeof x === 'string' ? { t: x } : x),
+      result: panel.result, resultColor: panel.color, step: 420, hold: 900, dx: panel.dx ?? 30, dy: panel.dy ?? -20 }) - 250);
+    return end + 300;
+  }
+  const layerCh = spec => tl => {
+    base(tl, '', 400);
+    if (spec.legs) budget.begin(tl, 0, spec.legs);
+    stage.flag(tl, 0, 'fk-notrace', true);   // no distributed trace in the layer explainers
+    stage.focus(tl, 0, spec.focus);
+    let t = 300;
+    stage.shot(tl, t, spec.shot, 2000);
+    for (const step of spec.steps) t = step(tl, t);
+    stage.focus(tl, t, null);
+    tl.wait(t, 1500);
+  };
+  const CLIENTS = Object.values(C), NS = [1, 2, 3, 4, 5, 6, 7].map(n => D['ns' + n]);
+  const LAYER_CH = {
+    L0: layerCh({ focus: [0], legs: [0], shot: { x: -1605, y: -200, z: 60, rx: -26, ry: 24, d: 3400 }, steps: [
+      (tl, t) => say(tl, t + 400, 'L0 · Client', 'Everything that calls us from outside: browsers, mobile apps, API clients, machine-to-machine callers and AI agents. None of it is trusted', { devs: CLIENTS, hold: 5600 }),
+      (tl, t) => say(tl, t, 'How each client proves who it is', 'Different clients carry different credentials, and each is verified again further in', { hold: 6200,
+        panel: { at: C.api, title: 'Client credentials', items: ['Browser · session cookie + DPoP-bound session JWT', 'Mobile app · app attestation + OAuth tokens', 'API client · user-delegated OAuth2 access token', 'M2M · client credentials or mTLS certificate', 'AI agent · declared, signed agent identity'], dx: 60, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Why: assume compromise', 'Devices get malware, cookies get stolen and bots imitate people. So no layer trusts a request just because it arrived; each one verifies again', { hold: 5800,
+        panel: { at: C.m2m, title: 'Threats that start at L0', items: [{ t: 'Stolen session cookies or tokens', s: 'warn' }, { t: 'Credential stuffing and bots', s: 'warn' }, { t: 'Scraping AI agents', s: 'warn' }, { t: 'Malicious payloads', s: 'warn' }], dx: 60, dy: -40 } }),
+      (tl, t) => {
+        cap(tl, t, 'Latency · client → edge: 12 ms', 'DNS steering or anycast picks a nearby PoP, and TLS resumption plus HTTP/2 or HTTP/3 connection reuse avoid extra round trips');
+        stage.shot(tl, t, { x: -1200, y: -200, z: -200, rx: -30, ry: 12, d: 3400 }, 1600);
+        t = pk.appear(tl, t + 600, [X[0] + 60, Y, C.browser.z], 'tls', 'GET /accounts', 'TLS 1.3');
+        t = go(tl, t, pk, [L.cl.browser, L.hubA], 2400);
+        budget.spend(tl, t, 0, 11); ring(stage, W, tl, t, D.cdnA.top, '#38BDF8', 240);
+        return pk.vanish(tl, t + 2400) + 800;
+      }] }),
+    L1: layerCh({ focus: [0, 1], shot: SHOT.steer, steps: [
+      (tl, t) => say(tl, t + 400, 'L1 · DNS control plane', 'Beside the clients, not in the request path: it decides which edge each client connects to', { devs: [...NS, D.steerA, D.steerC], hold: 5200 }),
+      (tl, t) => say(tl, t, 'Two DNS providers', 'jpmorgan.com is served by 4 JPMorgan primary nameservers and 3 Cloudflare secondaries (zone transfer). Resolvers ask any of them, so either provider can fail without an outage', { hold: 6400,
+        panel: { at: D.ns3, title: 'Dual DNS', items: ['4 × JPMorgan NS · primary, zone authored here', '3 × Cloudflare NS · secondary via zone transfer', 'Resolvers pick by RTT and retry the others'], dx: 40, dy: -60 } }),
+      (tl, t) => { cap(tl, t, 'A lookup, step by step', 'The resolver asks a nameserver, follows the hand-off to Akamai GTM, and gets the best edge IP back'); return dns(tl, t + 600, C.browser, DNSQ.tour, { final: ['', ''] }) + 600; },
+      (tl, t) => say(tl, t, 'Smart routing', 'Akamai GTM and Cloudflare LB pick the edge from the client’s location (resolver or EDNS client subnet), latency, load and health, and can steer between CDNs', { hold: 6000,
+        panel: { at: D.steerA, title: 'Steering inputs', items: ['Location · resolver IP or ECS subnet', 'Edge latency and load', 'Health checks per PoP and origin', 'Multi-CDN policy and failover'], dx: 40, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Latency: outside the 50 ms budget', 'Answers are cached for their TTL (about 20 s), so DNS adds nothing to most requests. The same TTL bounds how quickly a failover takes effect', { hold: 5600 })] }),
+    L2: layerCh({ focus: [2], legs: [0, 1, 2], shot: { x: -900, y: -190, z: 0, rx: -28, ry: 10, d: 3100 }, steps: [
+      (tl, t) => say(tl, t + 400, 'L2 · Edge protection / CDN', 'Akamai (4,100+ PoPs) and Cloudflare (310+ cities): the first hop we control, as close to the client as possible', { devs: [D.cdnA, D.cdnC], hold: 5200 }),
+      (tl, t) => {
+        cap(tl, t, 'What the edge does', 'TLS ends at the PoP; the edge checks the request, serves from cache when it can, and otherwise forwards to origin');
+        t = pk.appear(tl, t + 300, [X[0] + 60, Y, C.browser.z], 'tls', 'GET /accounts', 'to the nearest PoP');
+        t = go(tl, t, pk, [L.cl.browser, L.hubA], 2200); budget.spend(tl, t, 0, 11);
+        t = visit(tl, t, D.cdnA, 'cdnA'); budget.spend(tl, t - 600, 1, 4);
+        return t;
+      },
+      (tl, t) => {
+        const rnd = (a, b, s2) => a + (b - a) * ((Math.sin(s2 * 12.9898) * 43758.5453) % 1 + 1) % 1;
+        for (let i = 0; i < 18; i++) { const tg = i % 2 ? D.cdnC : D.cdnA; fly(stage, W, tl, t + 300 + i * 110, [rnd(-2000, -1500, i), -60 - rnd(0, 200, i + 50), rnd(-850, 850, i + 9)], [tg.x - 60, -120, tg.z + rnd(-60, 60, i + 3)], { color: '#F43F5E', dur: 1100, arc: -140, size: 9 }); }
+        return say(tl, t, 'Why at the edge', 'Volumetric DDoS, bots and common web attacks are absorbed across thousands of PoPs, far away from our data centres', { hold: 5600,
+          panel: { at: D.cdnC, title: 'Edge controls', items: ['DDoS absorbed across the provider network', 'WAF managed rules · bot management', 'Cache and origin shielding', 'TLS terminated close to the user'], dx: 40, dy: -40 } });
+      },
+      (tl, t) => {
+        cap(tl, t, 'Hand-off to a region: 15 ms', 'The edge re-encrypts and forwards over pooled, persistent connections. Each CDN can reach both regional perimeters, so a regional outage is routed around');
+        stage.shot(tl, t, { x: -450, y: -190, z: 0, rx: -30, ry: 0, d: 3300 }, 1600);
+        t = go(tl, t + 600, pk, [L.cAA, L.inA], 2000); budget.spend(tl, t, 2, 14);
+        return pk.vanish(tl, t + 2600) + 400;
+      },
+      (tl, t) => say(tl, t, 'Latency · 32 ms of the 50', 'Client → edge 12 ms, edge processing 5 ms, edge → region 15 ms: the biggest share of the budget is network distance', { hold: 5200 })] }),
+    L3: layerCh({ focus: [3], legs: [3], shot: { x: -60, y: -180, z: 0, rx: -30, ry: -8, d: 3300 }, steps: [
+      (tl, t) => say(tl, t + 400, 'L3 · Regional perimeter', 'The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions', { devs: [D.psaas, D.waf], hold: 5200 }),
+      (tl, t) => {
+        cap(tl, t, 'What it does', 'It admits only CDN origin traffic, scrubs and filters it regionally, and re-originates TLS into the internal DMZ');
+        t = pk.appear(tl, t + 300, [-590, Y, -450], 'tls', 'GET /accounts', 'from Akamai');
+        t = go(tl, t, pk, [L.cAA, L.inA], 1600);
+        t = visit(tl, t, D.psaas, 'psaas'); budget.spend(tl, t - 600, 3, 2);
+        return pk.vanish(tl, t);
+      },
+      (tl, t) => {
+        cap(tl, t, 'Why: nobody bypasses the edge', 'Traffic that does not come from the CDNs is dropped here, so the edge protections cannot be skipped');
+        D.attacker.show(tl, t, true); L.atk.show(tl, t, true);
+        tl.add(D.attacker.body, { y: [-500, 0], rotateY: [-90, 0], duration: 900, ease: 'outBack(1.2)' }, t);
+        stage.shot(tl, t, { x: -700, y: -180, z: 600, rx: -28, ry: 10, d: 2900 }, 1600);
+        t = pkB.appear(tl, t + 1100, [X[1] + 20, Y, 880], 'attack', 'POST /login', 'direct to origin');
+        t = pkB.travel(tl, t, route([L.atk]), 2200);
+        W1.deny(tl, t - 100, 450); ring(stage, W, tl, t, [-350, -120, 450], '#F43F5E', 240);
+        t = stage.checklist(tl, t, { at: [-350, -240, 450], title: 'Perimeter', items: [{ t: 'Source not in CDN origin ranges', s: 'fail' }, { t: 'No authenticated origin pull', s: 'fail' }], result: 'DROP', resultColor: '#FB7185', step: 380, hold: 600 });
+        return pkB.shatter(tl, t - 400) + 400;
+      },
+      (tl, t) => say(tl, t, 'Why a second control point', 'An independent regional layer: its own WAF and DDoS scrubbing, and a clean trust boundary before anything reaches the internal DMZ', { hold: 5800,
+        panel: { at: D.psaas, title: 'Perimeter controls', items: ['CDN origin allow-list · authenticated origin pulls', 'Regional WAF and DDoS scrubbing', 'TLS re-origination into SESF / AWS', 'Regional failover across 9 DCs / 8 regions'], dx: 40, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Latency · 3 ms', 'Network policy and re-origination only; payload inspection happens further in, at Tier 2', { hold: 4600 })] }),
+    L4: layerCh({ focus: [4], legs: [4], shot: look(D.t2, { dx: -150, dz: 100 }), steps: [
+      (tl, t) => say(tl, t + 400, 'L4 · SESF / Tier 2 proxy', 'SESF, the Secure Enterprise Server Farm: the internal DMZ. The T2 gateway proxy is gateway-envoy on GVSI hosts, in 9 data centres', { devs: [D.t2], hold: 5400 }),
+      (tl, t) => {
+        cap(tl, t, 'What it does', 'Envoy routes the request and calls auth-service, which checks the session JWT and runs the global and route payload policies');
+        t = pk.appear(tl, t + 300, [80, Y, -450], 'tls', 'POST /api/v1/users/register', 'valid payload');
+        t = go(tl, t, pk, [L.psT2], 1300);
+        stage.shot(tl, t, SHOT.t2drill, 1400); t = pk.open(tl, t);
+        stage.present(tl, t, true); t = T2D.open(tl, t + 200, 700);
+        t = t2Run(tl, t + 300, 'valid');
+        t = T2D.close(tl, t + 400, 500); stage.present(tl, t, false);
+        budget.spend(tl, t, 4, 7);
+        stage.shot(tl, t, look(D.t2, { dx: -150, dz: 100 }), 1200);
+        return pk.vanish(tl, t + 300) + 400;
+      },
+      (tl, t) => say(tl, t, 'Why Tier 2', 'It is the first place the decrypted request is inside our network, so untrusted payloads are inspected and rejected here, before anything crosses into ESF', { hold: 6200,
+        panel: { at: D.t2, title: 'Tier 2 guarantees', items: ['Coarse session check · iss, aud, signature, DPoP', 'Global payload policy on every route', 'Route policy per API contract', 'Re-encrypted with mTLS to Tier 3'], dx: 40, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Latency · 8 ms', 'Envoy, one ext_authz call and in-process Rego evaluation; request bodies are buffered up to 1 MB', { hold: 4600 })] }),
+    L5: layerCh({ focus: [5, 6], legs: [5], shot: look(D.t3web, { dx: -150, dz: 150 }), steps: [
+      (tl, t) => say(tl, t + 400, 'L5 · ESF / Tier 3 · Session & Signals', 'ESF, the Enterprise Server Farm. Its gateways broker every call into the trusted network, and it holds the live session and acts on real-time signals', { devs: [D.t3web, D.t3api, D.cweb, D.capi], hold: 5800 }),
+      (tl, t) => {
+        cap(tl, t, 'A normal request', 'The T3 gateway asks the session manager about the live session, mints an internal token and forwards to the workload');
+        t = pk.appear(tl, t + 300, [760, Y, -450], 'mtls', 'GET /accounts', 'from Tier 2');
+        t = go(tl, t, pk, [L.t2W], 1400, { cls: 'mtls' });
+        stage.shot(tl, t, SHOT.t3drill, 1400);
+        stage.present(tl, t, true); t = T3D.open(tl, t + 200, 700);
+        t = t3Run(tl, t + 300, 'ok'); budget.spend(tl, t, 5, 6);
+        t = T3D.close(tl, t + 300, 500); stage.present(tl, t, false);
+        return pk.vanish(tl, t) + 200;
+      },
+      (tl, t) => {
+        cap(tl, t, 'A signal arrives', 'Fraud detection spots impossible travel and a new payee, and sends a CAEP risk-level-change event for this session');
+        stage.shot(tl, t, { x: 1750, y: -220, z: -650, rx: -30, ry: -14, d: 2400 }, 1400);
+        D.fraud.activate(tl, t + 900, 2400); ring(stage, W, tl, t + 900, D.fraud.top, '#F472B6', 240);
+        const chip = `<div class="fk-chip" style="--pc:#F472B6;transform:translate(-50%,-50%)">CAEP · risk-level-change</div>`;
+        t = fly(stage, W, tl, t + 1200, [D.fraud.x, D.fraud.topY - 10, D.fraud.z], [D.t3web.x, D.t3web.topY - 10, D.t3web.z], { html: chip, dur: 1800, arc: -220 });
+        stage.shot(tl, t, SHOT.t3drill, 1000);
+        stage.present(tl, t, true); t = T3D.open(tl, t + 200, 600);
+        cap(tl, t, 'Receive, verify, enforce', 'The CAEP receiver verifies the Security Event Token and matches it to the live session; the policy decides the action: step-up to AAL3');
+        t = t3Signal(tl, t + 300);
+        return t;
+      },
+      (tl, t) => {
+        cap(tl, t, 'The next request is stopped', 'The same session tries a payment. The enforcement state now requires step-up, so it is refused at Tier 3 with a 401');
+        t = t3Run(tl, t + 300, 'stepup');
+        t = T3D.close(tl, t + 300, 500); stage.present(tl, t, false);
+        pk.state_(tl, t, 'bad', '401 · step-up required', 'acr_values=aal3');
+        pk._place(tl, t, 0, 'linear', () => [D.t3web.x - 80, Y, D.t3web.z]); pk._show(tl, t, true);
+        tl.add(pk.sc, { scale: [1, 1], duration: 0 }, t);
+        stage.shot(tl, t, SHOT.overview, 1800);
+        t = go(tl, t + 300, pk, [L.cl.browser, L.hubA, L.cAA, L.inA, L.psT2, L.t2W], 4200, { reverse: true, cls: 'bad', ease: 'inOutQuad' });
+        C.browser.html(tl, t, SCR.stepup); ring(stage, W, tl, t, C.browser.top, '#FBBF24', 260);
+        return pk.vanish(tl, t + 900) + 300;
+      },
+      (tl, t) => say(tl, t, 'Why at Tier 3', 'It is the last hop before trusted workloads, so it holds the live session and can act on signals from anywhere in the bank within seconds, not at the next login', { hold: 6000,
+        panel: { at: D.t3web, title: 'Session & Signals', items: ['Live session state per request', 'CAEP / Shared Signals receiver', 'Policy: step-up, revoke, re-auth', 'Internal token never leaves ESF'], dx: 40, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Latency · 7 ms', 'Session state is local to Tier 3, and signals are processed as they arrive, off the request path', { hold: 4600 })] }),
+    L6: layerCh({ focus: [6], shot: { x: 2000, y: -170, z: 0, rx: -32, ry: -20, d: 3200 }, steps: [
+      (tl, t) => say(tl, t + 400, 'L6 · Workloads', 'Trusted application services, on-prem and in the cloud. They accept requests only from Tier 3, over mTLS', { devs: [D.wlOn, D.wlCl], hold: 5200 }),
+      (tl, t) => {
+        cap(tl, t, 'What arrives here', 'Every request has already been authenticated, inspected and checked against the live session');
+        t = pk.appear(tl, t + 300, [1470, Y, -650], 'mtls', 'GET /accounts', 'internal token');
+        t = go(tl, t, pk, [L.oW, L.onT], 1600, { cls: 'mtls' });
+        wlPulse(tl, t, D.wlOn);
+        return pk.vanish(tl, t + 1200) + 300;
+      },
+      (tl, t) => say(tl, t, 'What services can rely on', 'Authentication, payload hygiene and session risk are handled once, consistently, by the layers in front', { hold: 6000,
+        panel: { at: D.wlOn, title: 'Guaranteed on arrival', items: ['Caller authenticated, session live', 'Payload validated by policy', 'Identity in an internal token', 'mTLS from Tier 3 only'], dx: -300, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Latency · outside the 50 ms', 'The ingress budget ends at Tier 3; what happens here is the application’s own time', { hold: 4600 })] }),
+    P: layerCh({ focus: [P, 4, 5, 6], shot: SHOT.van, steps: [
+      (tl, t) => say(tl, t + 400, 'P · Private connectivity', 'Business partners who never use the internet path: VAN, private circuits and leased lines on-prem, and AWS PrivateLink in the cloud', { devs: [D.bpOn, D.bpp], hold: 5400 }),
+      (tl, t) => {
+        cap(tl, t, 'VAN → BP PSaaS', 'A partner network connects over a private circuit straight to BP PSaaS, a dedicated entry point, and then into Tier 2 like everything else');
+        t = pkE.appear(tl, t + 300, [X[0] + 60, Y, PZ.on], 'priv', 'POST /v1/payments', 'partner: acme · VAN');
+        t = go(tl, t, pkE, [L.pvtOn], 2600, { cls: 'priv' });
+        t = visit(tl, t, D.bpp, 'bpp');
+        t = go(tl, t, pkE, [L.bpT2], 1600, { cls: 'priv' });
+        return pkE.vanish(tl, t + 600) + 300;
+      },
+      (tl, t) => {
+        cap(tl, t, 'AWS PrivateLink', 'A partner service in its own AWS VPC reaches our endpoint service privately; traffic never leaves AWS');
+        stage.shot(tl, t, SHOT.plink, 1800);
+        t = pkD.appear(tl, t + 1200, [470, Y, PZ.aws], 'priv', 'GET /v1/positions', 'partner: globex');
+        t = go(tl, t, pkD, [L.pInner], 900, { cls: 'priv' });
+        t = go(tl, t + 200, pkD, [L.pvtAws], 1600, { cls: 'priv' });
+        t = visit(tl, t, D.pl, 'pl');
+        return pkD.vanish(tl, t + 300) + 300;
+      },
+      (tl, t) => say(tl, t, 'Why a separate path', 'No public exposure, partner-specific entry points and allow-lists, yet the same Tier 2 and Tier 3 controls still apply once inside', { hold: 6000,
+        panel: { at: D.pl, title: 'Private paths', items: ['No internet, DNS steering or CDN', 'Dedicated entry: BP PSaaS or PrivateLink', 'Partner allow-lists and mTLS', 'Same Tier 2 / Tier 3 controls inside'], dx: 40, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Latency', 'Set by the circuit or the AWS network rather than the internet; the internal hops share the Tier 2 and Tier 3 budgets', { hold: 4600 })] })
+  };
+
   /* ---------- Chapter 2: web journey, on-prem ---------- */
   function chWeb(tl) {
     base(tl, '4bf92f3577b34da6a3ce929d0e0e4736', 420);
+    budget.begin(tl, 0);
     let t = 300;
     cap(tl, t, 'Web journey · on-prem', 'A customer opens the web app in a browser');
     t = stage.shot(tl, t, look(C.browser, { dist: 1800, ry: 24, dx: 250, dz: 100 }), 2000);
@@ -652,12 +916,16 @@
     t = pk.appear(tl, t, [X[0] + 60, Y, C.browser.z], 'tls', 'GET /accounts', '→ 23.45.67.89');
     span(tl, t, C.browser, 'browser', 20, 400);
     t = go(tl, t, pk, [L.cl.browser, L.hubA], 2200);
+    budget.spend(tl, t, 0, 11);
     t = visit(tl, t, D.cdnA, 'cdnA');
+    budget.spend(tl, t - 600, 1, 4);
     span(tl, t - 900, D.cdnA, 'akamai.cdn', 32, 380);
     cap(tl, t, 'L3 · Regional perimeter', 'Only CDN origin traffic may enter the on-prem network; PSaaS+ admits it into the internal DMZ');
     stage.shot(tl, t, look(D.psaas, { dx: -150, dz: 100 }), 1800);
     t = go(tl, t + 100, pk, [L.cAA, L.inA], 1400);
+    budget.spend(tl, t, 2, 14);
     t = visit(tl, t, D.psaas, 'psaas');
+    budget.spend(tl, t - 600, 3, 2);
     span(tl, t - 900, D.psaas, 'psaas+', 46, 360);
     cap(tl, t, 'L4 · SESF / Tier 2', 'The request reaches the T2 gateway proxy in the internal DMZ');
     stage.shot(tl, t, look(D.t2, { dx: -150, dz: 100 }), 1800);
@@ -675,12 +943,14 @@
     t = T2D.close(tl, t + 300, 600);
     stage.present(tl, t, false);
     span(tl, t2Start, D.t2, 'envoy.t2', 60, 340);
+    budget.spend(tl, t, 4, 6);
     stage.shot(tl, t, look(D.t2, { dx: -150, dz: 100 }), 1200);
     t = pk.seal(tl, t, 'mtls');
     cap(tl, t, 'L5 · ESF / Tier 3', 'The T3 IFA web gateway brokers the call across the firewall into the trusted network');
     stage.shot(tl, t, look(D.t3web, { dx: -150, dz: 150 }), 1800);
     t = go(tl, t + 100, pk, [L.t2W], 1400, { cls: 'mtls' });
     t = visit(tl, t, D.t3web, 't3web');
+    budget.spend(tl, t - 600, 5, 5);
     span(tl, t - 900, D.t3web, 't3.web.envoy', 74, 318);
     cap(tl, t, 'L6 · Trusted workloads', 'The application service in the trusted zone answers the request');
     stage.shot(tl, t, look(D.wlOn, { dx: -200, dz: 100, dist: 1900 }), 1600);
@@ -775,6 +1045,7 @@
   /* ---------- Chapter 3: API journey into AWS ---------- */
   function chApi(tl) {
     base(tl, '0af7651916cd43dd8448eb211c80319c', 340);
+    budget.begin(tl, 0);
     let t = 300;
     cap(tl, t, 'API journey · AWS', 'An API client calls the accounts API');
     t = stage.shot(tl, t, look(C.api, { dist: 1700, ry: 24, dx: 250, dz: 100 }), 2000);
@@ -788,12 +1059,16 @@
     t = pk.appear(tl, t, [X[0] + 60, Y, C.api.z], 'tls', 'GET /v1/accounts', 'trace 0af7…319c');
     span(tl, t, C.api, 'api-client', 14, 318);
     t = go(tl, t, pk, [L.cl.api, L.hubC], 2200);
+    budget.spend(tl, t, 0, 9);
     t = visit(tl, t, D.cdnC, 'cdnC');
+    budget.spend(tl, t - 600, 1, 4);
     span(tl, t - 900, D.cdnC, 'cloudflare.cdn', 24, 300);
     cap(tl, t, 'L3 · Regional perimeter', 'AWS WAF admits only CDN traffic into AWS');
     stage.shot(tl, t, look(D.waf, { dx: -150, dz: 150 }), 1800);
     t = go(tl, t + 100, pk, [L.cCC, L.inC], 1400);
+    budget.spend(tl, t, 2, 13);
     t = visit(tl, t, D.waf, 'waf');
+    budget.spend(tl, t - 600, 3, 2);
     span(tl, t - 900, D.waf, 'aws.waf', 36, 286);
     cap(tl, t, 'L4 · no Tier 2 hop in AWS', 'In AWS the WAF hands off directly to the EKS gateways in the cross-firewall zone');
     stage.shot(tl, t, look(D.capi, { dx: -450, dz: 150, dist: 2400 }), 2200);
@@ -801,7 +1076,9 @@
     cap(tl, t, 'L5 · Cloud API gateway', 'Kong on EKS validates the token, the scope and the payload against the OpenAPI contract');
     D.capi.activate(tl, t, 3600);
     t = pk.open(tl, t);
+    budget.spend(tl, t, 4, 0);
     t = visit(tl, t, D.capi, 'capi', { hold: 3200 });
+    budget.spend(tl, t - 600, 5, 6);
     span(tl, t - 900, D.capi, 'kong.cloud-api', 48, 262);
     t = pk.seal(tl, t - 200, 'mtls');
     cap(tl, t, 'L6 · Trusted workloads', 'The cloud accounts service answers');
@@ -1049,13 +1326,21 @@
   }
 
   const chapters = [
-    { title: 'The seven layers', build: chTour },
-    { title: 'Web · on-prem', build: chWeb },
-    { title: 'Payload policies · T2', build: chPayload },
-    { title: 'API · AWS', build: chApi },
-    { title: 'Private connectivity', build: chPrivate },
-    { title: 'Failover', build: chFailover },
-    { title: 'Defense in depth', build: chDefense }
+    { group: 'Layers', title: 'The seven layers', build: chTour },
+    { group: 'Layers', title: 'L0 · Client', build: LAYER_CH.L0 },
+    { group: 'Layers', title: 'L1 · DNS Control Plane', build: LAYER_CH.L1 },
+    { group: 'Layers', title: 'L2 · Edge Protection / CDN', build: LAYER_CH.L2 },
+    { group: 'Layers', title: 'L3 · Regional Perimeter', build: LAYER_CH.L3 },
+    { group: 'Layers', title: 'L4 · SESF / Tier 2 Proxy', build: LAYER_CH.L4 },
+    { group: 'Layers', title: 'L5 · ESF / Tier 3 Session & Signals', build: LAYER_CH.L5 },
+    { group: 'Layers', title: 'L6 · Workloads', build: LAYER_CH.L6 },
+    { group: 'Layers', title: 'P · Private Connectivity', build: LAYER_CH.P },
+    { group: 'Journeys', title: 'Web · on-prem', build: chWeb },
+    { group: 'Journeys', title: 'Payload policies · T2', build: chPayload },
+    { group: 'Journeys', title: 'API · AWS', build: chApi },
+    { group: 'Journeys', title: 'Private connectivity', build: chPrivate },
+    { group: 'Journeys', title: 'Failover', build: chFailover },
+    { group: 'Journeys', title: 'Defense in depth', build: chDefense }
   ];
   stage.onReset(() => { stage.tracker = pk; [D.wlCl, D.wlOn].forEach(w => w.pods.forEach(p => p.g.classList.remove('err'))); });
   const player = new Player(stage, document.getElementById('controls'), chapters);
