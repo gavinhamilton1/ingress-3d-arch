@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ingress Layers</title>
+<link rel="stylesheet" href="flowkit.css">
+<style>
+  html, body { margin: 0; min-height: 100%; background: #040811; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #E2E8F0; }
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; box-sizing: border-box; }
+  #fk { width: min(100%, 1280px); }
+  .hint { font-size: 12px; color: #64748B; }
+  .fk-caret { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="fk"></div>
+  <div id="controls"></div>
+  <div class="hint">Drag to orbit · right-drag to pan · wheel to zoom · click a device for details · press ? for all shortcuts</div>
+</div>
+<!--KIT--><script src="flowkit.js"></script><!--/KIT-->
+<!--SCENE--><script src="scenes/ingress.js"></script><!--/SCENE-->
+</body>
+</html>

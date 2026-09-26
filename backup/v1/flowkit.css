@@ -1,0 +1,92 @@
+/* FlowKit: 3D architecture animation kit (anime.js v4 + CSS 3D) */
+.fk-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px; background: #060B17;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #E2E8F0; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
+.fk-scaler { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; }
+.fk-stage { position: absolute; inset: 0; perspective: 1400px; perspective-origin: 50% 50%; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 20%, #13264A 0%, #0A1530 50%, #050A16 100%); }
+.fk-world { position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; }
+.fk-n { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+.fk-f { position: absolute; box-sizing: border-box; backface-visibility: hidden; }
+.fk-f.two { backface-visibility: visible; }
+.fk-bb { position: absolute; left: 0; top: 0; }
+.fk-ov, .fk-hud { position: absolute; inset: 0; pointer-events: none; }
+.fk-dip { position: absolute; inset: 0; background: #050A16; opacity: 0; pointer-events: none; }
+
+/* Devices */
+.fk-dev { --led: #34D399; --accent: #38BDF8; }
+.fk-dev .fk-f { box-shadow: inset 0 0 0 1px rgba(148, 163, 184, .28); }
+.fk-dev .fk-glow { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, var(--led), transparent); opacity: .35; }
+.fk-ledstrip { position: absolute; width: 5px; background: repeating-linear-gradient(180deg, var(--led) 0 5px, transparent 5px 16px); filter: drop-shadow(0 0 3px var(--led)); }
+.fk-slots { position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: repeating-linear-gradient(180deg, transparent 0 14px, rgba(148, 163, 184, .14) 14px 16px); }
+.fk-n.err .fk-f.f-front, .fk-n.err .fk-f.f-top { background-color: #7F1D1D !important; }
+.fk-dev.down .fk-f.f-front, .fk-dev.down .fk-f.f-top { background-color: #3B1220 !important; }
+
+/* Links */
+.fk-link .fk-f { background: #2E5E96; transition: background-color .25s, box-shadow .25s; }
+.fk-link.lit .fk-f { background: #38BDF8; box-shadow: 0 0 12px #38BDF8; }
+.fk-link.mtls .fk-f { background: #A78BFA; box-shadow: 0 0 12px #A78BFA; }
+.fk-link.ok .fk-f { background: #34D399; box-shadow: 0 0 12px #34D399; }
+.fk-link.bad .fk-f { background: #F43F5E; box-shadow: 0 0 12px #F43F5E; }
+.fk-link.dead .fk-f { background: #3A2430; }
+
+/* Zones */
+.fk-zlabel { font: 700 44px/1 system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.fk-zlabel small { display: block; font-size: 22px; letter-spacing: .06em; font-weight: 500; margin-top: 8px; opacity: .8; text-transform: none; }
+
+/* Screen-space labels */
+.fk-label { transform: translate(-50%, -100%); white-space: nowrap; background: rgba(8, 15, 32, .86); border: 1px solid rgba(125, 211, 252, .35);
+  border-radius: 7px; padding: 4px 9px; font-size: 12px; color: #E2E8F0; display: flex; align-items: center; gap: 7px; transition: border-color .3s, box-shadow .3s; }
+.fk-label i { width: 8px; height: 8px; border-radius: 50%; background: var(--led, #34D399); box-shadow: 0 0 6px var(--led, #34D399); flex: none; }
+.fk-label .sub { display: none; color: #7DD3FC; font-size: 11px; }
+.fk-label.active { border-color: #7DD3FC; box-shadow: 0 0 18px rgba(56, 189, 248, .45); }
+.fk-label.active .sub { display: inline; }
+.fk-label.dim { opacity: .45; }
+
+/* Packet chip */
+.fk-chip { transform: translate(-50%, -100%); white-space: nowrap; background: rgba(8, 15, 32, .92); border-radius: 6px; padding: 4px 8px;
+  font: 600 11px ui-monospace, Menlo, monospace; color: #E0F2FE; border: 1px solid var(--pc, #38BDF8); display: flex; align-items: center; gap: 6px; }
+.fk-chip small { font: 500 10px system-ui, sans-serif; color: #94A3B8; }
+
+/* Panels (checklists, payload) */
+.fk-panel { position: absolute; min-width: 240px; background: rgba(8, 15, 32, .94); border: 1px solid rgba(125, 211, 252, .4); border-radius: 10px;
+  padding: 10px 12px; font-size: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.fk-panel h4 { margin: 0 0 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #7DD3FC; }
+.fk-panel .it { display: flex; gap: 8px; align-items: center; padding: 3px 0; opacity: .25; transition: opacity .25s; }
+.fk-panel .it.on { opacity: 1; }
+.fk-panel .it b { width: 16px; height: 16px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 10px; background: #1E293B; color: #0B1220; }
+.fk-panel .it.on.pass b { background: #34D399; }
+.fk-panel .it.on.fail b { background: #F43F5E; color: #fff; }
+.fk-panel .it.on.warn b { background: #FBBF24; }
+.fk-panel .res { margin-top: 6px; padding-top: 6px; border-top: 1px solid #1E293B; font-weight: 600; opacity: 0; transition: opacity .3s; }
+.fk-panel .res.on { opacity: 1; }
+.fk-panel pre { margin: 0; font: 11px/1.45 ui-monospace, Menlo, monospace; color: #CBD5E1; }
+.fk-panel pre .hl { background: rgba(56, 189, 248, .18); }
+.fk-panel pre .bad { background: rgba(244, 63, 94, .28); color: #FECDD3; }
+
+/* HUD: caption + trace */
+.fk-caption { position: absolute; left: 24px; bottom: 22px; max-width: 640px; background: rgba(8, 15, 32, .86); border: 1px solid rgba(125, 211, 252, .2);
+  padding: 11px 15px; border-radius: 10px; }
+.fk-caption .st { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #7DD3FC; }
+.fk-caption .tx { font-size: 17px; margin-top: 3px; color: #F1F5F9; }
+.fk-trace { position: absolute; right: 18px; top: 16px; width: 360px; background: rgba(8, 15, 32, .86); border: 1px solid rgba(167, 139, 250, .35);
+  border-radius: 10px; padding: 10px 12px; font-size: 11px; }
+.fk-trace h4 { margin: 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #C4B5FD; display: flex; justify-content: space-between; }
+.fk-trace .tid { font: 10px ui-monospace, Menlo, monospace; color: #94A3B8; margin: 3px 0 6px; }
+.fk-trace .row { display: grid; grid-template-columns: 118px 1fr 44px; gap: 6px; align-items: center; height: 17px; }
+.fk-trace .svc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #CBD5E1; }
+.fk-trace .lane { position: relative; height: 8px; background: rgba(148, 163, 184, .08); border-radius: 3px; }
+.fk-trace .bar { position: absolute; top: 0; height: 8px; border-radius: 3px; background: #A78BFA; }
+.fk-trace .bar.err { background: #F43F5E; }
+.fk-trace .bar.warn { background: #FBBF24; }
+.fk-trace .ms { text-align: right; color: #94A3B8; font: 10px ui-monospace, Menlo, monospace; }
+.fk-trace .ms.err { color: #FDA4AF; }
+
+/* Player */
+.fk-player { display: flex; flex-direction: column; gap: 12px; width: min(100%, 1280px); }
+.fk-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fk-bar button { font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 7px; border: 1px solid #334155; background: #111C31; color: #CBD5E1; cursor: pointer; }
+.fk-bar button:hover { background: #18253F; }
+.fk-bar button.on { border-color: #38BDF8; color: #F1F5F9; background: #0E2A47; }
+.fk-bar .sp { flex: 1; }
+.fk-prog { height: 3px; background: #1E293B; border-radius: 2px; overflow: hidden; }
+.fk-prog div { height: 100%; width: 0; background: #38BDF8; }
