@@ -9,8 +9,6 @@ A small kit for 3D architecture animations, built on CSS 3D transforms with its 
 - `ingress.html`: development page
 - `build.py`: bundles a page into one offline HTML file
 - `dist/ingress-journeys.html`: built, self-contained output
-- `backup/v1/`: the previous anime.js version
-- `vendor/anime.umd.min.js`: no longer used (kept only for the backup)
 
 Build: `python3 build.py ingress.html dist/ingress-journeys.html`
 

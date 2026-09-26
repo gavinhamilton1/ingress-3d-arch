@@ -7,7 +7,6 @@ root = pathlib.Path(src).parent
 html = pathlib.Path(src).read_text()
 read = lambda p: (root / p).read_text()
 html = html.replace('<link rel="stylesheet" href="flowkit.css">', '<style>\n' + read('flowkit.css') + '\n</style>')
-html = re.sub(r'<!--ANIME-->.*?<!--/ANIME-->', lambda m: '<script>\n' + read('vendor/anime.umd.min.js') + '\n</script>', html, flags=re.S)
 def inline(tag):
     global html
     m = re.search(rf'<!--{tag}--><script src="([^"]+)"></script><!--/{tag}-->', html)
