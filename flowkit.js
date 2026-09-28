@@ -137,7 +137,7 @@
   class Timeline {
     constructor(stage) {
       this.stage = stage; this.map = new Map(); this.tracks = []; this.calls = []; this.markers = [];
-      this.owned = []; this.els = new Set(); this.duration = 0; this.last = -1; this.ci = 0; this.frozen = false;
+      this.owned = []; this.els = new Set(); this.duration = 0; this.last = -1; this.ci = 0; this.frozen = false; this.freezers = [];
     }
     track(target, key, apply, init) {
       let m = this.map.get(target); if (!m) this.map.set(target, m = new Map());
@@ -184,7 +184,17 @@
     call(fn, pos) { this.calls.push({ pos, fn, n: this.calls.length }); this.extend(pos); return pos; }
     mark(pos, step, text) { this.markers.push({ pos, step, text }); return pos; }
     own(fn) { this.owned.push(fn); }
+    onFreeze(fn) { this.freezers.push(fn); }
+    // Insert `extra` ms of time at b: everything scheduled at or after b moves later (used to give captions reading time)
+    dilate(b, extra) {
+      for (const tr of this.tracks) for (const q of tr.segs) if (q.start >= b) q.start += extra;
+      for (const c of this.calls) if (c.pos >= b) c.pos += extra;
+      for (const m of this.markers) if (m.pos >= b) m.pos += extra;
+      for (const arr of [this._caps, this._pres]) if (arr) for (const o of arr) if (o.pos >= b) o.pos += extra;
+      this.duration += extra;
+    }
     freeze() {
+      this.freezers.splice(0).forEach(f => f(this));
       for (const tr of this.tracks) tr.segs.sort((a, b) => a.start - b.start || a.n - b.n);
       this.calls.sort((a, b) => a.pos - b.pos || a.n - b.n);
       this.markers.sort((a, b) => a.pos - b.pos);
@@ -327,7 +337,7 @@
       return end + 250;
     }
     // Presentation mode: hide the trace and legend panels (e.g. while a deployment view is open)
-    present(tl, pos, v) { tl.set(this, 'present', pos, v, x => this.frame.classList.toggle('fk-presenting', x), false); return pos; }
+    present(tl, pos, v) { (tl._pres || (tl._pres = [])).push({ pos, v }); tl.set(this, 'present', pos, v, x => this.frame.classList.toggle('fk-presenting', x), false); return pos; }
     // Toggle a class on the frame for this timeline (e.g. 'fk-notrace' to hide the trace panel)
     flag(tl, pos, cls, v) { tl.set(this, 'flag:' + cls, pos, v, x => this.frame.classList.toggle(cls, x), false); if (!this._flags) this._flags = new Set(); if (!this._flags.has(cls)) { this._flags.add(cls); this.resetters.push(() => this.frame.classList.remove(cls)); } return pos; }
     onReset(fn) { this.resetters.push(fn); }
@@ -435,18 +445,58 @@
     }
   }
 
+  // Caption: a card near the top of the stage; each new step crossfades in and stays until the next one.
+  // While a deployment view is open (stage.present) it moves up into a compact banner so it never covers the view.
   class Caption {
     constructor(stage) {
+      this.stage = stage;
       this.el = el('div', 'fk-caption', stage.hud, '<div class="st"></div><div class="tx"></div>');
       this.st = this.el.querySelector('.st'); this.tx = this.el.querySelector('.tx');
+      this.readBase = 1500; this.readPerChar = 45;   // reading time: ms to notice + ms per character
+      this.CY = 150; this.TY = 12; this.DS = .8;    // normal y, y and scale while a deployment view is open
       this.show(null); stage.onReset(() => this.show(null));
     }
-    at(tl, pos, step, text) { tl.mark(pos, step, text); tl.set(this, 'cap', pos, { step, text }, v => this.show(v), null); return pos; }
+    // Captions can be overridden from a config (window.FK_CAPTIONS[chapter title][original step]): { step, text, hold }
+    at(tl, pos, step, text, { pop } = {}) {
+      const ov = ((global.FK_CAPTIONS || {})[this.chapter] || {})[step] || {};
+      const shown = ov.step ?? step, body = ov.text ?? text;
+      tl.mark(pos, shown, body); tl.set(this, 'cap', pos, { step: shown, text: body }, v => this.show(v), null);
+      if (!tl._caps) { tl._caps = []; tl.onFreeze(t2 => { this._readingTime(t2); this._layout(t2); }); }
+      tl._caps.push({ pos, len: body.length, pop, hold: ov.hold });
+      return pos;
+    }
+    // Give every caption time to be read (about 22 characters a second plus a moment to notice it): if the next
+    // caption would replace it sooner, hold the whole timeline just before the next one
+    // A caption's hold (seconds, from the config) replaces the reading-time rule for that caption
+    _readingTime(tl) {
+      const caps = tl._caps.slice().sort((a, b) => a.pos - b.pos);
+      for (let i = 0; i < caps.length; i++) {
+        const c = caps[i], need = c.hold != null ? c.hold * 1000 : Math.min(9000, this.readBase + c.len * this.readPerChar);
+        if (i < caps.length - 1) { const window = caps[i + 1].pos - c.pos; if (window < need) tl.dilate(caps[i + 1].pos, need - window); }
+        else tl.extend(c.pos + need);
+      }
+    }
+    // Once the chapter is built: each caption fades in at its position and stays until the next one crossfades in.
+    // The card only moves to make room for a deployment view (stage.present), and moves back afterwards.
+    _layout(tl) {
+      const { CY, TY, DS } = this, e = this.el, pres = (tl._pres || []).slice().sort((a, b) => a.pos - b.pos);
+      const onAt = t => pres.reduce((v, p) => p.pos <= t ? p.v : v, false);
+      const caps = tl._caps.slice().sort((a, b) => a.pos - b.pos);
+      caps.forEach((c, i) => {
+        const docked = c.pop === false || onAt(c.pos), y = docked ? TY : CY, sc = docked ? DS : 1;
+        if (i > 0 && c.pos - caps[i - 1].pos > 400) tl.add(e, { opacity: [1, 0], duration: 180, ease: 'linear' }, c.pos - 180);
+        tl.add(e, { y: [y, y], scale: [sc, sc], opacity: [0, 1], duration: 320, ease: 'outQuad' }, c.pos);
+      });
+      let on = false;
+      for (const p of pres) {
+        if (p.v === on) continue; on = p.v;
+        tl.add(e, on ? { y: [CY, TY], scale: [1, DS], duration: 450, ease: 'inOutCubic' } : { y: [TY, CY], scale: [DS, 1], duration: 450, ease: 'inOutCubic' }, p.pos);
+      }
+    }
     hide(tl, pos) { tl.set(this, 'cap', pos, null, v => this.show(v), null); return pos; }
     show(v) {
       this.el.style.display = v ? '' : 'none'; if (!v) { this.st.textContent = ''; this.tx.textContent = ''; return; }
       this.st.textContent = v.step; this.tx.textContent = v.text;
-      this.el.classList.remove('in'); void this.el.offsetWidth; this.el.classList.add('in');
     }
   }
 
@@ -477,7 +527,7 @@
   class Budget {
     constructor(stage, { target, legs, title = 'Latency budget' }) {
       this.stage = stage; this.target = target; this.legs = legs;
-      this.el = el('div', 'fk-budget', stage.hud, `<div class="bh"><b>${title}</b><span class="tot"></span></div><div class="bar">${legs.map(l => `<div class="sg" style="width:${(l.ms / target * 100).toFixed(2)}%;--c:${l.color}"><i></i></div>`).join('')}</div><div class="lg">${legs.map(l => `<span style="width:${(l.ms / target * 100).toFixed(2)}%">${l.label}<small>${l.ms}</small></span>`).join('')}</div>`);
+      this.el = el('div', 'fk-budget', stage.hud, `<div class="bh"><b>${title}</b><span class="tot"></span></div><div class="bar">${legs.map(l => `<div class="sg${l.kind === 'net' ? ' net' : ''}" style="width:${(l.ms / target * 100).toFixed(2)}%;--c:${l.color}"><i></i></div>`).join('')}</div><div class="lg">${legs.map(l => `<span style="width:${(l.ms / target * 100).toFixed(2)}%">${l.label}<small>${l.ms}</small></span>`).join('')}</div>`);
       this.segs = [...this.el.querySelectorAll('.sg')]; this.labs = [...this.el.querySelectorAll('.lg span')]; this.tot = this.el.querySelector('.tot');
       this.paint(-1, [], null); stage.onReset(() => this.paint(-1, [], null));
     }
@@ -496,7 +546,9 @@
       const total = used.reduce((a, b) => a + (b || 0), 0);
       this.segs.forEach((sg, i) => { const u = used[i], l = this.legs[i]; sg.firstChild.style.width = u == null ? '0%' : Math.min(100, u / l.ms * 100) + '%'; sg.classList.toggle('over', u != null && u > l.ms); sg.classList.toggle('dim', !!(focus && !focus.includes(i))); });
       this.labs.forEach((lb, i) => { lb.classList.toggle('dim', !!(focus && !focus.includes(i))); lb.querySelector('small').textContent = used[i] == null ? this.legs[i].ms : `${used[i]}/${this.legs[i].ms}`; });
-      this.tot.innerHTML = `<b class="${total > this.target ? 'over' : ''}">${total} ms</b> / ${this.target} ms target`;
+      const sub = kind => { const ls = this.legs.map((l, i) => [l, used[i]]).filter(([l]) => l.kind === kind); return ls.length ? `${ls.reduce((a, [, u]) => a + (u || 0), 0)}/${ls.reduce((a, [l]) => a + l.ms, 0)}` : null; };
+      const net = sub('net'), proc = sub('proc');
+      this.tot.innerHTML = (net ? `<span class="k net">network ${net}</span><span class="k">processing ${proc}</span>` : '') + `<b class="${total > this.target ? 'over' : ''}">${total} ms</b> / ${this.target}`;
     }
   }
 
@@ -1131,6 +1183,7 @@
       if (this.tl) this.tl.dispose();
       this.stage.reset(); this.stage.explore = null;
       const tl = new Timeline(this.stage);
+      this.stage.caption.chapter = this.chapters[i].title;
       this.chapters[i].build(tl);
       tl.freeze();
       this.tl = tl; this.idx = i; this.time = 0; this._rt = undefined; this._endWait = 0;

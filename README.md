@@ -5,7 +5,8 @@ A small kit for 3D architecture animations, built on CSS 3D transforms with its 
 ## Files
 
 - `flowkit.js`, `flowkit.css`: the kit
-- `scenes/ingress.js`: the seven-layer ingress scene (six chapters)
+- `scenes/ingress.js`: the ingress scene (layer chapters and journeys)
+- `scenes/captions.js`: every caption's title, text and on-screen time, per chapter: edit this to change the narrative and pacing
 - `ingress.html`: development page
 - `build.py`: bundles a page into one offline HTML file
 - `dist/ingress-journeys.html`: built, self-contained output
@@ -35,7 +36,7 @@ Deployment views (modelled on `../jpmc/ingress-poc`): the T2 node expands into i
 
 Chapters are in two rows. **Layers** (keys 1–9): The seven layers, L0 Client, L1 DNS Control Plane, L2 Edge Protection / CDN, L3 Regional Perimeter, L4 SESF / Tier 2 Proxy, L5 ESF / Tier 3 Session & Signals, L6 Workloads, P Private Connectivity. Each explains what the layer is, what it does, why it exists and its latency budget (draft text in `LAYER_CH`). **Journeys** (Shift+1–6): Web on-prem, Payload policies at T2, API into AWS, Private connectivity, Failover, Defense in depth.
 
-Latency budget: 50 ms from L0 to L5, split client → edge 12, edge 5, edge → region 15, perimeter 3, T2 proxy 8, T3 session 7 (draft, in `BUDGET`). DNS is cached per TTL and workload time is the application's own, so both sit outside it. The bar at the bottom right fills as a request spends time in each leg.
+Latency budget: 50 ms p95 from L0 to L5, warm connections, a well-placed NA user (draft, in `BUDGET`). Network legs (striped; they depend on where the user is): client → edge 8, edge → region 10. JPMC processing: edge 3, perimeter 3, T2 proxy 10, T3 session 14. DNS is cached per TTL and workload time is the application's own, so both sit outside it. The bar at the bottom right fills as a request spends time in each leg and shows network and processing subtotals.
 
 L5 Session & Signals (draft): the T3 deployment view shows Envoy → session manager, and a CAEP receiver (OpenID Shared Signals) that verifies Security Event Tokens from transmitters such as fraud detection; an enforcement policy turns them into step-up, revoke or re-auth. Content lives in `T3D`, `t3Html`, `t3Run` and `t3Signal`.
 
@@ -68,6 +69,8 @@ Everything is a pure function of time, so any frame can be reached by jumping, s
 | `tl.mark(pos, step, text)` | Scrubber step marker (captions add these automatically) |
 | `tl.wait(pos, dur)` | Extend the timeline |
 | `tl.own(fn)` | Cleanup when the chapter is unloaded |
+| `tl.onFreeze(fn)` | Run once the chapter is fully built (may add segments; used to lay out captions) |
+| `tl.dilate(b, extra)` | Insert time at b: everything at or after b moves later. Captions use it to guarantee reading time (`caption.readBase`, `caption.readPerChar`) |
 | `tl.call(fn, pos)` | Escape hatch; replayed from a reset on rewind. Prefer `set` |
 
 Do not start real-time animations or change the DOM from a chapter's build function; describe changes as tracks instead.
@@ -87,7 +90,7 @@ Do not start real-time animations or change the DOM from a chapter's build funct
 | `new Trace(stage)` | Distributed trace waterfall (HUD): `begin`, `add` |
 | `new ObsWall(stage, world, {...})` | Observability wall: `begin`, `log`, `alert` |
 | `stage.checklist(tl, pos, {...})` | Floating panel of checks that tick pass, warn or fail |
-| `stage.caption.at(tl, pos, step, text)` | Caption bar and scrubber step |
+| `stage.caption.at(tl, pos, step, text)` | Caption card and scrubber step: crossfades in near the top of the stage and stays until the next step; moves up into a compact banner while a deployment view is open |
 | `stage.shot(tl, pos, shot, dur)` | Camera move; a shot is `{x, y, z, rx, ry, d}` |
 | `new Drill(stage, {at, title, sub, frame, stages, side})` | Deployment view that slides out of a node: `open`, `enter`, `visit(i)`, `sideVisit`, `exit`, `close`. A token walks the internal stages; each stage ticks its checks |
 | `new Budget(stage, {target, legs, title})` | Latency budget HUD: `begin(tl, pos, focusLegs)`, `spend(tl, pos, leg, ms)` |

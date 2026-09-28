@@ -181,12 +181,12 @@
 .fk-panel pre .bad { background: rgba(244, 63, 94, .28); color: #FECDD3; }
 
 /* HUD: caption, trace, legend, info card, free-camera pill */
-.fk-caption { position: absolute; left: 24px; bottom: 22px; max-width: 640px; background: rgba(8, 15, 32, .88); border: 1px solid rgba(125, 211, 252, .2);
-  padding: 11px 15px; border-radius: 10px; }
-.fk-caption.in { animation: fkCap .35s ease-out; }
+.fk-caption { position: absolute; left: 50%; top: 0; width: 600px; margin-left: -300px; box-sizing: border-box; transform-origin: 50% 0; text-align: center;
+  background: rgba(8, 15, 32, .72); border: 1px solid rgba(125, 211, 252, .28); padding: 11px 20px 13px; border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .35); backdrop-filter: blur(3px); z-index: 5; }
 @keyframes fkCap { from { opacity: 0; transform: translateY(6px); } }
-.fk-caption .st { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #7DD3FC; }
-.fk-caption .tx { font-size: 17px; margin-top: 3px; color: #F1F5F9; }
+.fk-caption .st { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #7DD3FC; }
+.fk-caption .tx { font-size: 17px; line-height: 1.38; margin-top: 5px; color: #E2E8F0; }
 .fk-trace { position: absolute; right: 18px; top: 16px; width: 360px; background: rgba(8, 15, 32, .86); border: 1px solid rgba(167, 139, 250, .35);
   border-radius: 10px; padding: 10px 12px; font-size: 11px; }
 .no-trace .fk-trace, .fk-notrace .fk-trace { display: none; }
@@ -240,7 +240,7 @@
 .fk-info ul { margin: 0; padding-left: 16px; color: #CBD5E1; line-height: 1.5; }
 .fk-info .act { margin-top: 10px; display: flex; gap: 6px; }
 
-.fk-free { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); display: none; align-items: center; gap: 8px; background: rgba(8, 15, 32, .9);
+.fk-free { position: absolute; left: 18px; bottom: 18px; display: none; align-items: center; gap: 8px; background: rgba(8, 15, 32, .9);
   border: 1px solid rgba(251, 191, 36, .5); border-radius: 20px; padding: 4px 6px 4px 12px; font-size: 12px; color: #FDE68A; }
 .fk-free.on { display: flex; }
 .fk-free button { font: inherit; font-size: 11px; border: 1px solid #475569; background: #111C31; color: #E2E8F0; border-radius: 14px; padding: 3px 10px; cursor: pointer; }
@@ -258,6 +258,10 @@
 .fk-budget .bh b { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #94A3B8; }
 .fk-budget .tot { color: #64748B; font: 11px ui-monospace, Menlo, monospace; }
 .fk-budget .tot b { color: #34D399; font-size: 13px; } .fk-budget .tot b.over { color: #FB7185; }
+.fk-budget .tot .k { margin-right: 10px; font-size: 10px; color: #94A3B8; }
+.fk-budget .tot .k.net::before, .fk-budget .lg .net-key::before { content: ''; display: inline-block; width: 12px; height: 6px; margin-right: 4px; border-radius: 1px; vertical-align: middle;
+  background: repeating-linear-gradient(135deg, #94A3B8 0 2px, transparent 2px 4px); }
+.fk-budget .sg.net i { background: repeating-linear-gradient(135deg, var(--c) 0 3px, rgba(0, 0, 0, .35) 3px 6px); }
 .fk-budget .bar { display: flex; gap: 2px; height: 10px; }
 .fk-budget .sg { position: relative; background: rgba(148, 163, 184, .12); border-radius: 3px; overflow: hidden; transition: opacity .3s; }
 .fk-budget .sg i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--c); box-shadow: 0 0 8px var(--c); transition: width .3s; }
@@ -474,7 +478,7 @@
   class Timeline {
     constructor(stage) {
       this.stage = stage; this.map = new Map(); this.tracks = []; this.calls = []; this.markers = [];
-      this.owned = []; this.els = new Set(); this.duration = 0; this.last = -1; this.ci = 0; this.frozen = false;
+      this.owned = []; this.els = new Set(); this.duration = 0; this.last = -1; this.ci = 0; this.frozen = false; this.freezers = [];
     }
     track(target, key, apply, init) {
       let m = this.map.get(target); if (!m) this.map.set(target, m = new Map());
@@ -521,7 +525,17 @@
     call(fn, pos) { this.calls.push({ pos, fn, n: this.calls.length }); this.extend(pos); return pos; }
     mark(pos, step, text) { this.markers.push({ pos, step, text }); return pos; }
     own(fn) { this.owned.push(fn); }
+    onFreeze(fn) { this.freezers.push(fn); }
+    // Insert `extra` ms of time at b: everything scheduled at or after b moves later (used to give captions reading time)
+    dilate(b, extra) {
+      for (const tr of this.tracks) for (const q of tr.segs) if (q.start >= b) q.start += extra;
+      for (const c of this.calls) if (c.pos >= b) c.pos += extra;
+      for (const m of this.markers) if (m.pos >= b) m.pos += extra;
+      for (const arr of [this._caps, this._pres]) if (arr) for (const o of arr) if (o.pos >= b) o.pos += extra;
+      this.duration += extra;
+    }
     freeze() {
+      this.freezers.splice(0).forEach(f => f(this));
       for (const tr of this.tracks) tr.segs.sort((a, b) => a.start - b.start || a.n - b.n);
       this.calls.sort((a, b) => a.pos - b.pos || a.n - b.n);
       this.markers.sort((a, b) => a.pos - b.pos);
@@ -664,7 +678,7 @@
       return end + 250;
     }
     // Presentation mode: hide the trace and legend panels (e.g. while a deployment view is open)
-    present(tl, pos, v) { tl.set(this, 'present', pos, v, x => this.frame.classList.toggle('fk-presenting', x), false); return pos; }
+    present(tl, pos, v) { (tl._pres || (tl._pres = [])).push({ pos, v }); tl.set(this, 'present', pos, v, x => this.frame.classList.toggle('fk-presenting', x), false); return pos; }
     // Toggle a class on the frame for this timeline (e.g. 'fk-notrace' to hide the trace panel)
     flag(tl, pos, cls, v) { tl.set(this, 'flag:' + cls, pos, v, x => this.frame.classList.toggle(cls, x), false); if (!this._flags) this._flags = new Set(); if (!this._flags.has(cls)) { this._flags.add(cls); this.resetters.push(() => this.frame.classList.remove(cls)); } return pos; }
     onReset(fn) { this.resetters.push(fn); }
@@ -772,18 +786,58 @@
     }
   }
 
+  // Caption: a card near the top of the stage; each new step crossfades in and stays until the next one.
+  // While a deployment view is open (stage.present) it moves up into a compact banner so it never covers the view.
   class Caption {
     constructor(stage) {
+      this.stage = stage;
       this.el = el('div', 'fk-caption', stage.hud, '<div class="st"></div><div class="tx"></div>');
       this.st = this.el.querySelector('.st'); this.tx = this.el.querySelector('.tx');
+      this.readBase = 1500; this.readPerChar = 45;   // reading time: ms to notice + ms per character
+      this.CY = 150; this.TY = 12; this.DS = .8;    // normal y, y and scale while a deployment view is open
       this.show(null); stage.onReset(() => this.show(null));
     }
-    at(tl, pos, step, text) { tl.mark(pos, step, text); tl.set(this, 'cap', pos, { step, text }, v => this.show(v), null); return pos; }
+    // Captions can be overridden from a config (window.FK_CAPTIONS[chapter title][original step]): { step, text, hold }
+    at(tl, pos, step, text, { pop } = {}) {
+      const ov = ((global.FK_CAPTIONS || {})[this.chapter] || {})[step] || {};
+      const shown = ov.step ?? step, body = ov.text ?? text;
+      tl.mark(pos, shown, body); tl.set(this, 'cap', pos, { step: shown, text: body }, v => this.show(v), null);
+      if (!tl._caps) { tl._caps = []; tl.onFreeze(t2 => { this._readingTime(t2); this._layout(t2); }); }
+      tl._caps.push({ pos, len: body.length, pop, hold: ov.hold });
+      return pos;
+    }
+    // Give every caption time to be read (about 22 characters a second plus a moment to notice it): if the next
+    // caption would replace it sooner, hold the whole timeline just before the next one
+    // A caption's hold (seconds, from the config) replaces the reading-time rule for that caption
+    _readingTime(tl) {
+      const caps = tl._caps.slice().sort((a, b) => a.pos - b.pos);
+      for (let i = 0; i < caps.length; i++) {
+        const c = caps[i], need = c.hold != null ? c.hold * 1000 : Math.min(9000, this.readBase + c.len * this.readPerChar);
+        if (i < caps.length - 1) { const window = caps[i + 1].pos - c.pos; if (window < need) tl.dilate(caps[i + 1].pos, need - window); }
+        else tl.extend(c.pos + need);
+      }
+    }
+    // Once the chapter is built: each caption fades in at its position and stays until the next one crossfades in.
+    // The card only moves to make room for a deployment view (stage.present), and moves back afterwards.
+    _layout(tl) {
+      const { CY, TY, DS } = this, e = this.el, pres = (tl._pres || []).slice().sort((a, b) => a.pos - b.pos);
+      const onAt = t => pres.reduce((v, p) => p.pos <= t ? p.v : v, false);
+      const caps = tl._caps.slice().sort((a, b) => a.pos - b.pos);
+      caps.forEach((c, i) => {
+        const docked = c.pop === false || onAt(c.pos), y = docked ? TY : CY, sc = docked ? DS : 1;
+        if (i > 0 && c.pos - caps[i - 1].pos > 400) tl.add(e, { opacity: [1, 0], duration: 180, ease: 'linear' }, c.pos - 180);
+        tl.add(e, { y: [y, y], scale: [sc, sc], opacity: [0, 1], duration: 320, ease: 'outQuad' }, c.pos);
+      });
+      let on = false;
+      for (const p of pres) {
+        if (p.v === on) continue; on = p.v;
+        tl.add(e, on ? { y: [CY, TY], scale: [1, DS], duration: 450, ease: 'inOutCubic' } : { y: [TY, CY], scale: [DS, 1], duration: 450, ease: 'inOutCubic' }, p.pos);
+      }
+    }
     hide(tl, pos) { tl.set(this, 'cap', pos, null, v => this.show(v), null); return pos; }
     show(v) {
       this.el.style.display = v ? '' : 'none'; if (!v) { this.st.textContent = ''; this.tx.textContent = ''; return; }
       this.st.textContent = v.step; this.tx.textContent = v.text;
-      this.el.classList.remove('in'); void this.el.offsetWidth; this.el.classList.add('in');
     }
   }
 
@@ -814,7 +868,7 @@
   class Budget {
     constructor(stage, { target, legs, title = 'Latency budget' }) {
       this.stage = stage; this.target = target; this.legs = legs;
-      this.el = el('div', 'fk-budget', stage.hud, `<div class="bh"><b>${title}</b><span class="tot"></span></div><div class="bar">${legs.map(l => `<div class="sg" style="width:${(l.ms / target * 100).toFixed(2)}%;--c:${l.color}"><i></i></div>`).join('')}</div><div class="lg">${legs.map(l => `<span style="width:${(l.ms / target * 100).toFixed(2)}%">${l.label}<small>${l.ms}</small></span>`).join('')}</div>`);
+      this.el = el('div', 'fk-budget', stage.hud, `<div class="bh"><b>${title}</b><span class="tot"></span></div><div class="bar">${legs.map(l => `<div class="sg${l.kind === 'net' ? ' net' : ''}" style="width:${(l.ms / target * 100).toFixed(2)}%;--c:${l.color}"><i></i></div>`).join('')}</div><div class="lg">${legs.map(l => `<span style="width:${(l.ms / target * 100).toFixed(2)}%">${l.label}<small>${l.ms}</small></span>`).join('')}</div>`);
       this.segs = [...this.el.querySelectorAll('.sg')]; this.labs = [...this.el.querySelectorAll('.lg span')]; this.tot = this.el.querySelector('.tot');
       this.paint(-1, [], null); stage.onReset(() => this.paint(-1, [], null));
     }
@@ -833,7 +887,9 @@
       const total = used.reduce((a, b) => a + (b || 0), 0);
       this.segs.forEach((sg, i) => { const u = used[i], l = this.legs[i]; sg.firstChild.style.width = u == null ? '0%' : Math.min(100, u / l.ms * 100) + '%'; sg.classList.toggle('over', u != null && u > l.ms); sg.classList.toggle('dim', !!(focus && !focus.includes(i))); });
       this.labs.forEach((lb, i) => { lb.classList.toggle('dim', !!(focus && !focus.includes(i))); lb.querySelector('small').textContent = used[i] == null ? this.legs[i].ms : `${used[i]}/${this.legs[i].ms}`; });
-      this.tot.innerHTML = `<b class="${total > this.target ? 'over' : ''}">${total} ms</b> / ${this.target} ms target`;
+      const sub = kind => { const ls = this.legs.map((l, i) => [l, used[i]]).filter(([l]) => l.kind === kind); return ls.length ? `${ls.reduce((a, [, u]) => a + (u || 0), 0)}/${ls.reduce((a, [l]) => a + l.ms, 0)}` : null; };
+      const net = sub('net'), proc = sub('proc');
+      this.tot.innerHTML = (net ? `<span class="k net">network ${net}</span><span class="k">processing ${proc}</span>` : '') + `<b class="${total > this.target ? 'over' : ''}">${total} ms</b> / ${this.target}`;
     }
   }
 
@@ -1468,6 +1524,7 @@
       if (this.tl) this.tl.dispose();
       this.stage.reset(); this.stage.explore = null;
       const tl = new Timeline(this.stage);
+      this.stage.caption.chapter = this.chapters[i].title;
       this.chapters[i].build(tl);
       tl.freeze();
       this.tl = tl; this.idx = i; this.time = 0; this._rt = undefined; this._endWait = 0;
@@ -1641,6 +1698,646 @@
 </script>
 <script>
 /*
+ * Caption text and timing for every chapter. Edit freely, then reload ingress.html (or rebuild dist/ with build.py).
+ *
+ *   step  the title shown on the caption card and on the scrubber
+ *   text  the description
+ *   hold  seconds the caption stays on screen before the next step appears
+ *
+ * Timing: raising a hold pauses the animation just before the next step. Lowering it shortens the caption only where
+ * the time was there for reading; where the animation itself needs the time (marked "animation" below), the caption
+ * stays until the animation reaches the next step. Delete a hold to go back to the automatic reading time
+ * (about 1.5 s plus 22 characters a second).
+ *
+ * The quoted keys on the left (chapter titles and original step names) identify each caption in the code:
+ * change the values, not the keys. A key that no longer matches is simply ignored.
+ */
+window.FK_CAPTIONS = {
+
+  // ---- Layers · The seven layers · 11 captions · 80.1 s
+  "The seven layers": {
+    "Seven layers": {
+      step: "Seven layers",
+      text: "Every request crosses up to seven layers between the internet and a trusted workload",
+      hold: 5.3
+    },
+    "L0 · Client": {
+      step: "L0 · Client",
+      text: "Browsers, mobile apps, API clients, machine-to-machine callers and AI agents: untrusted callers on the public internet",
+      hold: 6.8
+    },
+    "L1 · DNS control plane": {
+      step: "L1 · DNS control plane",
+      text: "Tells each client which edge to connect to, from beside the request path rather than in it",
+      hold: 10.2   // animation
+    },
+    "L2 · Edge protection / CDN": {
+      step: "L2 · Edge protection / CDN",
+      text: "Akamai and Cloudflare terminate TLS close to the user and absorb attacks before they reach us",
+      hold: 5.7
+    },
+    "L3 · Regional perimeter": {
+      step: "L3 · Regional perimeter",
+      text: "PSaaS+ and AWS WAF admit only CDN traffic into JPMorgan networks",
+      hold: 4.4
+    },
+    "L4 · SESF / Tier 2 proxy": {
+      step: "L4 · SESF / Tier 2 proxy",
+      text: "The internal DMZ, where the request is authenticated, inspected for malicious content and validated against its API schema",
+      hold: 7
+    },
+    "L5 · ESF / Tier 3 session & signals": {
+      step: "L5 · ESF / Tier 3 session & signals",
+      text: "Brokers every call into the trusted network, holding the live session and acting on real-time risk signals",
+      hold: 6.3
+    },
+    "L6 · Workloads": {
+      step: "L6 · Workloads",
+      text: "Trusted application services that only accept requests from Tier 3",
+      hold: 4.5
+    },
+    "P · VAN → BP PSaaS": {
+      step: "P · VAN → BP PSaaS",
+      text: "Business partners connect over private circuits straight to BP PSaaS, never touching the internet path",
+      hold: 6.1
+    },
+    "P · AWS PrivateLink": {
+      step: "P · AWS PrivateLink",
+      text: "Partner services in their own AWS VPC reach ours privately, without leaving AWS",
+      hold: 5.1
+    },
+    "All together": {
+      step: "All together",
+      text: "Web on-prem, API into AWS, M2M on-prem and business partners over private connectivity, all at once",
+      hold: 18.6   // animation
+    }
+  },
+
+  // ---- Layers · L0 · Client · 4 captions · 31.8 s
+  "L0 · Client": {
+    "L0 · Client": {
+      step: "L0 · Client",
+      text: "Everything that calls us from outside: browsers, mobile apps, API clients, machine-to-machine callers and AI agents. None of it is trusted",
+      hold: 7.7
+    },
+    "How each client proves who it is": {
+      step: "How each client proves who it is",
+      text: "Different clients carry different credentials, and each is verified again further in",
+      hold: 6.5   // animation
+    },
+    "Why: assume compromise": {
+      step: "Why: assume compromise",
+      text: "Devices get malware, cookies get stolen and bots imitate people. So no layer trusts a request just because it arrived; each one verifies again",
+      hold: 7.9
+    },
+    "Latency · client → edge: 8 ms": {
+      step: "Latency · client → edge: 8 ms",
+      text: "Network distance, not our processing: DNS steering or anycast picks a nearby PoP, and warm connections (TLS resumption, HTTP/2 or HTTP/3 reuse) avoid extra round trips. Mobile networks take longer",
+      hold: 9
+    }
+  },
+
+  // ---- Layers · L1 · DNS Control Plane · 5 captions · 43.3 s
+  "L1 · DNS Control Plane": {
+    "L1 · DNS control plane": {
+      step: "L1 · DNS control plane",
+      text: "Beside the clients, not in the request path: it decides which edge each client connects to",
+      hold: 5.6
+    },
+    "Two DNS providers": {
+      step: "Two DNS providers",
+      text: "jpmorgan.com is served by 4 JPMorgan primary nameservers and 3 Cloudflare secondaries (zone transfer). Resolvers ask any of them, so either provider can fail without an outage",
+      hold: 9
+    },
+    "A lookup, step by step": {
+      step: "A lookup, step by step",
+      text: "The resolver asks a nameserver, follows the hand-off to Akamai GTM, and gets the best edge IP back",
+      hold: 12.2   // animation
+    },
+    "Smart routing": {
+      step: "Smart routing",
+      text: "Akamai GTM and Cloudflare LB pick the edge from the client’s location (resolver or EDNS client subnet), latency, load and health, and can steer between CDNs",
+      hold: 8.5
+    },
+    "Latency: outside the 50 ms budget": {
+      step: "Latency: outside the 50 ms budget",
+      text: "Answers are cached for their TTL, so DNS adds nothing to most requests. The same TTL bounds how quickly a failover takes effect",
+      hold: 7.4
+    }
+  },
+
+  // ---- Layers · L2 · Edge Protection / CDN · 5 captions · 36.6 s
+  "L2 · Edge Protection / CDN": {
+    "L2 · Edge protection / CDN": {
+      step: "L2 · Edge protection / CDN",
+      text: "Akamai (4,100+ PoPs) and Cloudflare (310+ cities): the first hop we control, as close to the client as possible",
+      hold: 6.5
+    },
+    "What the edge does": {
+      step: "What the edge does",
+      text: "TLS ends at the PoP; the edge checks the request, serves from cache when it can, and otherwise forwards to origin",
+      hold: 6.6
+    },
+    "Why at the edge": {
+      step: "Why at the edge",
+      text: "Volumetric DDoS, bots and common web attacks are absorbed across thousands of PoPs, far away from our data centres",
+      hold: 6.6
+    },
+    "Hand-off to a region: 10 ms": {
+      step: "Hand-off to a region: 10 ms",
+      text: "The edge re-encrypts and forwards over pooled, persistent connections. Each CDN can reach both regional perimeters, so a regional outage is routed around",
+      hold: 8.4
+    },
+    "Latency · 21 ms of the 50": {
+      step: "Latency · 21 ms of the 50",
+      text: "Client → edge 8 ms and edge → region 10 ms are network distance, which depends on where the user is; the edge’s own processing is about 3 ms",
+      hold: 7.8
+    }
+  },
+
+  // ---- Layers · L3 · Regional Perimeter · 5 captions · 34.5 s
+  "L3 · Regional Perimeter": {
+    "L3 · Regional perimeter": {
+      step: "L3 · Regional perimeter",
+      text: "The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions",
+      hold: 5.8
+    },
+    "What it does": {
+      step: "What it does",
+      text: "It admits only CDN origin traffic, scrubs and filters it regionally, and re-originates TLS into the internal DMZ",
+      hold: 6.5
+    },
+    "Why: nobody bypasses the edge": {
+      step: "Why: nobody bypasses the edge",
+      text: "Traffic that does not come from the CDNs is dropped here, so the edge protections cannot be skipped",
+      hold: 7.7   // animation
+    },
+    "Why a second control point": {
+      step: "Why a second control point",
+      text: "An independent regional layer: its own WAF and DDoS scrubbing, and a clean trust boundary before anything reaches the internal DMZ",
+      hold: 7.4
+    },
+    "Latency · 3 ms": {
+      step: "Latency · 3 ms",
+      text: "Network policy and re-origination only; payload inspection happens further in, at Tier 2",
+      hold: 6.4   // animation
+    }
+  },
+
+  // ---- Layers · L4 · SESF / Tier 2 Proxy · 4 captions · 58.7 s
+  "L4 · SESF / Tier 2 Proxy": {
+    "L4 · SESF / Tier 2 proxy": {
+      step: "L4 · SESF / Tier 2 proxy",
+      text: "SESF, the Secure Enterprise Server Farm: the internal DMZ. The T2 gateway proxy is gateway-envoy on GVSI hosts, in 9 data centres",
+      hold: 7.3
+    },
+    "What it does": {
+      step: "What it does",
+      text: "Envoy routes the request and calls auth-service, which checks the session JWT and runs the global and route payload policies",
+      hold: 33.3   // animation
+    },
+    "Why Tier 2": {
+      step: "Why Tier 2",
+      text: "It is the first place the decrypted request is inside our network, so untrusted payloads are inspected and rejected here, before anything crosses into ESF",
+      hold: 8.4
+    },
+    "Latency · 10 ms": {
+      step: "Latency · 10 ms",
+      text: "Envoy, the ext_authz round trip, JWT verification, two Rego evaluations and mTLS to Tier 3. Large bodies take longer: Envoy buffers the whole body (up to 1 MB) before inspecting it",
+      hold: 9
+    }
+  },
+
+  // ---- Layers · L5 · ESF / Tier 3 Session & Signals · 7 captions · 80.9 s
+  "L5 · ESF / Tier 3 Session & Signals": {
+    "L5 · ESF / Tier 3 · Session & Signals": {
+      step: "L5 · ESF / Tier 3 · Session & Signals",
+      text: "ESF, the Enterprise Server Farm. Its gateways broker every call into the trusted network, and it holds the live session and acts on real-time signals",
+      hold: 8.2
+    },
+    "A normal request": {
+      step: "A normal request",
+      text: "The T3 gateway asks the session manager about the live session, mints an internal token and forwards to the workload",
+      hold: 18.9   // animation
+    },
+    "A signal arrives": {
+      step: "A signal arrives",
+      text: "Fraud detection spots impossible travel and a new payee, and sends a CAEP risk-level-change event for this session",
+      hold: 6.6
+    },
+    "Receive, verify, enforce": {
+      step: "Receive, verify, enforce",
+      text: "The CAEP receiver verifies the Security Event Token and matches it to the live session; the policy decides the action: step-up to AAL3",
+      hold: 9.8   // animation
+    },
+    "The next request is stopped": {
+      step: "The next request is stopped",
+      text: "The same session tries a payment. The enforcement state now requires step-up, so it is refused at Tier 3 with a 401",
+      hold: 19   // animation
+    },
+    "Why at Tier 3": {
+      step: "Why at Tier 3",
+      text: "It is the last hop before trusted workloads, so it holds the live session and can act on signals from anywhere in the bank within seconds, not at the next login",
+      hold: 8.7
+    },
+    "Latency · 14 ms": {
+      step: "Latency · 14 ms",
+      text: "The largest processing slice: session lookup, enforcement state and token exchange, then mTLS to the workload. Signals arrive asynchronously, so they add nothing per request while enforcement state is local",
+      hold: 9
+    }
+  },
+
+  // ---- Layers · L6 · Workloads · 4 captions · 25.2 s
+  "L6 · Workloads": {
+    "L6 · Workloads": {
+      step: "L6 · Workloads",
+      text: "Trusted application services, on-prem and in the cloud. They accept requests only from Tier 3, over mTLS",
+      hold: 6.2
+    },
+    "What arrives here": {
+      step: "What arrives here",
+      text: "Every request has already been authenticated, inspected and checked against the live session",
+      hold: 5.6
+    },
+    "What services can rely on": {
+      step: "What services can rely on",
+      text: "Authentication, payload hygiene and session risk are handled once, consistently, by the layers in front",
+      hold: 6.3
+    },
+    "Latency · outside the 50 ms": {
+      step: "Latency · outside the 50 ms",
+      text: "The ingress budget ends at Tier 3; what happens here is the application’s own time",
+      hold: 6.4   // animation
+    }
+  },
+
+  // ---- Layers · P · Private Connectivity · 5 captions · 40 s
+  "P · Private Connectivity": {
+    "P · Private connectivity": {
+      step: "P · Private connectivity",
+      text: "Business partners who never use the internet path: VAN, private circuits and leased lines on-prem, and AWS PrivateLink in the cloud",
+      hold: 7.4
+    },
+    "VAN → BP PSaaS": {
+      step: "VAN → BP PSaaS",
+      text: "A partner network connects over a private circuit straight to BP PSaaS, a dedicated entry point, and then into Tier 2 like everything else",
+      hold: 9.4   // animation
+    },
+    "AWS PrivateLink": {
+      step: "AWS PrivateLink",
+      text: "A partner service in its own AWS VPC reaches our endpoint service privately; traffic never leaves AWS",
+      hold: 8.5   // animation
+    },
+    "Why a separate path": {
+      step: "Why a separate path",
+      text: "No public exposure, partner-specific entry points and allow-lists, yet the same Tier 2 and Tier 3 controls still apply once inside",
+      hold: 7.4
+    },
+    "Latency": {
+      step: "Latency",
+      text: "Set by the circuit or the AWS network rather than the internet; the internal hops share the Tier 2 and Tier 3 budgets",
+      hold: 6.8
+    }
+  },
+
+  // ---- Journeys · Web · on-prem · 13 captions · 90.7 s
+  "Web · on-prem": {
+    "Web journey · on-prem": {
+      step: "Web journey · on-prem",
+      text: "A customer opens the web app in a browser",
+      hold: 3.3
+    },
+    "L1 · Steering (DNS)": {
+      step: "L1 · Steering (DNS)",
+      text: "Outside the request: the resolver asks one of the seven nameservers. A JPMorgan primary returns a CNAME to Akamai GTM, and GTM picks the best edge",
+      hold: 11   // animation
+    },
+    "L2 · CDN / edge protection": {
+      step: "L2 · CDN / edge protection",
+      text: "The browser connects straight to the edge IP it was given. Akamai terminates TLS, absorbs attacks, applies WAF and bot management, then forwards to origin",
+      hold: 8.4
+    },
+    "L3 · Regional perimeter": {
+      step: "L3 · Regional perimeter",
+      text: "Only CDN origin traffic may enter the on-prem network; PSaaS+ admits it into the internal DMZ",
+      hold: 5.7
+    },
+    "L4 · SESF / Tier 2": {
+      step: "L4 · SESF / Tier 2",
+      text: "The request reaches the T2 gateway proxy in the internal DMZ",
+      hold: 4.2
+    },
+    "Inside T2 · gateway-envoy": {
+      step: "Inside T2 · gateway-envoy",
+      text: "The T2 node expands: Envoy on a GVSI host calls auth-service (ext_authz) for the session check and the payload policies",
+      hold: 6.9
+    },
+    "Route, then check the session": {
+      step: "Route, then check the session",
+      text: "Envoy matches the route and calls auth-service, which verifies the session JWT: issued by the session manager, for ingress-gateway, signed, DPoP-bound",
+      hold: 13.9   // animation
+    },
+    "No body, no payload policies": {
+      step: "No body, no payload policies",
+      text: "This GET has no body, so the global and route payload policies are skipped; chapter 3 shows them at work",
+      hold: 6.2
+    },
+    "L5 · ESF / Tier 3": {
+      step: "L5 · ESF / Tier 3",
+      text: "The T3 IFA web gateway brokers the call across the firewall into the trusted network",
+      hold: 5.3
+    },
+    "L6 · Trusted workloads": {
+      step: "L6 · Trusted workloads",
+      text: "The application service in the trusted zone answers the request",
+      hold: 4.3
+    },
+    "Response": {
+      step: "Response",
+      text: "200 OK returns along the same path, with one trace ID across every layer",
+      hold: 4.9
+    },
+    "Next click · caches": {
+      step: "Next click · caches",
+      text: "The DNS answer is still cached, so L1 is not contacted, and the edge serves the static asset from its cache",
+      hold: 11.1   // animation
+    },
+    "Observability": {
+      step: "Observability",
+      text: "Every layer emitted a span, log and metric tagged with the same trace ID",
+      hold: 5.2
+    }
+  },
+
+  // ---- Journeys · Payload policies · T2 · 11 captions · 124.1 s
+  "Payload policies · T2": {
+    "Payload policies · T2": {
+      step: "Payload policies · T2",
+      text: "Three requests to POST /api/v1/users/register show the two Rego policies that protect every route",
+      hold: 5.9
+    },
+    "1 · Valid payload": {
+      step: "1 · Valid payload",
+      text: "The browser submits the registration form; the request crosses the edge and perimeter to T2",
+      hold: 5.6
+    },
+    "1 · Valid payload · policies": {
+      step: "1 · Valid payload · policies",
+      text: "Session JWT checked; the global policy finds no injection patterns; the route policy confirms required fields and formats: allowed, 201 Created",
+      hold: 29.2   // animation
+    },
+    "1 · Valid payload · 201": {
+      step: "1 · Valid payload · 201",
+      text: "Allowed: the request continues over mTLS through Tier 3 to the backend, and 201 Created returns to the client",
+      hold: 8.8   // animation
+    },
+    "2 · SQL injection": {
+      step: "2 · SQL injection",
+      text: "The browser submits the registration form; the request crosses the edge and perimeter to T2",
+      hold: 5.6
+    },
+    "2 · SQL injection · policies": {
+      step: "2 · SQL injection · policies",
+      text: "The global policy (a blocklist, default allow) matches an injection pattern in full_name and denies: 403. The route policy never runs",
+      hold: 17.8   // animation
+    },
+    "2 · SQL injection · 403": {
+      step: "2 · SQL injection · 403",
+      text: "The 403 goes straight back to the client; nothing reaches Tier 3 or the backend",
+      hold: 5.4
+    },
+    "3 · Malformed email": {
+      step: "3 · Malformed email",
+      text: "The browser submits the registration form; the request crosses the edge and perimeter to T2",
+      hold: 5.6
+    },
+    "3 · Malformed email · policies": {
+      step: "3 · Malformed email · policies",
+      text: "The global policy passes; the route policy (default deny) rejects the email format: 403",
+      hold: 27.9   // animation
+    },
+    "3 · Malformed email · 403": {
+      step: "3 · Malformed email · 403",
+      text: "The 403 goes straight back to the client; nothing reaches Tier 3 or the backend",
+      hold: 5.4
+    },
+    "One lever for every route": {
+      step: "One lever for every route",
+      text: "The global policy patches every route at once against new attack patterns; each route policy only knows its own fields",
+      hold: 6.8
+    }
+  },
+
+  // ---- Journeys · API · AWS · 8 captions · 45.9 s
+  "API · AWS": {
+    "API journey · AWS": {
+      step: "API journey · AWS",
+      text: "An API client calls the accounts API",
+      hold: 3.1
+    },
+    "L1 · Steering (DNS)": {
+      step: "L1 · Steering (DNS)",
+      text: "This resolver happened to ask a Cloudflare secondary. The zone came from the JPMorgan primary, but this hostname is overridden to Cloudflare LB, which answers with an anycast IP",
+      hold: 9
+    },
+    "L2 · CDN / edge protection": {
+      step: "L2 · CDN / edge protection",
+      text: "Cloudflare terminates TLS, checks the API request and the client, then forwards to origin",
+      hold: 6.2   // animation
+    },
+    "L3 · Regional perimeter": {
+      step: "L3 · Regional perimeter",
+      text: "AWS WAF admits only CDN traffic into AWS",
+      hold: 4.8   // animation
+    },
+    "L4 · no Tier 2 hop in AWS": {
+      step: "L4 · no Tier 2 hop in AWS",
+      text: "In AWS the WAF hands off directly to the EKS gateways in the cross-firewall zone",
+      hold: 5.1
+    },
+    "L5 · Cloud API gateway": {
+      step: "L5 · Cloud API gateway",
+      text: "Kong on EKS validates the token, the scope and the payload against the OpenAPI contract",
+      hold: 5.4
+    },
+    "L6 · Trusted workloads": {
+      step: "L6 · Trusted workloads",
+      text: "The cloud accounts service answers",
+      hold: 3
+    },
+    "Response": {
+      step: "Response",
+      text: "200 OK and a JSON body return to the client",
+      hold: 9   // animation
+    }
+  },
+
+  // ---- Journeys · Private connectivity · 14 captions · 86.2 s
+  "Private connectivity": {
+    "Private connectivity": {
+      step: "Private connectivity",
+      text: "Business partners on VAN, private circuits or leased lines use their own route, outside the internet path",
+      hold: 6.2
+    },
+    "A distinct route": {
+      step: "A distinct route",
+      text: "No DNS steering, no CDN, no internet perimeter (L1 to L3): each partner lands on a dedicated entry point",
+      hold: 6.2
+    },
+    "P · Private circuit to on-prem": {
+      step: "P · Private circuit to on-prem",
+      text: "Partner Acme sends a payment over its VAN / leased line",
+      hold: 4.6   // animation
+    },
+    "P · BP PSaaS entry point": {
+      step: "P · BP PSaaS entry point",
+      text: "The dedicated business partner entry point admits the circuit into the on-prem network",
+      hold: 5.4
+    },
+    "L4 · SESF / Tier 2": {
+      step: "L4 · SESF / Tier 2",
+      text: "From here it joins the internal path: the T2 gateway proxy inspects and re-encrypts with mTLS",
+      hold: 5.7
+    },
+    "L5 · T3 IFA API gateway": {
+      step: "L5 · T3 IFA API gateway",
+      text: "Kong on GKP authenticates the partner and enforces its plan and the API contract",
+      hold: 5.1
+    },
+    "L6 · Trusted workloads": {
+      step: "L6 · Trusted workloads",
+      text: "The on-prem payments service accepts the instruction",
+      hold: 3.8
+    },
+    "Response": {
+      step: "Response",
+      text: "201 Created returns over the same private circuit",
+      hold: 4.3
+    },
+    "P · Partner VPC": {
+      step: "P · Partner VPC",
+      text: "A trusted 3rd party runs its service in its own AWS account and VPC, alongside ours on the AWS network",
+      hold: 6.1
+    },
+    "P · Interface endpoint": {
+      step: "P · Interface endpoint",
+      text: "It calls a private IP inside its own VPC: an interface endpoint for our service",
+      hold: 5.1
+    },
+    "P · VPC to VPC": {
+      step: "P · VPC to VPC",
+      text: "PrivateLink carries it from the partner VPC straight into our VPC: no internet gateway, NAT or public IP, and no L1 to L3",
+      hold: 6.9
+    },
+    "P · Our endpoint service": {
+      step: "P · Our endpoint service",
+      text: "Only allow-listed partner accounts can connect, only to this one service, and only in that direction",
+      hold: 6
+    },
+    "L5 · Cloud API gateway": {
+      step: "L5 · Cloud API gateway",
+      text: "Kong on EKS authenticates the partner with mTLS and OAuth client credentials",
+      hold: 12.1   // animation
+    },
+    "Two worlds, one platform": {
+      step: "Two worlds, one platform",
+      text: "Internet traffic climbs through L1 to L3. Partners enter at BP PSaaS over private circuits, or over PrivateLink from inside AWS, and join the internal path",
+      hold: 8.5
+    }
+  },
+
+  // ---- Journeys · Failover · 11 captions · 59.8 s
+  "Failover": {
+    "Failover": {
+      step: "Failover",
+      text: "A mobile user on a bad day: an edge network is degraded and an on-prem region is down",
+      hold: 5.3
+    },
+    "Incident 1 · L2": {
+      step: "Incident 1 · L2",
+      text: "The Akamai edge serving this region is degraded",
+      hold: 3.6
+    },
+    "Incident 2 · L3": {
+      step: "Incident 2 · L3",
+      text: "The on-prem PSaaS+ region is down",
+      hold: 3
+    },
+    "L1 · Steering failover": {
+      step: "L1 · Steering failover",
+      text: "The cached answer expires (20 s TTL). A JPM NS hands off to GTM; GTM sees its edge is degraded and answers with a Cloudflare edge IP. Failover speed is bounded by the TTL",
+      hold: 10.1   // animation
+    },
+    "L2 · Edge": {
+      step: "L2 · Edge",
+      text: "The app connects to Cloudflare; the user sees no error",
+      hold: 3.9
+    },
+    "L2 · Origin failover": {
+      step: "L2 · Origin failover",
+      text: "On-prem origin health checks fail, so Cloudflare sends the request to the AWS origin",
+      hold: 5.3
+    },
+    "L3 · Regional perimeter": {
+      step: "L3 · Regional perimeter",
+      text: "AWS WAF admits the request into AWS",
+      hold: 4.5   // animation
+    },
+    "L5 · Cloud web gateway": {
+      step: "L5 · Cloud web gateway",
+      text: "Envoy on EKS routes to the web service with outlier detection and retries",
+      hold: 6.9   // animation
+    },
+    "L6 · Upstream error": {
+      step: "L6 · Upstream error",
+      text: "The first pod returns 503",
+      hold: 2.6
+    },
+    "Retry": {
+      step: "Retry",
+      text: "The gateway retries the idempotent request on a healthy pod",
+      hold: 4.2
+    },
+    "Response": {
+      step: "Response",
+      text: "200 OK returns through AWS and Cloudflare; two failovers, zero errors for the user",
+      hold: 10.2   // animation
+    }
+  },
+
+  // ---- Journeys · Defense in depth · 5 captions · 46.9 s
+  "Defense in depth": {
+    "Defense in depth": {
+      step: "Defense in depth",
+      text: "Hostile traffic is stopped at the earliest layer that can recognise it",
+      hold: 4.7
+    },
+    "L2 · Flood absorbed": {
+      step: "L2 · Flood absorbed",
+      text: "A botnet floods the edge; it is absorbed across the CDN networks and never reaches a region",
+      hold: 5.6
+    },
+    "L2 · Bot and agent policy": {
+      step: "L2 · Bot and agent policy",
+      text: "An AI agent scrapes pages it is not allowed to; bot management blocks it at the edge",
+      hold: 7.1   // animation
+    },
+    "L3 · Direct to origin": {
+      step: "L3 · Direct to origin",
+      text: "An attacker skips the CDN and targets the regional perimeter directly",
+      hold: 7.5   // animation
+    },
+    "L5 · Contract violation": {
+      step: "L5 · Contract violation",
+      text: "A syntactically clean request passes the edge and WAF, but breaks the API contract",
+      hold: 21.7   // animation
+    }
+  }
+};
+
+</script>
+<script>
+/*
  * Scene: CIB unified ingress, seven layers from the internet to a trusted workload.
  *
  *   L0 Internet client        Browser · Mobile · API client · M2M · AI agent
@@ -1778,14 +2475,16 @@
   const SL = [], slab = (bb, layer, side) => { SL.push({ bb, layer, side }); return bb; };
   stage.onReset(() => SL.forEach(o => { o.bb.el.style.display = ''; }));
   const trace = new Trace(stage);
-  // Latency budget from the client to Tier 3 (draft split; DNS is cached per TTL and workload time is the application's own)
-  const BUDGET = { target: 50, title: 'Latency budget · L0 → L5', legs: [
-    { label: 'client → edge', ms: 12, color: '#94A3B8' },
-    { label: 'edge', ms: 5, color: '#F97316' },
-    { label: 'edge → region', ms: 15, color: '#FB923C' },
-    { label: 'perimeter', ms: 3, color: '#FBBF24' },
-    { label: 'T2 proxy', ms: 8, color: '#22D3EE' },
-    { label: 'T3 session', ms: 7, color: '#818CF8' }] };
+  // Latency budget from the client to Tier 3: p95, warm connections, a well-placed NA user (draft split).
+  // 'net' legs are network distance (depend on where the user is); 'proc' legs are JPMC processing.
+  // DNS is cached per TTL and workload time is the application's own, so both sit outside it.
+  const BUDGET = { target: 50, title: 'Latency budget · L0 → L5 · p95', legs: [
+    { label: 'client → edge', ms: 8, color: '#94A3B8', kind: 'net' },
+    { label: 'edge', ms: 3, color: '#F97316', kind: 'proc' },
+    { label: 'edge → region', ms: 10, color: '#FB923C', kind: 'net' },
+    { label: 'perimeter', ms: 3, color: '#FBBF24', kind: 'proc' },
+    { label: 'T2 proxy', ms: 10, color: '#22D3EE', kind: 'proc' },
+    { label: 'T3 session', ms: 14, color: '#818CF8', kind: 'proc' }] };
   const budget = new FK.Budget(stage, BUDGET);
 
   /* ---------- floor: one band per layer; L3 to L6 split into on-prem and AWS ---------- */
@@ -2194,7 +2893,8 @@
       ring(stage, W, tl, t, b, '#CBD5E1', 150);
       st.dev.activate(tl, t, st.check ? 2600 : 1200);
       const c = st.check;
-      if (c) t = stage.checklist(tl, t, { at: st.dev.top, title: c.title, items: c.items.map(x => typeof x === 'string' ? { t: x } : x), result: c.result, resultColor: c.color || '#E2E8F0', step: 300, hold: 400, dx: 40, dy: -40 });
+      if (c && o.quiet) t += 900;
+      else if (c) t = stage.checklist(tl, t, { at: st.dev.top, title: c.title, items: c.items.map(x => typeof x === 'string' ? { t: x } : x), result: c.result, resultColor: c.color || '#E2E8F0', step: 300, hold: 400, dx: 40, dy: -40 });
       else t += 600;
       if (st.link) { st.link.mark(tl, t - 200, 'dns'); lit.push(st.link); }
       if (st.to) ring(stage, W, tl, t - 700, st.to.top, '#CBD5E1', 260);
@@ -2265,6 +2965,16 @@
   }
 
   /* ---------- Chapter 1: the seven layers ---------- */
+  const TOUR_TITLE = ['L0 · Client', 'L1 · DNS control plane', 'L2 · Edge protection / CDN', 'L3 · Regional perimeter', 'L4 · SESF / Tier 2 proxy', 'L5 · ESF / Tier 3 session & signals', 'L6 · Workloads'];
+  const TOUR_LINE = [
+    'Browsers, mobile apps, API clients, machine-to-machine callers and AI agents: untrusted callers on the public internet',
+    'Tells each client which edge to connect to, from beside the request path rather than in it',
+    'Akamai and Cloudflare terminate TLS close to the user and absorb attacks before they reach us',
+    'PSaaS+ and AWS WAF admit only CDN traffic into JPMorgan networks',
+    'The internal DMZ, where the request is authenticated, inspected for malicious content and validated against its API schema',
+    'Brokers every call into the trusted network, holding the live session and acting on real-time risk signals',
+    'Trusted application services that only accept requests from Tier 3'
+  ];
   function chTour(tl) {
     base(tl, '', 400);
     const devs = [...Object.values(C), ...Object.values(D)].filter(d => !d.o.hidden);
@@ -2316,13 +3026,13 @@
         const pd = devs.filter(d => d.layer === P), pl = stage.links.filter(l => l.layer === P && !l.hidden);
         const onSide = z => z < 0;
         stage.focus(tl, t, P);
-        tl.mark(t, 'P · VAN → BP PSaaS', 'A business partner network connects over VAN / private circuit / leased line straight to BP PSaaS, then into Tier 2');
+        cap(tl, t, 'P · VAN → BP PSaaS', 'Business partners connect over private circuits straight to BP PSaaS, never touching the internet path');
         stage.shot(tl, t, SHOT.van, 1800);
         pd.filter(d => onSide(d.z)).forEach((d, j) => d.reveal(tl, t + 700 + j * 200));
         SL.filter(o => o.layer === P && o.side === 'on').forEach(o => lab(o, t + 900, true));
         pl.filter(l => onSide(l.pts[0][2]) && !drawn.has(l)).forEach(l => l.show(tl, t + 700, true));
         t = Math.max(t + 4400, drawIn(DRAW.on, t + 900) + 900);
-        tl.mark(t, 'P · AWS PrivateLink', 'A partner service in its own AWS VPC reaches our VPC over PrivateLink, never leaving AWS');
+        cap(tl, t, 'P · AWS PrivateLink', 'Partner services in their own AWS VPC reach ours privately, without leaving AWS');
         stage.shot(tl, t, SHOT.plink, 1800);
         pd.filter(d => !onSide(d.z)).forEach((d, j) => d.reveal(tl, t + 700 + j * 200));
         SL.filter(o => o.layer === P && o.side === 'aws').forEach(o => lab(o, t + 900, true));
@@ -2330,9 +3040,7 @@
         t = Math.max(t + 4400, drawIn(DRAW.aws, t + 900) + 900);
         continue;
       }
-      // No caption box while introducing each layer: the legend highlights it; the scrubber still gets a named step
-      tl.mark(t, `${Ly.tag || 'L' + i} · ${Ly.name}`, Ly.desc);
-      if (i === 0) stage.caption.hide(tl, t);
+      cap(tl, t, TOUR_TITLE[i], TOUR_LINE[i]);   // one sentence per layer; the layer chapters go into detail
       stage.focus(tl, t, i === 1 ? [0, 1] : i);   // L1: keep the clients lit, the lookup starts there
       stage.shot(tl, t, tour[i], 1600);
       devs.filter(d => d.layer === i).forEach((d, j) => d.reveal(tl, t + 600 + j * 160));
@@ -2342,7 +3050,7 @@
       let next = t + 4200;
       if (DRAW[i]) next = Math.max(next, drawIn(DRAW[i], t + 900) + 900);
       if (i === 0) next = t + 5900;   // hold on the lit client types so they can be read
-      if (i === 1) next = Math.max(next, dns(tl, t + 2000, C.browser, DNSQ.tour, { final: ['A 23.45.67.89', '5 · client connects to that edge (L2)'] }) + 800);
+      if (i === 1) next = Math.max(next, dns(tl, t + 2000, C.browser, DNSQ.tour, { final: ['', ''], quiet: true }) + 800);
       t = next;
     }
     stage.focus(tl, t, null);
@@ -2390,11 +3098,11 @@
       (tl, t) => say(tl, t, 'Why: assume compromise', 'Devices get malware, cookies get stolen and bots imitate people. So no layer trusts a request just because it arrived; each one verifies again', { hold: 5800,
         panel: { at: C.m2m, title: 'Threats that start at L0', items: [{ t: 'Stolen session cookies or tokens', s: 'warn' }, { t: 'Credential stuffing and bots', s: 'warn' }, { t: 'Scraping AI agents', s: 'warn' }, { t: 'Malicious payloads', s: 'warn' }], dx: 60, dy: -40 } }),
       (tl, t) => {
-        cap(tl, t, 'Latency · client → edge: 12 ms', 'DNS steering or anycast picks a nearby PoP, and TLS resumption plus HTTP/2 or HTTP/3 connection reuse avoid extra round trips');
+        cap(tl, t, 'Latency · client → edge: 8 ms', 'Network distance, not our processing: DNS steering or anycast picks a nearby PoP, and warm connections (TLS resumption, HTTP/2 or HTTP/3 reuse) avoid extra round trips. Mobile networks take longer');
         stage.shot(tl, t, { x: -1200, y: -200, z: -200, rx: -30, ry: 12, d: 3400 }, 1600);
         t = pk.appear(tl, t + 600, [X[0] + 60, Y, C.browser.z], 'tls', 'GET /accounts', 'TLS 1.3');
         t = go(tl, t, pk, [L.cl.browser, L.hubA], 2400);
-        budget.spend(tl, t, 0, 11); ring(stage, W, tl, t, D.cdnA.top, '#38BDF8', 240);
+        budget.spend(tl, t, 0, 7); ring(stage, W, tl, t, D.cdnA.top, '#38BDF8', 240);
         return pk.vanish(tl, t + 2400) + 800;
       }] }),
     L1: layerCh({ focus: [0, 1], shot: SHOT.steer, steps: [
@@ -2404,14 +3112,14 @@
       (tl, t) => { cap(tl, t, 'A lookup, step by step', 'The resolver asks a nameserver, follows the hand-off to Akamai GTM, and gets the best edge IP back'); return dns(tl, t + 600, C.browser, DNSQ.tour, { final: ['', ''] }) + 600; },
       (tl, t) => say(tl, t, 'Smart routing', 'Akamai GTM and Cloudflare LB pick the edge from the client’s location (resolver or EDNS client subnet), latency, load and health, and can steer between CDNs', { hold: 6000,
         panel: { at: D.steerA, title: 'Steering inputs', items: ['Location · resolver IP or ECS subnet', 'Edge latency and load', 'Health checks per PoP and origin', 'Multi-CDN policy and failover'], dx: 40, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency: outside the 50 ms budget', 'Answers are cached for their TTL (about 20 s), so DNS adds nothing to most requests. The same TTL bounds how quickly a failover takes effect', { hold: 5600 })] }),
+      (tl, t) => say(tl, t, 'Latency: outside the 50 ms budget', 'Answers are cached for their TTL, so DNS adds nothing to most requests. The same TTL bounds how quickly a failover takes effect', { hold: 5600 })] }),
     L2: layerCh({ focus: [2], legs: [0, 1, 2], shot: { x: -900, y: -190, z: 0, rx: -28, ry: 10, d: 3100 }, steps: [
       (tl, t) => say(tl, t + 400, 'L2 · Edge protection / CDN', 'Akamai (4,100+ PoPs) and Cloudflare (310+ cities): the first hop we control, as close to the client as possible', { devs: [D.cdnA, D.cdnC], hold: 5200 }),
       (tl, t) => {
         cap(tl, t, 'What the edge does', 'TLS ends at the PoP; the edge checks the request, serves from cache when it can, and otherwise forwards to origin');
         t = pk.appear(tl, t + 300, [X[0] + 60, Y, C.browser.z], 'tls', 'GET /accounts', 'to the nearest PoP');
-        t = go(tl, t, pk, [L.cl.browser, L.hubA], 2200); budget.spend(tl, t, 0, 11);
-        t = visit(tl, t, D.cdnA, 'cdnA'); budget.spend(tl, t - 600, 1, 4);
+        t = go(tl, t, pk, [L.cl.browser, L.hubA], 2200); budget.spend(tl, t, 0, 7);
+        t = visit(tl, t, D.cdnA, 'cdnA'); budget.spend(tl, t - 600, 1, 2);
         return t;
       },
       (tl, t) => {
@@ -2421,12 +3129,12 @@
           panel: { at: D.cdnC, title: 'Edge controls', items: ['DDoS absorbed across the provider network', 'WAF managed rules · bot management', 'Cache and origin shielding', 'TLS terminated close to the user'], dx: 40, dy: -40 } });
       },
       (tl, t) => {
-        cap(tl, t, 'Hand-off to a region: 15 ms', 'The edge re-encrypts and forwards over pooled, persistent connections. Each CDN can reach both regional perimeters, so a regional outage is routed around');
+        cap(tl, t, 'Hand-off to a region: 10 ms', 'The edge re-encrypts and forwards over pooled, persistent connections. Each CDN can reach both regional perimeters, so a regional outage is routed around');
         stage.shot(tl, t, { x: -450, y: -190, z: 0, rx: -30, ry: 0, d: 3300 }, 1600);
-        t = go(tl, t + 600, pk, [L.cAA, L.inA], 2000); budget.spend(tl, t, 2, 14);
+        t = go(tl, t + 600, pk, [L.cAA, L.inA], 2000); budget.spend(tl, t, 2, 9);
         return pk.vanish(tl, t + 2600) + 400;
       },
-      (tl, t) => say(tl, t, 'Latency · 32 ms of the 50', 'Client → edge 12 ms, edge processing 5 ms, edge → region 15 ms: the biggest share of the budget is network distance', { hold: 5200 })] }),
+      (tl, t) => say(tl, t, 'Latency · 21 ms of the 50', 'Client → edge 8 ms and edge → region 10 ms are network distance, which depends on where the user is; the edge\u2019s own processing is about 3 ms', { hold: 5200 })] }),
     L3: layerCh({ focus: [3], legs: [3], shot: { x: -60, y: -180, z: 0, rx: -30, ry: -8, d: 3300 }, steps: [
       (tl, t) => say(tl, t + 400, 'L3 · Regional perimeter', 'The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions', { devs: [D.psaas, D.waf], hold: 5200 }),
       (tl, t) => {
@@ -2460,13 +3168,13 @@
         stage.present(tl, t, true); t = T2D.open(tl, t + 200, 700);
         t = t2Run(tl, t + 300, 'valid');
         t = T2D.close(tl, t + 400, 500); stage.present(tl, t, false);
-        budget.spend(tl, t, 4, 7);
+        budget.spend(tl, t, 4, 9);
         stage.shot(tl, t, look(D.t2, { dx: -150, dz: 100 }), 1200);
         return pk.vanish(tl, t + 300) + 400;
       },
       (tl, t) => say(tl, t, 'Why Tier 2', 'It is the first place the decrypted request is inside our network, so untrusted payloads are inspected and rejected here, before anything crosses into ESF', { hold: 6200,
         panel: { at: D.t2, title: 'Tier 2 guarantees', items: ['Coarse session check · iss, aud, signature, DPoP', 'Global payload policy on every route', 'Route policy per API contract', 'Re-encrypted with mTLS to Tier 3'], dx: 40, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency · 8 ms', 'Envoy, one ext_authz call and in-process Rego evaluation; request bodies are buffered up to 1 MB', { hold: 4600 })] }),
+      (tl, t) => say(tl, t, 'Latency · 10 ms', 'Envoy, the ext_authz round trip, JWT verification, two Rego evaluations and mTLS to Tier 3. Large bodies take longer: Envoy buffers the whole body (up to 1 MB) before inspecting it', { hold: 4600 })] }),
     L5: layerCh({ focus: [5, 6], legs: [5], shot: look(D.t3web, { dx: -150, dz: 150 }), steps: [
       (tl, t) => say(tl, t + 400, 'L5 · ESF / Tier 3 · Session & Signals', 'ESF, the Enterprise Server Farm. Its gateways broker every call into the trusted network, and it holds the live session and acts on real-time signals', { devs: [D.t3web, D.t3api, D.cweb, D.capi], hold: 5800 }),
       (tl, t) => {
@@ -2475,7 +3183,7 @@
         t = go(tl, t, pk, [L.t2W], 1400, { cls: 'mtls' });
         stage.shot(tl, t, SHOT.t3drill, 1400);
         stage.present(tl, t, true); t = T3D.open(tl, t + 200, 700);
-        t = t3Run(tl, t + 300, 'ok'); budget.spend(tl, t, 5, 6);
+        t = t3Run(tl, t + 300, 'ok'); budget.spend(tl, t, 5, 12);
         t = T3D.close(tl, t + 300, 500); stage.present(tl, t, false);
         return pk.vanish(tl, t) + 200;
       },
@@ -2505,7 +3213,7 @@
       },
       (tl, t) => say(tl, t, 'Why at Tier 3', 'It is the last hop before trusted workloads, so it holds the live session and can act on signals from anywhere in the bank within seconds, not at the next login', { hold: 6000,
         panel: { at: D.t3web, title: 'Session & Signals', items: ['Live session state per request', 'CAEP / Shared Signals receiver', 'Policy: step-up, revoke, re-auth', 'Internal token never leaves ESF'], dx: 40, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency · 7 ms', 'Session state is local to Tier 3, and signals are processed as they arrive, off the request path', { hold: 4600 })] }),
+      (tl, t) => say(tl, t, 'Latency · 14 ms', 'The largest processing slice: session lookup, enforcement state and token exchange, then mTLS to the workload. Signals arrive asynchronously, so they add nothing per request while enforcement state is local', { hold: 4600 })] }),
     L6: layerCh({ focus: [6], shot: { x: 2000, y: -170, z: 0, rx: -32, ry: -20, d: 3200 }, steps: [
       (tl, t) => say(tl, t + 400, 'L6 · Workloads', 'Trusted application services, on-prem and in the cloud. They accept requests only from Tier 3, over mTLS', { devs: [D.wlOn, D.wlCl], hold: 5200 }),
       (tl, t) => {
@@ -2558,14 +3266,14 @@
     t = pk.appear(tl, t, [X[0] + 60, Y, C.browser.z], 'tls', 'GET /accounts', '→ 23.45.67.89');
     span(tl, t, C.browser, 'browser', 20, 400);
     t = go(tl, t, pk, [L.cl.browser, L.hubA], 2200);
-    budget.spend(tl, t, 0, 11);
+    budget.spend(tl, t, 0, 7);
     t = visit(tl, t, D.cdnA, 'cdnA');
-    budget.spend(tl, t - 600, 1, 4);
+    budget.spend(tl, t - 600, 1, 2);
     span(tl, t - 900, D.cdnA, 'akamai.cdn', 32, 380);
     cap(tl, t, 'L3 · Regional perimeter', 'Only CDN origin traffic may enter the on-prem network; PSaaS+ admits it into the internal DMZ');
     stage.shot(tl, t, look(D.psaas, { dx: -150, dz: 100 }), 1800);
     t = go(tl, t + 100, pk, [L.cAA, L.inA], 1400);
-    budget.spend(tl, t, 2, 14);
+    budget.spend(tl, t, 2, 9);
     t = visit(tl, t, D.psaas, 'psaas');
     budget.spend(tl, t - 600, 3, 2);
     span(tl, t - 900, D.psaas, 'psaas+', 46, 360);
@@ -2585,14 +3293,14 @@
     t = T2D.close(tl, t + 300, 600);
     stage.present(tl, t, false);
     span(tl, t2Start, D.t2, 'envoy.t2', 60, 340);
-    budget.spend(tl, t, 4, 6);
+    budget.spend(tl, t, 4, 9);
     stage.shot(tl, t, look(D.t2, { dx: -150, dz: 100 }), 1200);
     t = pk.seal(tl, t, 'mtls');
     cap(tl, t, 'L5 · ESF / Tier 3', 'The T3 IFA web gateway brokers the call across the firewall into the trusted network');
     stage.shot(tl, t, look(D.t3web, { dx: -150, dz: 150 }), 1800);
     t = go(tl, t + 100, pk, [L.t2W], 1400, { cls: 'mtls' });
     t = visit(tl, t, D.t3web, 't3web');
-    budget.spend(tl, t - 600, 5, 5);
+    budget.spend(tl, t - 600, 5, 12);
     span(tl, t - 900, D.t3web, 't3.web.envoy', 74, 318);
     cap(tl, t, 'L6 · Trusted workloads', 'The application service in the trusted zone answers the request');
     stage.shot(tl, t, look(D.wlOn, { dx: -200, dz: 100, dist: 1900 }), 1600);
@@ -2701,14 +3409,14 @@
     t = pk.appear(tl, t, [X[0] + 60, Y, C.api.z], 'tls', 'GET /v1/accounts', 'trace 0af7…319c');
     span(tl, t, C.api, 'api-client', 14, 318);
     t = go(tl, t, pk, [L.cl.api, L.hubC], 2200);
-    budget.spend(tl, t, 0, 9);
+    budget.spend(tl, t, 0, 6);
     t = visit(tl, t, D.cdnC, 'cdnC');
-    budget.spend(tl, t - 600, 1, 4);
+    budget.spend(tl, t - 600, 1, 2);
     span(tl, t - 900, D.cdnC, 'cloudflare.cdn', 24, 300);
     cap(tl, t, 'L3 · Regional perimeter', 'AWS WAF admits only CDN traffic into AWS');
     stage.shot(tl, t, look(D.waf, { dx: -150, dz: 150 }), 1800);
     t = go(tl, t + 100, pk, [L.cCC, L.inC], 1400);
-    budget.spend(tl, t, 2, 13);
+    budget.spend(tl, t, 2, 8);
     t = visit(tl, t, D.waf, 'waf');
     budget.spend(tl, t - 600, 3, 2);
     span(tl, t - 900, D.waf, 'aws.waf', 36, 286);
@@ -2720,7 +3428,7 @@
     t = pk.open(tl, t);
     budget.spend(tl, t, 4, 0);
     t = visit(tl, t, D.capi, 'capi', { hold: 3200 });
-    budget.spend(tl, t - 600, 5, 6);
+    budget.spend(tl, t - 600, 5, 11);
     span(tl, t - 900, D.capi, 'kong.cloud-api', 48, 262);
     t = pk.seal(tl, t - 200, 'mtls');
     cap(tl, t, 'L6 · Trusted workloads', 'The cloud accounts service answers');
