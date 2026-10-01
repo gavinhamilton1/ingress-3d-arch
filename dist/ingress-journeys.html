@@ -1156,12 +1156,12 @@
     // share one opening instead of snapping the door shut on each other.
     pass(tl, pos, lane, hold = 900) {
       if (!tl._doors) {
-        tl._doors = new Map();
-        tl.freezers.unshift(t2 => t2._doors.forEach((iv, q) => this._emit(t2, q, iv)));   // before caption dilation
+        tl._doors = new Map();   // gate -> { wall, iv: [[open, close]] }
+        tl.freezers.unshift(t2 => t2._doors.forEach((d, q) => d.wall._emit(t2, q, d.iv)));   // before caption dilation
       }
       const q = this.gates[lane];
-      if (!tl._doors.has(q)) tl._doors.set(q, []);
-      tl._doors.get(q).push([pos, pos + hold]);
+      if (!tl._doors.has(q)) tl._doors.set(q, { wall: this, iv: [] });
+      tl._doors.get(q).iv.push([pos, pos + hold]);
       return pos + 600;
     }
     _emit(tl, q, iv) {
@@ -1732,100 +1732,86 @@
  */
 window.FK_CAPTIONS = {
 
-  // ---- Layers · The seven layers · 11 captions · 80.1 s
-  "The seven layers": {
-    "Seven layers": {
-      step: "Seven layers",
-      text: "Every request crosses up to seven layers between the internet and a trusted workload",
-      hold: 5.3
+  // ---- Layers · The layers · 13 captions · 101.2 s
+  "The layers": {
+    "The layers": {
+      step: "The layers",
+      text: "Every request is resolved at L0, then crosses up to six layers from the client to the internal network",
+      hold: 6.1
     },
-    "L0 · Client": {
-      step: "L0 · Client",
-      text: "Browsers, mobile apps, API clients, machine-to-machine callers and AI agents: untrusted callers on the public internet",
-      hold: 6.8
+    "L0 · DNS control plane": {
+      step: "L0 · DNS control plane",
+      text: "Resolves the hostname to an edge address before any request is made, from beside the request path rather than in it",
+      hold: 6.7
     },
-    "L1 · DNS control plane": {
-      step: "L1 · DNS control plane",
-      text: "Tells each client which edge to connect to, from beside the request path rather than in it",
-      hold: 10.2   // animation
+    "L1 · Client": {
+      step: "L1 · Client",
+      text: "Browsers, mobile apps, API clients, delegated and autonomous agents and M2M callers. Every request starts here, untrusted regardless of type",
+      hold: 7.8
+    },
+    "Resolve first": {
+      step: "Resolve first",
+      text: "Before a client sends anything, its resolver asks L0 for an edge address",
+      hold: 9.4   // animation
     },
     "L2 · Edge protection / CDN": {
       step: "L2 · Edge protection / CDN",
-      text: "Akamai and Cloudflare terminate TLS close to the user and absorb attacks before they reach us",
-      hold: 5.7
+      text: "Akamai and Cloudflare terminate TLS close to the user, absorb attacks and classify callers, without establishing identity",
+      hold: 6.9
     },
     "L3 · Regional perimeter": {
       step: "L3 · Regional perimeter",
-      text: "PSaaS+ and AWS WAF admit only CDN traffic into JPMorgan networks",
-      hold: 4.4
+      text: "PSaaS+ and AWS WAF admit only CDN traffic into JPMorgan networks, which is what makes origin lockdown enforceable",
+      hold: 6.6
     },
-    "L4 · SESF / Tier 2 proxy": {
-      step: "L4 · SESF / Tier 2 proxy",
-      text: "The internal DMZ, where the request is authenticated, inspected for malicious content and validated against its API schema",
-      hold: 7
+    "L4 · Enforcement tier": {
+      step: "L4 · Enforcement tier",
+      text: "The single enforcement point: resolves every credential to live state, inspects the payload, enforces scopes and mandates, and injects verified identity",
+      hold: 8.3
     },
-    "L5 · ESF / Tier 3 session & signals": {
-      step: "L5 · ESF / Tier 3 session & signals",
-      text: "Brokers every call into the trusted network, holding the live session and acting on real-time risk signals",
-      hold: 6.3
+    "L5 · IFA workload zone": {
+      step: "L5 · IFA workload zone",
+      text: "Application workloads on GKP and EKS, reachable only from L4 over mutual TLS",
+      hold: 4.9
     },
-    "L6 · Workloads": {
-      step: "L6 · Workloads",
-      text: "Trusted application services that only accept requests from Tier 3",
-      hold: 4.5
+    "L6 · Internal network": {
+      step: "L6 · Internal network",
+      text: "Downstream services, systems of record and the identity platform, with identity propagated rather than re-asserted",
+      hold: 6.6
     },
-    "P · VAN → BP PSaaS": {
-      step: "P · VAN → BP PSaaS",
-      text: "Business partners connect over private circuits straight to BP PSaaS, never touching the internet path",
-      hold: 6.1
+    "P1 · VAN → BP PSaaS": {
+      step: "P1 · VAN → BP PSaaS",
+      text: "Institutional clients on private circuits bypass L0 and L2 and enter at L3. They are still L1 clients and still carry a credential",
+      hold: 7.4
     },
-    "P · AWS PrivateLink": {
-      step: "P · AWS PrivateLink",
-      text: "Partner services in their own AWS VPC reach ours privately, without leaving AWS",
-      hold: 5.1
+    "P2 · AWS PrivateLink": {
+      step: "P2 · AWS PrivateLink",
+      text: "Partner services in their own AWS VPC reach our endpoint service privately, entering at L4",
+      hold: 5.6
+    },
+    "P3 · Internal network": {
+      step: "P3 · Internal network",
+      text: "Workforce users on the internal network reach L4 directly, subject to the same enforcement",
+      hold: 5.6
     },
     "All together": {
       step: "All together",
-      text: "Web on-prem, API into AWS, M2M on-prem and business partners over private connectivity, all at once",
-      hold: 18.6   // animation
+      text: "Web on-prem, an API call into AWS, M2M on-prem, partners over P1 and P2 and a workforce user over P3, all at once",
+      hold: 19.1   // animation
     }
   },
 
-  // ---- Layers · L0 · Client · 4 captions · 31.8 s
-  "L0 · Client": {
-    "L0 · Client": {
-      step: "L0 · Client",
-      text: "Everything that calls us from outside: browsers, mobile apps, API clients, machine-to-machine callers and AI agents. None of it is trusted",
-      hold: 7.7
-    },
-    "How each client proves who it is": {
-      step: "How each client proves who it is",
-      text: "Different clients carry different credentials, and each is verified again further in",
-      hold: 6.5   // animation
-    },
-    "Why: assume compromise": {
-      step: "Why: assume compromise",
-      text: "Devices get malware, cookies get stolen and bots imitate people. So no layer trusts a request just because it arrived; each one verifies again",
-      hold: 7.9
-    },
-    "Latency · client → edge: 8 ms": {
-      step: "Latency · client → edge: 8 ms",
-      text: "Network distance, not our processing: DNS steering or anycast picks a nearby PoP, and warm connections (TLS resumption, HTTP/2 or HTTP/3 reuse) avoid extra round trips. Mobile networks take longer",
-      hold: 9
-    }
-  },
-
-  // ---- Layers · L1 · DNS Control Plane · 5 captions · 43.3 s
-  "L1 · DNS Control Plane": {
-    "L1 · DNS control plane": {
-      step: "L1 · DNS control plane",
-      text: "Beside the clients, not in the request path: it decides which edge each client connects to",
-      hold: 5.6
+  // ---- Layers · L0 · DNS Control Plane · 5 captions · 47.4 s
+  "L0 · DNS Control Plane": {
+    "L0 · DNS control plane": {
+      step: "L0 · DNS control plane",
+      text: "It resolves the hostname to an edge address before any request is made. It sits ahead of the request path: no traffic flows through it",
+      hold: 7.5
     },
     "Two DNS providers": {
       step: "Two DNS providers",
       text: "jpmorgan.com is served by 4 JPMorgan primary nameservers and 3 Cloudflare secondaries (zone transfer). Resolvers ask any of them, so either provider can fail without an outage",
-      hold: 9
+      hold: 9.0
     },
     "A lookup, step by step": {
       step: "A lookup, step by step",
@@ -1834,37 +1820,71 @@ window.FK_CAPTIONS = {
     },
     "Smart routing": {
       step: "Smart routing",
-      text: "Akamai GTM and Cloudflare LB pick the edge from the client’s location (resolver or EDNS client subnet), latency, load and health, and can steer between CDNs",
-      hold: 8.5
+      text: "Akamai GTM and Cloudflare Load Balancing pick the edge from the client’s location, latency, load and health, using handout policies, liveness tests, pools and monitors",
+      hold: 9.0
     },
-    "Latency: outside the 50 ms budget": {
-      step: "Latency: outside the 50 ms budget",
-      text: "Answers are cached for their TTL, so DNS adds nothing to most requests. The same TTL bounds how quickly a failover takes effect",
-      hold: 7.4
+    "Steering is not instant": {
+      step: "Steering is not instant",
+      text: "Changes are bounded by the TTL and resolver caching rather than taking effect immediately. Cached answers also mean DNS adds nothing to most requests, so it sits outside the 50 ms budget",
+      hold: 9.0
     }
   },
 
-  // ---- Layers · L2 · Edge Protection / CDN · 5 captions · 36.6 s
+  // ---- Layers · L1 · Client · 5 captions · 42.6 s
+  "L1 · Client": {
+    "L1 · Client": {
+      step: "L1 · Client",
+      text: "Browsers, mobile apps, API clients, delegated agents, autonomous agents and M2M callers. Every request starts here, untrusted regardless of type",
+      hold: 8.0
+    },
+    "Not security categories": {
+      step: "Not security categories",
+      text: "Human, machine and agent are not security categories: any of them can hold a credential. What counts is the credential, and the key it is bound to",
+      hold: 8.1
+    },
+    "Three ways in": {
+      step: "Three ways in",
+      text: "Over the internet through L2 and L3, over private connectivity (P1 enters at L3, P2 at L4), or from the internal network (P3, at L4). The path changes; the check at L4 does not",
+      hold: 9.0
+    },
+    "Why: assume compromise": {
+      step: "Why: assume compromise",
+      text: "Devices get malware, tokens get stolen, bots imitate people and agents overreach. So no layer trusts a request because of where it came from",
+      hold: 7.8
+    },
+    "Latency · client → edge: 8 ms": {
+      step: "Latency · client → edge: 8 ms",
+      text: "Network distance, not our processing: DNS steering or anycast picks a nearby PoP, and warm connections (TLS resumption, HTTP/2 or HTTP/3 reuse) avoid extra round trips. Mobile networks take longer",
+      hold: 9.0
+    }
+  },
+
+  // ---- Layers · L2 · Edge Protection / CDN · 6 captions · 48.4 s
   "L2 · Edge Protection / CDN": {
     "L2 · Edge protection / CDN": {
       step: "L2 · Edge protection / CDN",
-      text: "Akamai (4,100+ PoPs) and Cloudflare (310+ cities): the first hop we control, as close to the client as possible",
-      hold: 6.5
+      text: "Akamai (4,100+ PoPs) and Cloudflare (310+ cities), active-active from one source ruleset: the first hop we control, as close to the client as possible",
+      hold: 8.3
     },
     "What the edge does": {
       step: "What the edge does",
-      text: "TLS ends at the PoP; the edge checks the request, serves from cache when it can, and otherwise forwards to origin",
-      hold: 6.6
+      text: "TLS ends at the PoP; the edge classifies the caller, serves from cache when it can, and otherwise forwards to the perimeter. It classifies; it does not establish identity",
+      hold: 9.0
     },
     "Why at the edge": {
       step: "Why at the edge",
-      text: "Volumetric DDoS, bots and common web attacks are absorbed across thousands of PoPs, far away from our data centres",
-      hold: 6.6
+      text: "Volumetric attacks, bots and common web attacks are absorbed across thousands of PoPs, far away from our data centres",
+      hold: 6.8
+    },
+    "Defences by client type": {
+      step: "Defences by client type",
+      text: "With no identity yet, the edge picks its defences by what the caller looks like",
+      hold: 6.9   // animation
     },
     "Hand-off to a region: 10 ms": {
       step: "Hand-off to a region: 10 ms",
-      text: "The edge re-encrypts and forwards over pooled, persistent connections. Each CDN can reach both regional perimeters, so a regional outage is routed around",
-      hold: 8.4
+      text: "The edge re-originates over TLS to the perimeter, from source addresses the perimeter restricts to. Each CDN can reach both regional perimeters, so a regional outage is routed around",
+      hold: 9.0
     },
     "Latency · 21 ms of the 50": {
       step: "Latency · 21 ms of the 50",
@@ -1873,162 +1893,182 @@ window.FK_CAPTIONS = {
     }
   },
 
-  // ---- Layers · L3 · Regional Perimeter · 5 captions · 34.5 s
+  // ---- Layers · L3 · Regional Perimeter · 5 captions · 37.5 s
   "L3 · Regional Perimeter": {
     "L3 · Regional perimeter": {
       step: "L3 · Regional perimeter",
-      text: "The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions",
-      hold: 5.8
+      text: "The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions. No platform components of our own run here",
+      hold: 7.8
     },
     "What it does": {
       step: "What it does",
-      text: "It admits only CDN origin traffic, scrubs and filters it regionally, and re-originates TLS into the internal DMZ",
-      hold: 6.5
+      text: "It admits only traffic from the CDN, then applies a second WAF pass and perimeter traffic policy before handing over to SESF",
+      hold: 7.1
     },
-    "Why: nobody bypasses the edge": {
-      step: "Why: nobody bypasses the edge",
-      text: "Traffic that does not come from the CDNs is dropped here, so the edge protections cannot be skipped",
-      hold: 7.7   // animation
+    "Why: origin lockdown": {
+      step: "Why: origin lockdown",
+      text: "Source addresses are restricted to CDN ranges (Akamai SiteShield on-prem) and direct-to-origin paths are closed, so the edge cannot be skipped",
+      hold: 7.9
     },
     "Why a second control point": {
       step: "Why a second control point",
-      text: "An independent regional layer: its own WAF and DDoS scrubbing, and a clean trust boundary before anything reaches the internal DMZ",
-      hold: 7.4
+      text: "An independent regional layer with its own WAF pass and traffic policy, and a clean boundary before anything reaches the enforcement tier",
+      hold: 7.7
     },
     "Latency · 3 ms": {
       step: "Latency · 3 ms",
-      text: "Network policy and re-origination only; payload inspection happens further in, at Tier 2",
+      text: "Network policy and a second WAF pass only; identity and payload policy happen at L4",
       hold: 6.4   // animation
     }
   },
 
-  // ---- Layers · L4 · SESF / Tier 2 Proxy · 4 captions · 58.7 s
-  "L4 · SESF / Tier 2 Proxy": {
-    "L4 · SESF / Tier 2 proxy": {
-      step: "L4 · SESF / Tier 2 proxy",
-      text: "SESF, the Secure Enterprise Server Farm: the internal DMZ. The T2 gateway proxy is gateway-envoy on GVSI hosts, in 9 data centres",
-      hold: 7.3
-    },
-    "What it does": {
-      step: "What it does",
-      text: "Envoy routes the request and calls auth-service, which checks the session JWT and runs the global and route payload policies",
-      hold: 33.3   // animation
-    },
-    "Why Tier 2": {
-      step: "Why Tier 2",
-      text: "It is the first place the decrypted request is inside our network, so untrusted payloads are inspected and rejected here, before anything crosses into ESF",
+  // ---- Layers · L4 · Enforcement Tier · 9 captions · 121.9 s
+  "L4 · Enforcement Tier": {
+    "L4 · Enforcement tier": {
+      step: "L4 · Enforcement tier",
+      text: "Tier 2, the DMZ gateway inside SESF, on both substrates: Envoy and Kong data planes on-prem and on EKS. The single enforcement point, and it fails closed",
       hold: 8.4
     },
-    "Latency · 10 ms": {
-      step: "Latency · 10 ms",
-      text: "Envoy, the ext_authz round trip, JWT verification, two Rego evaluations and mTLS to Tier 3. Large bodies take longer: Envoy buffers the whole body (up to 1 MB) before inspecting it",
-      hold: 9
-    }
-  },
-
-  // ---- Layers · L5 · ESF / Tier 3 Session & Signals · 7 captions · 80.9 s
-  "L5 · ESF / Tier 3 Session & Signals": {
-    "L5 · ESF / Tier 3 · Session & Signals": {
-      step: "L5 · ESF / Tier 3 · Session & Signals",
-      text: "ESF, the Enterprise Server Farm. Its gateways broker every call into the trusted network, and it holds the live session and acts on real-time signals",
-      hold: 8.2
+    "Inspect and apply policy": {
+      step: "Inspect and apply policy",
+      text: "Envoy breaks and inspects TLS and calls auth-service, which resolves the session, exchanges the token, then runs the global malicious-content policy and the route policy generated from the workload’s code",
+      hold: 34.9   // animation
     },
-    "A normal request": {
-      step: "A normal request",
-      text: "The T3 gateway asks the session manager about the live session, mints an internal token and forwards to the workload",
-      hold: 18.9   // animation
+    "Live state, not just a valid token": {
+      step: "Live state, not just a valid token",
+      text: "The session validator sidecar resolves the session against the session manager in L6, through a revoke cache, then mints the internal token",
+      hold: 16.7   // animation
     },
     "A signal arrives": {
       step: "A signal arrives",
-      text: "Fraud detection spots impossible travel and a new payee, and sends a CAEP risk-level-change event for this session",
-      hold: 6.6
+      text: "The signal manager in L6 raises a CAEP risk-level-change for this session; the message broker carries it to the L4 signal receiver",
+      hold: 7.4
     },
     "Receive, verify, enforce": {
       step: "Receive, verify, enforce",
-      text: "The CAEP receiver verifies the Security Event Token and matches it to the live session; the policy decides the action: step-up to AAL3",
+      text: "The signal receiver verifies the Security Event Token and matches it to the live session; the policy decides the action: step-up to AAL3",
       hold: 9.8   // animation
     },
     "The next request is stopped": {
       step: "The next request is stopped",
-      text: "The same session tries a payment. The enforcement state now requires step-up, so it is refused at Tier 3 with a 401",
-      hold: 19   // animation
+      text: "The same session tries a payment. Its enforcement state now requires step-up, so L4 refuses it with a 401 and nothing reaches L5",
+      hold: 19.0   // animation
     },
-    "Why at Tier 3": {
-      step: "Why at Tier 3",
-      text: "It is the last hop before trusted workloads, so it holds the live session and can act on signals from anywhere in the bank within seconds, not at the next login",
-      hold: 8.7
+    "What L4 resolves, per client type": {
+      step: "What L4 resolves, per client type",
+      text: "Every client type presents something different, and L4 resolves each one to live state before anything goes further",
+      hold: 7.1   // animation
     },
-    "Latency · 14 ms": {
-      step: "Latency · 14 ms",
-      text: "The largest processing slice: session lookup, enforcement state and token exchange, then mTLS to the workload. Signals arrive asynchronously, so they add nothing per request while enforcement state is local",
-      hold: 9
+    "Why one enforcement point": {
+      step: "Why one enforcement point",
+      text: "Internet, private and internal paths all converge here, so identity, payload policy and signals are enforced once, consistently. Onward to L5 is mutual TLS, and the workload verifies the client certificate",
+      hold: 9.0
+    },
+    "Latency · 24 ms": {
+      step: "Latency · 24 ms",
+      text: "The largest slice: break and inspect, ext_authz and two Rego evaluations (about 10 ms), then live state, token exchange and mTLS to L5 (about 14 ms). Signals arrive asynchronously, and enforcement state is cached locally",
+      hold: 9.0
     }
   },
 
-  // ---- Layers · L6 · Workloads · 4 captions · 25.2 s
-  "L6 · Workloads": {
-    "L6 · Workloads": {
-      step: "L6 · Workloads",
-      text: "Trusted application services, on-prem and in the cloud. They accept requests only from Tier 3, over mTLS",
-      hold: 6.2
+  // ---- Layers · L5 · IFA Workload Zone · 5 captions · 37.0 s
+  "L5 · IFA Workload Zone": {
+    "L5 · IFA workload zone": {
+      step: "L5 · IFA workload zone",
+      text: "The isolated firewall application zone: application workloads on GKP and EKS with their sidecars, bounded by firewall rules on the internal network",
+      hold: 8.1
     },
     "What arrives here": {
       step: "What arrives here",
-      text: "Every request has already been authenticated, inspected and checked against the live session",
-      hold: 5.6
+      text: "Only traffic from L4, over mutual TLS. The workload verifies the peer certificate on every connection and receives verified identity as headers, rather than parsing tokens",
+      hold: 9.0
     },
-    "What services can rely on": {
-      step: "What services can rely on",
-      text: "Authentication, payload hygiene and session risk are handled once, consistently, by the layers in front",
-      hold: 6.3
+    "Injected identity, per client type": {
+      step: "Injected identity, per client type",
+      text: "What the workload receives depends on who is calling, and for agents on whose behalf",
+      hold: 6.9   // animation
+    },
+    "What workloads can rely on": {
+      step: "What workloads can rely on",
+      text: "Authentication, live state, payload hygiene and risk are handled once, consistently, at L4",
+      hold: 5.9   // animation
     },
     "Latency · outside the 50 ms": {
       step: "Latency · outside the 50 ms",
-      text: "The ingress budget ends at Tier 3; what happens here is the application’s own time",
+      text: "The ingress budget ends on arrival at L5; what happens here is the application’s own time",
       hold: 6.4   // animation
     }
   },
 
-  // ---- Layers · P · Private Connectivity · 5 captions · 40 s
-  "P · Private Connectivity": {
-    "P · Private connectivity": {
-      step: "P · Private connectivity",
-      text: "Business partners who never use the internet path: VAN, private circuits and leased lines on-prem, and AWS PrivateLink in the cloud",
-      hold: 7.4
+  // ---- Layers · L6 · Internal Network · 4 captions · 34.0 s
+  "L6 · Internal Network": {
+    "L6 · Internal network": {
+      step: "L6 · Internal network",
+      text: "Trusted services on the internal network: downstream services and systems of record, the identity platform’s session and signal managers, the message broker and the configuration pipeline",
+      hold: 9.0
     },
-    "VAN → BP PSaaS": {
-      step: "VAN → BP PSaaS",
-      text: "A partner network connects over a private circuit straight to BP PSaaS, a dedicated entry point, and then into Tier 2 like everything else",
-      hold: 9.4   // animation
+    "Identity carried forward": {
+      step: "Identity carried forward",
+      text: "When a workload calls a downstream service, the correlation identifier and the acting-for chain go with it, over mutual TLS. Identity is propagated, not re-asserted",
+      hold: 8.9
     },
-    "AWS PrivateLink": {
-      step: "AWS PrivateLink",
-      text: "A partner service in its own AWS VPC reaches our endpoint service privately; traffic never leaves AWS",
-      hold: 8.5   // animation
+    "It also feeds L4": {
+      step: "It also feeds L4",
+      text: "The session manager supplies live state, the signal manager raises risk signals that the broker carries, and the configuration pipeline distributes route policy to the enforcement tier",
+      hold: 9.0
     },
-    "Why a separate path": {
-      step: "Why a separate path",
-      text: "No public exposure, partner-specific entry points and allow-lists, yet the same Tier 2 and Tier 3 controls still apply once inside",
-      hold: 7.4
-    },
-    "Latency": {
-      step: "Latency",
-      text: "Set by the circuit or the AWS network rather than the internet; the internal hops share the Tier 2 and Tier 3 budgets",
-      hold: 6.8
+    "Observability": {
+      step: "Observability",
+      text: "Every layer reports to the observability stack, with the same trace ID from L1 to L6",
+      hold: 6.4   // animation
     }
   },
 
-  // ---- Journeys · Web · on-prem · 13 captions · 90.7 s
+  // ---- Layers · P · Private Connectivity · 6 captions · 49.2 s
+  "P · Private Connectivity": {
+    "P · Private connectivity": {
+      step: "P · Private connectivity",
+      text: "Three paths that skip part of the internet route. On every one, the client is still L1 and still carries a credential",
+      hold: 6.8
+    },
+    "P1 · VAN → BP PSaaS": {
+      step: "P1 · VAN → BP PSaaS",
+      text: "An institutional client on a VAN, private circuit or leased line bypasses L0 and L2 and enters at L3, through BP PSaaS. The circuit is only the network path",
+      hold: 9.7   // animation
+    },
+    "P2 · AWS PrivateLink": {
+      step: "P2 · AWS PrivateLink",
+      text: "A partner service in its own AWS VPC never touches the internet: it bypasses L0, L2 and L3 and enters at L4, through our endpoint service and its load balancer",
+      hold: 9.7   // animation
+    },
+    "P3 · Internal network ingress": {
+      step: "P3 · Internal network ingress",
+      text: "Workforce users on the internal network arrive at L4 without the edge or the perimeter, and get exactly the same enforcement",
+      hold: 7.6   // animation
+    },
+    "Why they still converge on L4": {
+      step: "Why they still converge on L4",
+      text: "Each path secures its own hop, but none of them replaces the credential check: every one is enforced at L4 like internet traffic",
+      hold: 7.3
+    },
+    "Latency": {
+      step: "Latency",
+      text: "Set by the circuit, the AWS network or the internal network rather than the internet; the L4 budget is the same as for internet traffic",
+      hold: 7.6
+    }
+  },
+
+  // ---- Journeys · Web · on-prem · 13 captions · 96.2 s
   "Web · on-prem": {
     "Web journey · on-prem": {
       step: "Web journey · on-prem",
       text: "A customer opens the web app in a browser",
       hold: 3.3
     },
-    "L1 · Steering (DNS)": {
-      step: "L1 · Steering (DNS)",
-      text: "Outside the request: the resolver asks one of the seven nameservers. A JPMorgan primary returns a CNAME to Akamai GTM, and GTM picks the best edge",
-      hold: 11   // animation
+    "L0 · DNS": {
+      step: "L0 · DNS",
+      text: "Before the request: the resolver asks one of the seven nameservers. A JPMorgan primary returns a CNAME to Akamai GTM, and GTM picks the best edge",
+      hold: 11.0   // animation
     },
     "L2 · CDN / edge protection": {
       step: "L2 · CDN / edge protection",
@@ -2037,38 +2077,38 @@ window.FK_CAPTIONS = {
     },
     "L3 · Regional perimeter": {
       step: "L3 · Regional perimeter",
-      text: "Only CDN origin traffic may enter the on-prem network; PSaaS+ admits it into the internal DMZ",
-      hold: 5.7
+      text: "Only CDN traffic may enter the on-prem network; PSaaS+ admits it into SESF",
+      hold: 4.8
     },
-    "L4 · SESF / Tier 2": {
-      step: "L4 · SESF / Tier 2",
-      text: "The request reaches the T2 gateway proxy in the internal DMZ",
-      hold: 4.2
+    "L4 · Enforcement tier": {
+      step: "L4 · Enforcement tier",
+      text: "The request reaches the T2 gateway in SESF, the single enforcement point",
+      hold: 4.7
     },
-    "Inside T2 · gateway-envoy": {
-      step: "Inside T2 · gateway-envoy",
-      text: "The T2 node expands: Envoy on a GVSI host calls auth-service (ext_authz) for the session check and the payload policies",
-      hold: 6.9
+    "Inside L4 · gateway-envoy": {
+      step: "Inside L4 · gateway-envoy",
+      text: "The T2 node expands: Envoy calls auth-service (ext_authz) to resolve the session, exchange the token and run the payload policies",
+      hold: 7.3
     },
-    "Route, then check the session": {
-      step: "Route, then check the session",
-      text: "Envoy matches the route and calls auth-service, which verifies the session JWT: issued by the session manager, for ingress-gateway, signed, DPoP-bound",
-      hold: 13.9   // animation
+    "Route, then resolve the session": {
+      step: "Route, then resolve the session",
+      text: "Envoy matches the route; the session validator checks the session (for ingress-gateway, signed, DPoP-bound) against live state, and the token is exchanged for an internal one",
+      hold: 16.2   // animation
     },
     "No body, no payload policies": {
       step: "No body, no payload policies",
-      text: "This GET has no body, so the global and route payload policies are skipped; chapter 3 shows them at work",
-      hold: 6.2
+      text: "This GET has no body, so the global and route payload policies are skipped; the Payload policies journey shows them at work",
+      hold: 7.0
     },
-    "L5 · ESF / Tier 3": {
-      step: "L5 · ESF / Tier 3",
-      text: "The T3 IFA web gateway brokers the call across the firewall into the trusted network",
-      hold: 5.3
+    "L5 · IFA workload zone": {
+      step: "L5 · IFA workload zone",
+      text: "Over mutual TLS, the accounts workload on GKP receives the verified identity as headers",
+      hold: 5.4
     },
-    "L6 · Trusted workloads": {
-      step: "L6 · Trusted workloads",
-      text: "The application service in the trusted zone answers the request",
-      hold: 4.3
+    "L6 · Internal network": {
+      step: "L6 · Internal network",
+      text: "The workload reads the system of record downstream, with the trace ID and the acting-for chain carried forward",
+      hold: 6.5
     },
     "Response": {
       step: "Response",
@@ -2077,86 +2117,130 @@ window.FK_CAPTIONS = {
     },
     "Next click · caches": {
       step: "Next click · caches",
-      text: "The DNS answer is still cached, so L1 is not contacted, and the edge serves the static asset from its cache",
+      text: "The DNS answer is still cached, so L0 is not contacted, and the edge serves the static asset from its cache",
       hold: 11.1   // animation
     },
     "Observability": {
       step: "Observability",
       text: "Every layer emitted a span, log and metric tagged with the same trace ID",
-      hold: 5.2
+      hold: 5.2   // animation
     }
   },
 
-  // ---- Journeys · Payload policies · T2 · 11 captions · 124.1 s
-  "Payload policies · T2": {
-    "Payload policies · T2": {
-      step: "Payload policies · T2",
+  // ---- Journeys · Client types · L4 · 8 captions · 75.8 s
+  "Client types · L4": {
+    "Client types": {
+      step: "Client types",
+      text: "Six client types, one enforcement point: what each presents at L4, what L4 resolves it to, and what reaches the workload",
+      hold: 6.9
+    },
+    "Browser": {
+      step: "Browser",
+      text: "At L2: javaScript challenge, fingerprinting, CAPTCHA. At L4 it presents: signed session artefact, opaque reference",
+      hold: 10.1   // animation
+    },
+    "Mobile app": {
+      step: "Mobile app",
+      text: "At L2: app attestation, certificate pinning. At L4 it presents: access token, key-bound",
+      hold: 10.1   // animation
+    },
+    "API client": {
+      step: "API client",
+      text: "At L2: schema validation, per-client rate limits, API discovery. At L4 it presents: delegated access token, DPoP or certificate bound",
+      hold: 10.1   // animation
+    },
+    "Delegated agent": {
+      step: "Delegated agent",
+      text: "At L2: agent classification, schema validation, rate limits. At L4 it presents: exchanged agent-scoped token, sub = user, act = agent",
+      hold: 10.1   // animation
+    },
+    "Autonomous agent": {
+      step: "Autonomous agent",
+      text: "At L2: agent classification, signed-request check, strict rate and transaction limits. At L4 it presents: agent credential plus signed request",
+      hold: 10.1   // animation
+    },
+    "M2M": {
+      step: "M2M",
+      text: "At L2: rate limits, IP allow-lists. At L4 it presents: client credentials or signed assertion",
+      hold: 10.1   // animation
+    },
+    "One table, one place": {
+      step: "One table, one place",
+      text: "Human, machine and agent are not security categories: the credential and its key decide what L4 resolves, and L4 is the only place that decides it",
+      hold: 8.1
+    }
+  },
+
+  // ---- Journeys · Payload policies · L4 · 11 captions · 132.8 s
+  "Payload policies · L4": {
+    "Payload policies · L4": {
+      step: "Payload policies · L4",
       text: "Three requests to POST /api/v1/users/register show the two Rego policies that protect every route",
       hold: 5.9
     },
     "1 · Valid payload": {
       step: "1 · Valid payload",
-      text: "The browser submits the registration form; the request crosses the edge and perimeter to T2",
+      text: "The browser submits the registration form; the request crosses the edge and perimeter to L4",
       hold: 5.6
     },
     "1 · Valid payload · policies": {
       step: "1 · Valid payload · policies",
-      text: "Session JWT checked; the global policy finds no injection patterns; the route policy confirms required fields and formats: allowed, 201 Created",
-      hold: 29.2   // animation
+      text: "Session resolved and token exchanged; the global policy finds no injection patterns; the route policy confirms required fields and formats: allowed, 201 Created",
+      hold: 31.4   // animation
     },
     "1 · Valid payload · 201": {
       step: "1 · Valid payload · 201",
-      text: "Allowed: the request continues over mTLS through Tier 3 to the backend, and 201 Created returns to the client",
+      text: "Allowed: the request continues over mTLS to the workload in L5, and 201 Created returns to the client",
       hold: 8.8   // animation
     },
     "2 · SQL injection": {
       step: "2 · SQL injection",
-      text: "The browser submits the registration form; the request crosses the edge and perimeter to T2",
+      text: "The browser submits the registration form; the request crosses the edge and perimeter to L4",
       hold: 5.6
     },
     "2 · SQL injection · policies": {
       step: "2 · SQL injection · policies",
       text: "The global policy (a blocklist, default allow) matches an injection pattern in full_name and denies: 403. The route policy never runs",
-      hold: 17.8   // animation
+      hold: 20.1   // animation
     },
     "2 · SQL injection · 403": {
       step: "2 · SQL injection · 403",
-      text: "The 403 goes straight back to the client; nothing reaches Tier 3 or the backend",
-      hold: 5.4
+      text: "The 403 goes straight back to the client; nothing reaches L5",
+      hold: 5.4   // animation
     },
     "3 · Malformed email": {
       step: "3 · Malformed email",
-      text: "The browser submits the registration form; the request crosses the edge and perimeter to T2",
+      text: "The browser submits the registration form; the request crosses the edge and perimeter to L4",
       hold: 5.6
     },
     "3 · Malformed email · policies": {
       step: "3 · Malformed email · policies",
       text: "The global policy passes; the route policy (default deny) rejects the email format: 403",
-      hold: 27.9   // animation
+      hold: 30.1   // animation
     },
     "3 · Malformed email · 403": {
       step: "3 · Malformed email · 403",
-      text: "The 403 goes straight back to the client; nothing reaches Tier 3 or the backend",
-      hold: 5.4
+      text: "The 403 goes straight back to the client; nothing reaches L5",
+      hold: 5.4   // animation
     },
     "One lever for every route": {
       step: "One lever for every route",
-      text: "The global policy patches every route at once against new attack patterns; each route policy only knows its own fields",
-      hold: 6.8
+      text: "The global policy patches every route at once against new attack patterns; each route policy is generated from its workload’s code and knows only its own fields",
+      hold: 8.7
     }
   },
 
-  // ---- Journeys · API · AWS · 8 captions · 45.9 s
+  // ---- Journeys · API · AWS · 7 captions · 45.4 s
   "API · AWS": {
     "API journey · AWS": {
       step: "API journey · AWS",
       text: "An API client calls the accounts API",
       hold: 3.1
     },
-    "L1 · Steering (DNS)": {
-      step: "L1 · Steering (DNS)",
+    "L0 · DNS": {
+      step: "L0 · DNS",
       text: "This resolver happened to ask a Cloudflare secondary. The zone came from the JPMorgan primary, but this hostname is overridden to Cloudflare LB, which answers with an anycast IP",
-      hold: 9
+      hold: 9.0
     },
     "L2 · CDN / edge protection": {
       step: "L2 · CDN / edge protection",
@@ -2168,103 +2252,103 @@ window.FK_CAPTIONS = {
       text: "AWS WAF admits only CDN traffic into AWS",
       hold: 4.8   // animation
     },
-    "L4 · no Tier 2 hop in AWS": {
-      step: "L4 · no Tier 2 hop in AWS",
-      text: "In AWS the WAF hands off directly to the EKS gateways in the cross-firewall zone",
-      hold: 5.1
+    "L4 · Enforcement tier · AWS": {
+      step: "L4 · Enforcement tier · AWS",
+      text: "The T2 gateway on EKS terminates mTLS, resolves the key-bound token to the user’s grant, exchanges it, and runs the global and route policies",
+      hold: 7.8
     },
-    "L5 · Cloud API gateway": {
-      step: "L5 · Cloud API gateway",
-      text: "Kong on EKS validates the token, the scope and the payload against the OpenAPI contract",
-      hold: 5.4
-    },
-    "L6 · Trusted workloads": {
-      step: "L6 · Trusted workloads",
-      text: "The cloud accounts service answers",
-      hold: 3
+    "L5 · IFA workload zone": {
+      step: "L5 · IFA workload zone",
+      text: "The accounts workload on EKS answers, with the user and client identity in headers",
+      hold: 5.2
     },
     "Response": {
       step: "Response",
       text: "200 OK and a JSON body return to the client",
-      hold: 9   // animation
+      hold: 9.0   // animation
     }
   },
 
-  // ---- Journeys · Private connectivity · 14 captions · 86.2 s
+  // ---- Journeys · Private connectivity · 15 captions · 97.3 s
   "Private connectivity": {
     "Private connectivity": {
       step: "Private connectivity",
-      text: "Business partners on VAN, private circuits or leased lines use their own route, outside the internet path",
-      hold: 6.2
+      text: "Institutional clients, partner services and workforce users can skip part of the internet route",
+      hold: 5.8
     },
-    "A distinct route": {
-      step: "A distinct route",
-      text: "No DNS steering, no CDN, no internet perimeter (L1 to L3): each partner lands on a dedicated entry point",
-      hold: 6.2
-    },
-    "P · Private circuit to on-prem": {
-      step: "P · Private circuit to on-prem",
-      text: "Partner Acme sends a payment over its VAN / leased line",
-      hold: 4.6   // animation
-    },
-    "P · BP PSaaS entry point": {
-      step: "P · BP PSaaS entry point",
-      text: "The dedicated business partner entry point admits the circuit into the on-prem network",
-      hold: 5.4
-    },
-    "L4 · SESF / Tier 2": {
-      step: "L4 · SESF / Tier 2",
-      text: "From here it joins the internal path: the T2 gateway proxy inspects and re-encrypts with mTLS",
+    "Distinct routes, one enforcement point": {
+      step: "Distinct routes, one enforcement point",
+      text: "No DNS steering or CDN: each path lands on its own entry point, and every one converges on L4",
       hold: 5.7
     },
-    "L5 · T3 IFA API gateway": {
-      step: "L5 · T3 IFA API gateway",
-      text: "Kong on GKP authenticates the partner and enforces its plan and the API contract",
-      hold: 5.1
+    "P1 · Private circuit": {
+      step: "P1 · Private circuit",
+      text: "Institutional client Acme sends a payment over its VAN / leased line",
+      hold: 4.6
     },
-    "L6 · Trusted workloads": {
-      step: "L6 · Trusted workloads",
-      text: "The on-prem payments service accepts the instruction",
+    "P1 · BP PSaaS, entering at L3": {
+      step: "P1 · BP PSaaS, entering at L3",
+      text: "BP PSaaS terminates the circuit, checks the client allow-list and maps the route. The circuit is only the network path",
+      hold: 6.8
+    },
+    "L4 · Enforcement tier": {
+      step: "L4 · Enforcement tier",
+      text: "The client is still L1 and still carries a credential: the T2 gateway resolves it and applies the same policies as for internet traffic",
+      hold: 7.6
+    },
+    "L5 · IFA workload zone": {
+      step: "L5 · IFA workload zone",
+      text: "The payments workload on GKP accepts the instruction",
       hold: 3.8
     },
     "Response": {
       step: "Response",
       text: "201 Created returns over the same private circuit",
-      hold: 4.3
+      hold: 4.3   // animation
     },
-    "P · Partner VPC": {
-      step: "P · Partner VPC",
+    "P2 · Partner VPC": {
+      step: "P2 · Partner VPC",
       text: "A trusted 3rd party runs its service in its own AWS account and VPC, alongside ours on the AWS network",
       hold: 6.1
     },
-    "P · Interface endpoint": {
-      step: "P · Interface endpoint",
+    "P2 · Interface endpoint": {
+      step: "P2 · Interface endpoint",
       text: "It calls a private IP inside its own VPC: an interface endpoint for our service",
       hold: 5.1
     },
-    "P · VPC to VPC": {
-      step: "P · VPC to VPC",
-      text: "PrivateLink carries it from the partner VPC straight into our VPC: no internet gateway, NAT or public IP, and no L1 to L3",
+    "P2 · VPC to VPC": {
+      step: "P2 · VPC to VPC",
+      text: "PrivateLink carries it from the partner VPC straight into our VPC: no internet gateway, NAT or public IP, and no L0, L2 or L3",
+      hold: 7.1
+    },
+    "P2 · Endpoint service, entering at L4": {
+      step: "P2 · Endpoint service, entering at L4",
+      text: "Only allow-listed partner accounts can connect, only to this one service, and only in that direction. Its load balancer fronts the enforcement tier",
+      hold: 8.1
+    },
+    "L4 · Enforcement tier · AWS": {
+      step: "L4 · Enforcement tier · AWS",
+      text: "A credential is still required: the T2 gateway on EKS terminates mTLS and resolves the partner’s signed assertion to workload identity",
+      hold: 11.1   // animation
+    },
+    "P3 · Internal network": {
+      step: "P3 · Internal network",
+      text: "An employee on the internal network opens a case in an internal tool",
+      hold: 4.6
+    },
+    "P3 · Straight to L4": {
+      step: "P3 · Straight to L4",
+      text: "No edge and no perimeter, but no shortcut either: the T2 gateway enforces exactly what it enforces for internet traffic",
+      hold: 9.6   // animation
+    },
+    "Three private paths, one enforcement point": {
+      step: "Three private paths, one enforcement point",
+      text: "Internet traffic comes through L2 and L3. P1 enters at L3, P2 and P3 at L4, and all of it meets the same L4 enforcement",
       hold: 6.9
-    },
-    "P · Our endpoint service": {
-      step: "P · Our endpoint service",
-      text: "Only allow-listed partner accounts can connect, only to this one service, and only in that direction",
-      hold: 6
-    },
-    "L5 · Cloud API gateway": {
-      step: "L5 · Cloud API gateway",
-      text: "Kong on EKS authenticates the partner with mTLS and OAuth client credentials",
-      hold: 12.1   // animation
-    },
-    "Two worlds, one platform": {
-      step: "Two worlds, one platform",
-      text: "Internet traffic climbs through L1 to L3. Partners enter at BP PSaaS over private circuits, or over PrivateLink from inside AWS, and join the internal path",
-      hold: 8.5
     }
   },
 
-  // ---- Journeys · Failover · 11 captions · 59.8 s
+  // ---- Journeys · Failover · 11 captions · 60.4 s
   "Failover": {
     "Failover": {
       step: "Failover",
@@ -2279,7 +2363,7 @@ window.FK_CAPTIONS = {
     "Incident 2 · L3": {
       step: "Incident 2 · L3",
       text: "The on-prem PSaaS+ region is down",
-      hold: 3
+      hold: 3.0
     },
     "L1 · Steering failover": {
       step: "L1 · Steering failover",
@@ -2301,13 +2385,13 @@ window.FK_CAPTIONS = {
       text: "AWS WAF admits the request into AWS",
       hold: 4.5   // animation
     },
-    "L5 · Cloud web gateway": {
-      step: "L5 · Cloud web gateway",
-      text: "Envoy on EKS routes to the web service with outlier detection and retries",
-      hold: 6.9   // animation
+    "L4 · T2 gateway · AWS": {
+      step: "L4 · T2 gateway · AWS",
+      text: "The same enforcement on EKS: the session resolves to live state, then Envoy routes to the workload with outlier detection and retries",
+      hold: 7.5
     },
-    "L6 · Upstream error": {
-      step: "L6 · Upstream error",
+    "L5 · Upstream error": {
+      step: "L5 · Upstream error",
       text: "The first pod returns 503",
       hold: 2.6
     },
@@ -2323,7 +2407,7 @@ window.FK_CAPTIONS = {
     }
   },
 
-  // ---- Journeys · Defense in depth · 5 captions · 46.9 s
+  // ---- Journeys · Defense in depth · 5 captions · 46.3 s
   "Defense in depth": {
     "Defense in depth": {
       step: "Defense in depth",
@@ -2335,9 +2419,9 @@ window.FK_CAPTIONS = {
       text: "A botnet floods the edge; it is absorbed across the CDN networks and never reaches a region",
       hold: 5.6
     },
-    "L2 · Bot and agent policy": {
-      step: "L2 · Bot and agent policy",
-      text: "An AI agent scrapes pages it is not allowed to; bot management blocks it at the edge",
+    "L2 · Agent classification": {
+      step: "L2 · Agent classification",
+      text: "An unregistered agent scrapes pages it has no delegation or mandate for; agent classification blocks it at the edge",
       hold: 7.1   // animation
     },
     "L3 · Direct to origin": {
@@ -2345,10 +2429,10 @@ window.FK_CAPTIONS = {
       text: "An attacker skips the CDN and targets the regional perimeter directly",
       hold: 7.5   // animation
     },
-    "L5 · Contract violation": {
-      step: "L5 · Contract violation",
-      text: "A syntactically clean request passes the edge and WAF, but breaks the API contract",
-      hold: 21.7   // animation
+    "L4 · Contract violation": {
+      step: "L4 · Contract violation",
+      text: "A syntactically clean request passes the edge and WAF, but breaks the route policy generated from the API contract",
+      hold: 21.1   // animation
     }
   }
 };
@@ -2356,19 +2440,19 @@ window.FK_CAPTIONS = {
 </script>
 <script>
 /*
- * Scene: CIB unified ingress, seven layers from the internet to a trusted workload.
+ * Scene: CIB unified ingress, from the DNS control plane to the internal network.
  *
- *   L0 Internet client        Browser · Mobile · API client · M2M · AI agent
- *   L1 Global steering        Akamai, Cloudflare (DNS)
- *   L2 CDN / edge protection  Akamai, Cloudflare
- *   L3 Regional perimeter     PSaaS+ (on-prem) · AWS WAF (public cloud)
- *   L4 Internal DMZ           SESF / Tier 2: T2 gateway proxy (Envoy GCR on GVSI)
- *   L5 Cross-firewall zone    ESF / Tier 3: T3 IFA web + API gateways (Envoy / Kong on GKP), cloud web + API gateways (Envoy / Kong on EKS)
- *   L6 Trusted workloads      on-prem and cloud application workloads
+ *   L0 DNS control plane      JPMorgan primary + Cloudflare secondary nameservers, Akamai GTM, Cloudflare LB. Ahead of the request path
+ *   L1 Client                 Browser · Mobile app · API client · Delegated agent · Autonomous agent · M2M (+ workforce users, via P3)
+ *   L2 Edge protection / CDN  Akamai, Cloudflare: classify callers, do not establish identity
+ *   L3 Regional perimeter     PSaaS+ (on-prem) · AWS WAF (AWS): CDN traffic only
+ *   L4 Enforcement tier       Tier 2, the DMZ gateway inside SESF on both substrates (Envoy / Kong): the single enforcement point
+ *   L5 IFA workload zone      application workloads on GKP and EKS, reachable only from L4 over mTLS
+ *   L6 Internal network       downstream services, systems of record, session and signal managers, broker, config pipeline
  *
- *   P  Private connectivity   VAN / private circuits / leased lines, outside the internet path, landing on
- *                             BP PSaaS (on-prem); and AWS PrivateLink, where a trusted partner's AWS service
- *                             reaches our endpoint service without leaving the AWS network
+ *   P1 Private connectivity   VAN / private circuit / leased line to BP PSaaS, entering at L3
+ *   P2 Cloud private conn.    AWS PrivateLink from a partner VPC to our endpoint service, entering at L4
+ *   P3 Internal network       workforce users on the internal network, entering at L4
  *
  * Everything you may want to correct lives in LAYERS, NAMES, FOOTPRINT, ROLES and CHECKS below.
  * Layout: layers run left to right along x; on-prem / Akamai is the back lane (z < 0), cloud / Cloudflare the front lane (z > 0).
@@ -2377,34 +2461,38 @@ window.FK_CAPTIONS = {
   const FK = window.FlowKit;
   const { Stage, Trace, ObsWall, Device, Wall, Link, Packet, zone, outline, ring, fly, route, arc, Player } = FK;
 
-  /* ---------- the seven layers ---------- */
-  const X = [-1755, -1230, -700, 0, 700, 1400, 2100];   // X[1]: centre of the (narrow) internet band
+  /* ---------- the layers ---------- */
+  // Columns along x: X[0] the clients (L1), X[1] the (narrow) internet band, X[2]..X[6] L2..L6. L0 is the DNS box left of the clients.
+  const X = [-1755, -1230, -700, 0, 700, 1400, 2100];
   const IW = 175;                                        // internet band half-width
   const LAYERS = [
-    { name: 'Internet client', alias: 'Internet', color: '#94A3B8', desc: 'Browsers, mobile apps, API clients, machine-to-machine callers and AI agents on the public internet' },
-    { name: 'Global steering', alias: 'DNS control plane', color: '#F472B6', desc: 'DNS control plane beside the clients. jpmorgan.com is served by 4 JPMorgan primary and 3 Cloudflare secondary nameservers; resolvers ask any of them. The primary hands app hostnames to Akamai GTM; Cloudflare can answer overridden hostnames via Cloudflare LB. Requests never pass through it' },
-    { name: 'CDN / edge protection', alias: 'Edge', color: '#F97316', desc: 'TLS, caching, DDoS absorption, WAF and bot management at thousands of edge PoPs' },
-    { name: 'Regional perimeter', alias: 'Perimeter', color: '#FBBF24', desc: 'Entry to the on-prem network (PSaaS+) or to AWS (AWS WAF); only CDN origin traffic is admitted' },
-    { name: 'Internal DMZ', alias: 'SESF · Tier 2', color: '#22D3EE', desc: 'On-prem internal DMZ with the T2 gateway proxy. AWS has no separate Tier 2 hop' },
-    { name: 'Cross-firewall zone', alias: 'ESF · Tier 3', color: '#818CF8', desc: 'T3 web and API gateways broker every call across the firewall into the trusted network' },
-    { name: 'Trusted workloads', alias: 'Services', color: '#34D399', desc: 'Application workloads on-prem and in the cloud' }
-  ].map((L, i) => ({ ...L, i, x1: X[i] - 350, x2: X[i] + 350, shot: { x: X[i], y: -190, z: 60, rx: -30, ry: -16, d: 3300 } }));
-  // L1 is a box to the left of the clients, not a column in the request path
+    { name: 'DNS control plane', alias: 'Steering', color: '#F472B6', desc: 'Resolves the hostname to an edge address before any request is made, chosen by location, latency, load and health. 4 JPMorgan primary and 3 Cloudflare secondary nameservers, with Akamai GTM and Cloudflare Load Balancing steering. No traffic flows through it; steering changes are bounded by TTL and resolver caching' },
+    { name: 'Client', alias: 'Untrusted', color: '#94A3B8', desc: 'Browsers, mobile apps, API clients, delegated agents, autonomous agents and M2M callers, over the internet, private connectivity or the internal network. Untrusted regardless of type; each holds a sender-constrained credential bound to a key it controls' },
+    { name: 'Edge protection / CDN', alias: 'Edge', color: '#F97316', desc: 'Akamai and Cloudflare, active-active from one source ruleset. Terminates TLS, caches, absorbs volumetric attack, applies WAF, bot and agent classification, geographic policy and per-client rate limits. Classifies callers; does not establish identity' },
+    { name: 'Regional perimeter', alias: 'Perimeter', color: '#FBBF24', desc: 'PSaaS+ on-prem (9 data centres) and AWS WAF in AWS (8 regions). Admits only traffic from the CDN, which is what makes origin lockdown enforceable; a second WAF pass and perimeter traffic policy' },
+    { name: 'Enforcement tier', alias: 'SESF · Tier 2', color: '#22D3EE', desc: 'The DMZ gateway on both substrates, inside SESF. The single enforcement point: breaks and inspects TLS, resolves the credential to live state, exchanges tokens, runs the global and route policies, enforces scopes, mandates and lifetimes, consumes revocation and risk signals and injects verified identity. Fails closed' },
+    { name: 'IFA workload zone', alias: 'Workloads', color: '#818CF8', desc: 'Isolated firewall application zone: application workloads on GKP and EKS, reachable only from L4 and only over mutual TLS. Receives verified identity as headers rather than parsing tokens' },
+    { name: 'Internal network', alias: 'Trusted services', color: '#34D399', desc: 'Downstream services, systems of record, the identity platform\'s session and signal managers, the message broker, the configuration pipeline and the observability stack. Identity is propagated rather than re-asserted' }
+  ].map((L, i) => { const x = i === 1 ? X[0] : X[i]; return { ...L, i, x1: x - 350, x2: x + 350, shot: { x, y: -190, z: 60, rx: -30, ry: -16, d: 3300 } }; });
+  // L0 is a box to the left of the clients, ahead of the request path rather than in it
   const DNSB = { x1: -3215, x2: -2155, ns: -2915, sr: -2465, za: -530, zc: 520, nz: [-740, -600, -460, -320, 380, 520, 660] };
   const NJ = 4;   // ns1..ns4 are JPM (primary), ns5..ns7 Cloudflare (secondary)
-  Object.assign(LAYERS[1], { x1: DNSB.x1, x2: DNSB.x2, shot: { x: -2605, y: -180, z: 60, rx: -34, ry: 24, d: 3500 } });
-  // Private connectivity: not a numbered layer. Two corridors outside the internet path, one per network.
-  const PZ = { on: -1260, aws: 1265 };             // on-prem corridor centre line; partner VPC centre line (z)
-  const P = LAYERS.push({ tag: 'P', name: 'Private connectivity', alias: 'VAN · leased line', color: '#2DD4BF',
-    desc: 'Outside the internet path. On-prem: business partners on VAN / leased lines land on BP PSaaS. AWS: a trusted partner\'s AWS service reaches our endpoint service over PrivateLink without leaving the AWS network',
-    test: q => Math.abs(q[2]) > 1040, shot: { x: -900, y: -80, z: 0, rx: -62, ry: 0, d: 7600 } }) - 1;
+  Object.assign(LAYERS[0], { x1: DNSB.x1, x2: DNSB.x2, shot: { x: -2605, y: -180, z: 60, rx: -34, ry: 24, d: 3500 } });
+  // Private connectivity: not a numbered layer. Corridors outside the internet path:
+  // P1 on-prem (back, left), P3 internal network (back, right), P2 the partner VPC (front)
+  const PZ = { on: -1260, aws: 1265 };             // back corridor centre line; partner VPC centre line (z)
+  const P = LAYERS.push({ tag: 'P', name: 'Private connectivity', alias: 'P1 · P2 · P3', color: '#2DD4BF',
+    desc: 'Paths that skip part of the internet route. P1: VAN, private circuit or leased line to BP PSaaS, entering at L3. P2: AWS PrivateLink from a partner VPC to our endpoint service, entering at L4. P3: workforce users on the internal network, entering at L4. The client is still L1 and still carries a credential',
+    test: q => Math.abs(q[2]) > 1040, shot: { x: -300, y: -80, z: 0, rx: -62, ry: 0, d: 8200 } }) - 1;
 
   const NAMES = {
-    browser: ['Client Browser', 'web app'],
-    mobile: ['Client Mobile App', 'iOS / Android'],
-    api: ['API client', 'REST / JSON'],
-    m2m: ['M2M', 'service to service'],
-    agent: ['AI agent', 'LLM tool calls'],
+    browser: ['Browser', 'our web app'],
+    mobile: ['Mobile app', 'our iOS / Android app'],
+    api: ['API client', '3rd party app · for a user'],
+    dagent: ['Delegated agent', 'acts for a user'],
+    aagent: ['Autonomous agent', 'own mandate · no user'],
+    m2m: ['M2M', 'workload identity · no user'],
+    wf: ['Workforce user', 'internal network'],
     ns1: ['ns1.jpmorganchase.com', 'JPMorgan DNS · primary'],
     ns2: ['ns2.jpmorganchase.com', 'JPMorgan DNS · primary'],
     ns3: ['ns05.jpmorganchase.com', 'JPMorgan DNS · primary'],
@@ -2418,25 +2506,27 @@ window.FK_CAPTIONS = {
     cdnC: ['Cloudflare Edge (WAF/CDN)', 'edge protection · 310+ cities'],
     psaas: ['PSaaS+', 'on-prem regional perimeter'],
     waf: ['AWS WAF', 'public cloud regional perimeter'],
-    t2: ['T2 Gateway Proxy', 'Envoy GCR on GVSI'],
-    bpOn: ['Business partner', 'partner network · private circuit'],
-    bpAws: ['Partner service', '3rd party\'s own AWS account'],
+    t2: ['T2 gateway · on-prem', 'Envoy / Kong · SESF'],
+    t2c: ['T2 gateway · AWS', 'Envoy / Kong · EKS'],
+    bpOn: ['Institutional client', 'VAN · private circuit'],
+    bpAws: ['Partner service', '3rd party\'s own AWS VPC'],
     eni: ['Interface endpoint', 'ENI in the partner VPC'],
-    bpp: ['BP PSaaS', 'business partner entry · on-prem'],
-    pl: ['Private Link', 'endpoint service · our VPC'],
-    t3web: ['T3 IFA Web Gateway', 'Envoy on GKP'],
-    t3api: ['T3 IFA API Gateway', 'Kong on GKP'],
-    cweb: ['Cloud Web Gateway', 'Envoy on EKS'],
-    capi: ['Cloud API Gateway', 'Kong on EKS'],
-    wlOn: ['On-prem workloads', 'application services'],
-    wlCl: ['Cloud workloads', 'application services'],
+    bpp: ['BP PSaaS', 'P1 entry · L3 · on-prem'],
+    pl: ['Endpoint service', 'P2 · PrivateLink + NLB'],
+    wlOn: ['Workloads · GKP', 'IFA zone · on-prem'],
+    wlCl: ['Workloads · EKS', 'IFA zone · AWS'],
+    sess: ['Session manager', 'identity platform'],
+    svc: ['Downstream services', 'internal network'],
+    sig: ['Signal manager', 'identity platform · SSF'],
+    broker: ['Message broker', 'signals and events'],
+    sor: ['Systems of record', 'internal network'],
+    cfg: ['Config pipeline', 'and register'],
     attacker: ['Attacker', 'direct-to-origin probe'],
-    fraud: ['Fraud detection', 'SSF transmitter · CAEP'],
     obs: 'Observability plane',
     w1: 'L3 perimeter · CDN origin traffic only',
-    w2: 'SESF firewall · Tier 2',
-    w3: 'ESF firewall · Tier 3',
-    w4: 'Trusted network boundary'
+    w2: 'SESF · enforcement tier',
+    w3: 'IFA zone firewall · mTLS from L4 only',
+    w4: 'Internal network'
   };
   const FOOTPRINT = {
     akamai: { label: '4,100+ PoPs', NA: 1600, EMEA: 1100, APAC: 750 },
@@ -2446,25 +2536,35 @@ window.FK_CAPTIONS = {
     t2: { label: '9 DCs', NA: 4, EMEA: 2, APAC: 3 }
   };
   const ROLES = {
-    browser: 'Customers using the web applications.', mobile: 'Native mobile apps calling web and API endpoints.',
-    api: 'Clients integrating over public APIs.', m2m: 'Unattended machine-to-machine integrations.', agent: 'AI agents acting for users or crawling content; subject to bot and agent policy at the edge.',
+    browser: 'Our web application in the user\'s browser. Presents a signed session artefact (cookie) or opaque reference, which L4 resolves to live session state.',
+    mobile: 'Our native iOS and Android apps. Present a key-bound access token, resolved at L4 to live session state and device binding.',
+    api: 'A customer\'s or partner\'s application acting for a user. Presents a delegated access token, DPoP or certificate bound; L4 resolves it to the user\'s grant and consented scopes. mTLS terminates at L4.',
+    dagent: 'An AI agent acting for a specific user. Presents an exchanged agent-scoped token (sub = user, act = agent); L4 resolves the delegation, with the user\'s entitlements as the ceiling. Step-up goes back to the user.',
+    aagent: 'An AI agent transacting in its own right under a mandate from its owner. Presents its agent credential plus a signed request; L4 resolves the registered agent and its live mandate. mTLS terminates at L4.',
+    m2m: 'A system calling as itself, with no user. Presents client credentials or a signed assertion; L4 resolves workload identity and fixed scopes. mTLS terminates at L4.',
+    wf: 'A workforce user on the internal network. Arrives at L4 over P3 without the edge or the perimeter, and gets the same enforcement.',
     steerA: 'Akamai Global Traffic Management. Answers DNS lookups (through the client\'s resolver) with the best healthy edge, judged by location (resolver IP or EDNS client subnet), latency, load and health. Can steer to Akamai or to Cloudflare. Never in the request path.',
     steerC: 'Cloudflare Load Balancing. Answers DNS lookups with an anycast IP (BGP carries the client to the nearest PoP), or can steer to Akamai. For proxied hostnames it also picks the origin pool at the edge. Never in the request path.',
     cdnA: 'Edge TLS termination, caching, DDoS absorption, WAF and bot management. Forwards to either regional perimeter.',
     cdnC: 'Edge TLS termination, caching, DDoS absorption, API protection and bot management. Forwards to either regional perimeter.',
-    psaas: 'Entry point to the on-prem network. Admits only CDN origin traffic into the internal DMZ (SESF / Tier 2).',
-    waf: 'Entry point to AWS. Admits only CDN origin traffic and hands off directly to the EKS gateways.',
-    t2: 'Gateway proxy in the internal DMZ (SESF / Tier 2). Breaks and inspects TLS, then re-encrypts with mTLS to Tier 3.',
-    bpOn: 'A business partner connected over VAN, a private circuit or a leased line into the on-prem network.',
+    psaas: 'Entry point to the on-prem network. PSaaS+ rulesets with Akamai SiteShield source lists admit only CDN traffic into SESF (L4). No platform components of our own.',
+    waf: 'Entry point to AWS. AWS WAF web ACLs on the load balancers admit only CDN traffic and forward to the L4 enforcement gateway on EKS.',
+    t2: 'The enforcement tier (Tier 2) on-prem, inside SESF: Envoy and Kong data planes with their xDS and admin control planes, the session validator sidecar, the policy engine (global and route policies), token exchange and cache, revoke and policy caches, the signal receiver and the config distributor. Fails closed.',
+    t2c: 'The enforcement tier (Tier 2) in AWS: the same DMZ gateway on EKS, with the same components and policies as on-prem. Also fronted by the PrivateLink endpoint service (P2).',
+    bpOn: 'An institutional client on a VAN, private circuit or leased line. The circuit establishes the network path; the client is still L1 and still carries a credential.',
     bpAws: 'A trusted 3rd party\'s service running in its own AWS account and VPC. It calls our API through an interface endpoint and never leaves the AWS network.',
     eni: 'Network interfaces with private IPs in the partner\'s VPC that front our endpoint service. Created and owned by the partner; its DNS name resolves to these private IPs.',
-    bpp: 'Dedicated entry point for business partner private connectivity into the on-prem network. Admits partner traffic into SESF (Tier 2). Never on the internet path.',
-    pl: 'Our PrivateLink endpoint service, behind a Network Load Balancer. Only allow-listed AWS accounts can connect, only to this service, and only partner-to-us. No internet gateway, NAT or public IPs on either side.',
-    t3web: 'Web gateway in the cross-firewall zone (ESF / Tier 3). Brokers web traffic into the trusted on-prem network.',
-    t3api: 'API gateway in the cross-firewall zone (ESF / Tier 3). Authorises and validates API calls into the trusted on-prem network.',
-    cweb: 'Web gateway for cloud workloads, running on EKS.', capi: 'API gateway for cloud workloads, running on EKS. Also serves business partners arriving over Private Link.',
-    fraud: 'Fraud detection service. As a Shared Signals (SSF) transmitter it sends CAEP security events, such as a risk-level change for a session, to the Tier 3 receiver, which enforces them in real time.',
-    wlOn: 'Trusted on-prem application services.', wlCl: 'Trusted cloud application services.', attacker: 'Tries to reach an origin directly, bypassing the CDN.'
+    bpp: 'P1 entry point: circuit termination and BP PSaaS configuration, with the client allow-list and route mapping. Institutional clients bypass L0 and L2 and enter here, at L3.',
+    pl: 'P2 entry point: our PrivateLink endpoint service, its acceptance policy and the network load balancer in front of the enforcement tier. Never traverses the internet; enters at L4, where a credential is still required.',
+    wlOn: 'Application workloads on GKP, with their sidecars, in the isolated firewall application zone. Reachable only from L4 over mTLS; the workload verifies the peer certificate on every connection.',
+    wlCl: 'Application workloads on EKS, with their sidecars, in the isolated firewall application zone. Reachable only from L4 over mTLS.',
+    sess: 'The identity platform\'s session manager: the source of live session state, which the L4 session validator resolves each request against (through its revoke cache).',
+    svc: 'Downstream services the workloads call, with the correlation identifier and acting-for chain carried forward over mTLS.',
+    sig: 'The identity platform\'s signal manager. As a Shared Signals (SSF) transmitter it publishes CAEP events, such as a risk-level change for a session, which the message broker carries to the L4 signal receiver.',
+    broker: 'Message broker carrying revocation and risk signals from the internal network to the enforcement tier.',
+    sor: 'Systems of record behind the workloads.',
+    cfg: 'Configuration pipeline and its register. Route policies are generated from each workload\'s code and distributed to the enforcement tier by the config distributor.',
+    attacker: 'Tries to reach an origin directly, bypassing the CDN.'
   };
   // Illustrative controls shown in the animation and in the info card. Replace with your real policies.
   const CHECKS = {
@@ -2473,16 +2573,13 @@ window.FK_CAPTIONS = {
     steerC: { title: 'Cloudflare LB', items: ['Anycast answers for proxied hostnames', 'Origin pool health and steering', 'Multi-CDN failover'], result: 'Best edge IP, short TTL' },
     cdnA: { title: 'Akamai Edge (WAF/CDN)', items: ['TLS 1.3 terminated at the edge', 'DDoS: absorbed at the edge', 'WAF rules: clean', 'Bot management: human', 'Cache miss: forward to origin'], result: 'Forward to origin · re-encrypted' },
     cdnC: { title: 'Cloudflare Edge (WAF/CDN)', items: ['TLS 1.3 terminated at the edge', 'DDoS: absorbed at the edge', 'API protection: schema and token present', 'Bot score: verified API client', 'Rate limit: within quota'], result: 'Forward to origin · re-encrypted' },
-    psaas: { title: 'PSaaS+ · regional perimeter', items: ['Source in CDN origin ranges', 'Regional DDoS scrubbing', 'Perimeter policy: pass', 'Admit into SESF (Tier 2)'], result: 'ADMIT' },
-    waf: { title: 'AWS WAF · regional perimeter', items: ['Source in CDN IP set', 'Managed rule groups: clean', 'Rate-based rule: under limit', 'Forward to EKS gateways'], result: 'ALLOW' },
-    t2: { title: 'T2 gateway proxy · Envoy GCR', items: ['TLS terminated and inspected', 'Route by host: app.jpmorgan.com', 'Header and size limits', 'Re-encrypt with mTLS to Tier 3'], result: 'Forward to Tier 3 · mTLS' },
-    t3web: { title: 'T3 IFA web gateway · Envoy', items: ['mTLS from Tier 2 verified', 'Session and identity check', 'Route to web service', 'Cross into the trusted zone'], result: 'Forward · mTLS' },
-    t3api: { title: 'T3 IFA API gateway · Kong', items: ['OAuth2 access token valid', 'Scope check', 'OpenAPI schema validation', 'Rate limit: within quota'], result: 'Forward · mTLS' },
-    cweb: { title: 'Cloud web gateway · Envoy on EKS', items: ['Host routing', 'Outlier detection: pod health', 'Retry budget available', 'mTLS into the service mesh'], result: 'Forward · mTLS' },
-    capi: { title: 'Cloud API gateway · Kong on EKS', items: ['OAuth2 token valid', 'Scope: accounts:read', 'OpenAPI schema validation', 'Consumer rate limit: ok'], result: 'Forward · mTLS' },
-    bpp: { title: 'BP PSaaS · partner entry', items: ['Circuit: VAN / leased line, partner Acme', 'Source in allow-listed partner range', 'mTLS: partner certificate', 'Admit into SESF (Tier 2)'], result: 'ADMIT' },
+    psaas: { title: 'PSaaS+ · regional perimeter', items: ['Source in CDN ranges (SiteShield)', 'Second WAF pass: clean', 'Perimeter traffic policy: pass', 'Admit into SESF (L4)'], result: 'ADMIT' },
+    waf: { title: 'AWS WAF · regional perimeter', items: ['Source in CDN IP set', 'Web ACL managed rules: clean', 'Rate-based rule: under limit', 'Forward to the L4 gateway'], result: 'ALLOW' },
+    t2: { title: 'T2 gateway · enforcement tier', items: ['TLS broken and inspected', 'Session resolved to live state', 'Global then route policy', 'Scopes, mandate and lifetime', 'Inject identity · mTLS to L5'], result: 'Forward to L5 · mTLS' },
+    t2c: { title: 'T2 gateway · EKS', items: ['TLS broken and inspected', 'DPoP-bound token · live grant', 'Token exchange · scope accounts:read', 'Global then route policy', 'Inject user + client identity'], result: 'Forward to L5 · mTLS' },
+    bpp: { title: 'BP PSaaS · P1 entry at L3', items: ['Circuit: VAN / leased line, client Acme', 'Source in the client allow-list', 'Route mapping: payments API', 'Admit into SESF (L4)'], result: 'ADMIT' },
     eni: { title: 'Interface endpoint · partner VPC', items: ['Private IP 10.20.3.14 in the partner VPC', 'Private DNS name resolves to the endpoint', 'Security group: 443 to our service only'], result: 'Carried on the AWS network' },
-    pl: { title: 'Private Link · our endpoint service', items: ['Partner AWS account allow-listed', 'Connection request accepted', 'One-way: partner reaches this service only', 'NLB forwards to the Cloud API gateway'], result: 'Admit into our VPC' }
+    pl: { title: 'Endpoint service · P2 entry at L4', items: ['Partner AWS account allow-listed', 'Connection request accepted', 'One-way: partner reaches this service only', 'NLB forwards to the L4 gateway'], result: 'Admit into our VPC' }
   };
 
   const frame = document.getElementById('fk');
@@ -2493,46 +2590,48 @@ window.FK_CAPTIONS = {
   const SL = [], slab = (bb, layer, side) => { SL.push({ bb, layer, side }); return bb; };
   stage.onReset(() => SL.forEach(o => { o.bb.el.style.display = ''; }));
   const trace = new Trace(stage);
-  // Latency budget from the client to Tier 3: p95, warm connections, a well-placed NA user (draft split).
+  // Latency budget from the client to L5: p95, warm connections, a well-placed NA user (draft split).
   // 'net' legs are network distance (depend on where the user is); 'proc' legs are JPMC processing.
   // DNS is cached per TTL and workload time is the application's own, so both sit outside it.
-  const BUDGET = { target: 50, title: 'Latency budget · L0 → L5 · p95', legs: [
+  const BUDGET = { target: 50, title: 'Latency budget · L1 → L5 · p95', legs: [
     { label: 'client → edge', ms: 8, color: '#94A3B8', kind: 'net' },
     { label: 'edge', ms: 3, color: '#F97316', kind: 'proc' },
     { label: 'edge → region', ms: 10, color: '#FB923C', kind: 'net' },
     { label: 'perimeter', ms: 3, color: '#FBBF24', kind: 'proc' },
-    { label: 'T2 proxy', ms: 10, color: '#22D3EE', kind: 'proc' },
-    { label: 'T3 session', ms: 14, color: '#818CF8', kind: 'proc' }] };
+    { label: 'L4 inspect + policy', ms: 10, color: '#22D3EE', kind: 'proc' },
+    { label: 'L4 live state + exchange', ms: 14, color: '#0EA5E9', kind: 'proc' }] };
   const budget = new FK.Budget(stage, BUDGET);
 
-  /* ---------- floor: one band per layer; L3 to L6 split into on-prem and AWS ---------- */
+  /* ---------- floor: one band per layer; L3 to L5 split into on-prem and AWS ---------- */
   const ZB = [-950, 1000], SPLIT = 30;
-  LAYERS.slice(0, 7).forEach((L, i) => {
-    const x1 = X[i] - 345, x2 = X[i] + 345;
-    if (i === 0) {
-      zone(stage, W, { x1, x2, z1: ZB[0], z2: ZB[1], color: L.color, label: 'L0', sub: L.name });
-      zone(stage, W, { x1: DNSB.x1, x2: DNSB.x2, z1: ZB[0], z2: ZB[1], color: LAYERS[1].color, alpha: .04, label: 'L1', sub: 'DNS control plane · not in the request path' });
-    } else if (i === 1) zone(stage, W, { x1: X[1] - IW, x2: X[1] + IW, z1: ZB[0], z2: ZB[1], color: '#64748B', alpha: .04 });
-    else if (i < 3) zone(stage, W, { x1, x2, z1: ZB[0], z2: ZB[1], color: L.color, label: 'L' + i, sub: L.name });
-    else {
-      zone(stage, W, { x1, x2, z1: ZB[0], z2: -SPLIT, color: L.color, label: 'L' + i, sub: L.alias + ' · on-prem' });
-      zone(stage, W, { x1, x2, z1: SPLIT, z2: ZB[1], color: L.color, label: 'L' + i, sub: (i === 4 ? 'PrivateLink endpoint' : L.alias) + ' · AWS' });
-    }
-  });
-  for (const [k, zc] of [['on', PZ.on]])
-    zone(stage, W, { x1: X[0] - 350, x2: X[3] + 180, z1: zc - 150, z2: zc + 150, color: '#2DD4BF', alpha: .05, label: '', sub: '' });
+  zone(stage, W, { x1: DNSB.x1, x2: DNSB.x2, z1: ZB[0], z2: ZB[1], color: LAYERS[0].color, alpha: .04, label: 'L0', sub: 'DNS control plane · ahead of the request path' });
+  zone(stage, W, { x1: X[0] - 345, x2: X[0] + 345, z1: ZB[0], z2: ZB[1], color: LAYERS[1].color, label: 'L1', sub: LAYERS[1].name });
+  zone(stage, W, { x1: X[1] - IW, x2: X[1] + IW, z1: ZB[0], z2: ZB[1], color: '#64748B', alpha: .04 });
+  zone(stage, W, { x1: X[2] - 345, x2: X[2] + 345, z1: ZB[0], z2: ZB[1], color: LAYERS[2].color, label: 'L2', sub: LAYERS[2].name });
+  const SUB = { 3: 'Perimeter', 4: 'SESF · Tier 2', 5: 'IFA zone' };
+  for (const i of [3, 4, 5]) {
+    const L = LAYERS[i], x1 = X[i] - 345, x2 = X[i] + 345;
+    zone(stage, W, { x1, x2, z1: ZB[0], z2: -SPLIT, color: L.color, label: 'L' + i, sub: SUB[i] + ' · on-prem' });
+    zone(stage, W, { x1, x2, z1: SPLIT, z2: ZB[1], color: L.color, label: 'L' + i, sub: SUB[i] + ' · AWS' });
+  }
+  zone(stage, W, { x1: X[6] - 345, x2: X[6] + 345, z1: ZB[0], z2: ZB[1], color: LAYERS[6].color, label: 'L6', sub: LAYERS[6].name });
+  // Back corridor: P1 on the left (institutional client to BP PSaaS), P3 on the right (workforce users on the internal network)
+  zone(stage, W, { x1: X[0] - 350, x2: X[3] + 180, z1: PZ.on - 150, z2: PZ.on + 150, color: '#2DD4BF', alpha: .05, label: '', sub: '' });
+  zone(stage, W, { x1: X[4] + 120, x2: X[6] + 350, z1: PZ.on - 150, z2: PZ.on + 150, color: '#2DD4BF', alpha: .05, label: '', sub: '' });
   outline(stage, W, { pts: [[X[0] - 330, PZ.on - 135], [X[0] + 230, PZ.on - 135], [X[0] + 230, PZ.on + 135], [X[0] - 330, PZ.on + 135]], color: '#2DD4BF', width: 5, dash: '14 10', fill: .05,
-    label: 'Partner network', sub: 'business partner data centre', at: [X[0] - 220, PZ.on + 95] });
-  // AWS: the AWS network holds our VPC (L3 to L6 front lane) and the partner's VPC, side by side
+    label: 'Client network', sub: 'institutional client data centre', at: [X[0] - 220, PZ.on + 95] });
+  outline(stage, W, { pts: [[X[6] - 280, PZ.on - 135], [X[6] + 330, PZ.on - 135], [X[6] + 330, PZ.on + 135], [X[6] - 280, PZ.on + 135]], color: '#34D399', width: 5, dash: '14 10', fill: .05,
+    label: 'Internal network', sub: 'workforce users', at: [X[6] + 220, PZ.on + 95] });
+  // AWS: the AWS network holds our VPC (L3 to L5 front lane) and the partner's VPC, side by side
   const rect = (x1, z1, x2, z2) => [[x1, z1], [x2, z1], [x2, z2], [x1, z2]];
-  outline(stage, W, { pts: rect(-385, 8, 2485, 1470), color: '#FF9900', label: 'AWS network', sub: 'PrivateLink traffic never leaves AWS', at: [2010, 1405] });
-  outline(stage, W, { pts: rect(-362, 24, 2462, 1008), color: '#FF9900', width: 5, dash: '14 10', fill: 0 });
+  outline(stage, W, { pts: rect(-385, 8, 1785, 1470), color: '#FF9900', label: 'AWS network', sub: 'PrivateLink traffic never leaves AWS', at: [1400, 1405] });
+  outline(stage, W, { pts: rect(-362, 24, 1762, 1008), color: '#FF9900', width: 5, dash: '14 10', fill: 0 });
   outline(stage, W, { pts: rect(250, 1110, 1150, 1420), color: '#FF9900', width: 5, dash: '14 10', fill: .05, label: 'Partner VPC', sub: 'trusted 3rd party AWS account', at: [700, 1360] });
-  slab(stage.billboard(null, `<div class="fk-label" style="--led:#FF9900;border-color:rgba(255,153,0,.55);color:#FED7AA"><i></i>Our VPC · AWS account</div>`, { screen: true, p: [2330, -20, 1000] }), 3);
+  slab(stage.billboard(null, `<div class="fk-label" style="--led:#FF9900;border-color:rgba(255,153,0,.55);color:#FED7AA"><i></i>Our VPC · AWS account</div>`, { screen: true, p: [1620, -20, 1000] }), 3);
   const obs = new ObsWall(stage, W, { x: 0, y: -820, z: -1550, w: 4800, h: 640, title: NAMES.obs });
   const W1 = new Wall(stage, W, { x: -350, z1: -950, z2: 1000, lanes: [-450, 450], color: '#FBBF24', label: NAMES.w1 });
-  const W2 = new Wall(stage, W, { x: 350, z1: -950, z2: -30, lanes: [-450], color: '#22D3EE', label: NAMES.w2 });
-  const W3 = new Wall(stage, W, { x: 1050, z1: -950, z2: 1000, lanes: [-650, -250, 250, 650], color: '#818CF8', label: NAMES.w3 });
+  const W2 = new Wall(stage, W, { x: 350, z1: -950, z2: 1000, lanes: [-450, 450], color: '#22D3EE', label: NAMES.w2 });
+  const W3 = new Wall(stage, W, { x: 1050, z1: -950, z2: 1000, lanes: [-450, 450], color: '#818CF8', label: NAMES.w3 });
   const W4 = new Wall(stage, W, { x: 1750, z1: -950, z2: 1000, lanes: [-450, 450], color: '#34D399', label: NAMES.w4 });
   const WALLS = [W1, W2, W3, W4];
   [[W1, 3], [W2, 4], [W3, 5], [W4, 6]].forEach(([w, l]) => w.labelBB && slab(w.labelBB, l));
@@ -2553,7 +2652,9 @@ window.FK_CAPTIONS = {
     reg201: browserUI(`<div style="text-align:center;margin-top:10px"><div style="width:20px;height:20px;border-radius:50%;background:#D1FAE5;color:#059669;margin:0 auto;display:grid;place-items:center;font-weight:700">&#10003;</div><b style="font-size:9px;color:#065F46">Welcome, Ada</b><div style="font-size:7px;color:#64748B">201 Created</div></div>`),
     reg403: browserUI(`<div style="text-align:center;margin-top:10px"><div style="width:20px;height:20px;border-radius:50%;background:#FFE4E6;color:#E11D48;margin:0 auto;display:grid;place-items:center;font-weight:700">!</div><b style="font-size:9px;color:#9F1239">Request rejected</b><div style="font-size:7px;color:#64748B">403 · payload validation failed</div></div>`),
     stepup: browserUI(`<div style="text-align:center;margin-top:8px"><b style="font-size:9px;color:#92400E">Verify it's you</b><div style="font-size:7px;color:#64748B;margin-top:3px">Unusual activity on your session</div><div style="margin:6px auto 0;width:66px;height:13px;border-radius:3px;background:#F59E0B;color:#fff;font-size:7px;display:grid;place-items:center">Continue with passkey</div></div>`),
-    accounts: browserUI(`<b style="font-size:10px;color:#1E3A8A">Accounts</b><div style="margin-top:5px;font-size:7px;color:#475569">Operating ···4821 &nbsp; USD 1.2M</div><div style="font-size:7px;color:#475569">Payroll ···7710 &nbsp; USD 310K</div><div style="margin-top:6px;font-size:7px;color:#059669">200 OK · 412 ms</div>`)
+    accounts: browserUI(`<b style="font-size:10px;color:#1E3A8A">Accounts</b><div style="margin-top:5px;font-size:7px;color:#475569">Operating ···4821 &nbsp; USD 1.2M</div><div style="font-size:7px;color:#475569">Payroll ···7710 &nbsp; USD 310K</div><div style="margin-top:6px;font-size:7px;color:#059669">200 OK · 412 ms</div>`),
+    wf: browserUI(`<b style="font-size:10px;color:#065F46">ops.jpmc.internal</b><div style="margin-top:6px;height:6px;width:64%;background:#E2E8F0;border-radius:2px"></div><div style="margin-top:4px;height:6px;width:44%;background:#E2E8F0;border-radius:2px"></div><div style="margin-top:8px;height:13px;width:60px;border-radius:3px;background:#059669;color:#fff;font-size:7px;display:grid;place-items:center">Open case</div>`),
+    wfOk: browserUI(`<b style="font-size:10px;color:#065F46">Case 48213</b><div style="margin-top:5px;font-size:7px;color:#475569">Client: Acme Corp</div><div style="font-size:7px;color:#475569">Status: open</div><div style="margin-top:6px;font-size:7px;color:#059669">200 OK</div>`)
   };
   const TERM = {
     idle: `<span style="color:#64748B">$</span> <span class="fk-caret">_</span>`,
@@ -2569,36 +2670,40 @@ window.FK_CAPTIONS = {
 
   const dev = (key, o) => new Device(stage, W, { ...o, label: NAMES[key][0], sub: NAMES[key][1], info: o.info || { role: ROLES[key], footprint: o.footprint, controls: CHECKS[key] ? CHECKS[key].items : null } });
   const C = {
-    browser: dev('browser', { layer: 0, x: X[0], z: -620, kind: 'laptop', color: '#334155', screen: SCR.home }),
-    mobile: dev('mobile', { layer: 0, x: X[0], z: -300, kind: 'phone', color: '#334155', screen: PHONE('idle') }),
-    api: dev('api', { layer: 0, x: X[0], z: 10, kind: 'terminal', color: '#334155', screen: TERM.idle }),
-    m2m: dev('m2m', { layer: 0, x: X[0], z: 310, kind: 'rack', w: 90, h: 110, d: 90 }),
-    agent: dev('agent', { layer: 0, x: X[0], z: 610, kind: 'agent', color: '#1E1B4B', accent: '#A78BFA' })
+    browser: dev('browser', { layer: 1, x: X[0], z: -720, kind: 'laptop', color: '#334155', screen: SCR.home }),
+    mobile: dev('mobile', { layer: 1, x: X[0], z: -440, kind: 'phone', color: '#334155', screen: PHONE('idle') }),
+    api: dev('api', { layer: 1, x: X[0], z: -160, kind: 'terminal', color: '#334155', screen: TERM.idle }),
+    dagent: dev('dagent', { layer: 1, x: X[0], z: 120, kind: 'agent', color: '#1E1B4B', accent: '#A78BFA' }),
+    aagent: dev('aagent', { layer: 1, x: X[0], z: 400, kind: 'agent', color: '#2A1A05', accent: '#F59E0B' }),
+    m2m: dev('m2m', { layer: 1, x: X[0], z: 690, kind: 'rack', w: 90, h: 110, d: 90 })
   };
   const D = {
-    ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map(n => [`ns${n}`, dev(`ns${n}`, { layer: 1, x: DNSB.ns, z: DNSB.nz[n - 1], kind: 'rack', w: 150, h: 28, d: 90, nolabel: true,
+    ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map(n => [`ns${n}`, dev(`ns${n}`, { layer: 0, x: DNSB.ns, z: DNSB.nz[n - 1], kind: 'rack', w: 150, h: 28, d: 90, nolabel: true,
       color: n <= NJ ? '#1E293B' : '#2A1A10', accent: n <= NJ ? '#94A3B8' : '#F38020', led: '#94A3B8',
       info: { role: n <= NJ ? 'JPMorgan-hosted authoritative nameserver for jpmorgan.com, the primary. The zone is authored here and transferred to Cloudflare. Resolvers may ask any of the seven NS; this one returns the CNAME that hands app hostnames to Akamai GTM.' : 'Cloudflare secondary nameserver for jpmorgan.com. It receives the zone by transfer from the JPMorgan primary and adds provider diversity for resiliency. For hostnames with a Cloudflare override it answers via Cloudflare LB; otherwise it serves the same records as the primary.' } })])),
-    steerA: dev('steerA', { layer: 1, x: DNSB.sr, z: DNSB.za, kind: 'gateway', w: 140, h: 120, d: 110, accent: '#38BDF8', led: '#94A3B8', icon: ICON.route('#38BDF8'), footprint: FOOTPRINT.akamai }),
-    steerC: dev('steerC', { layer: 1, x: DNSB.sr, z: DNSB.zc, kind: 'gateway', w: 140, h: 120, d: 110, accent: '#F38020', led: '#94A3B8', icon: ICON.route('#F38020'), footprint: FOOTPRINT.cloudflare }),
+    steerA: dev('steerA', { layer: 0, x: DNSB.sr, z: DNSB.za, kind: 'gateway', w: 140, h: 120, d: 110, accent: '#38BDF8', led: '#94A3B8', icon: ICON.route('#38BDF8'), footprint: FOOTPRINT.akamai }),
+    steerC: dev('steerC', { layer: 0, x: DNSB.sr, z: DNSB.zc, kind: 'gateway', w: 140, h: 120, d: 110, accent: '#F38020', led: '#94A3B8', icon: ICON.route('#F38020'), footprint: FOOTPRINT.cloudflare }),
     cdnA: dev('cdnA', { layer: 2, x: X[2], z: -450, kind: 'edge', accent: '#38BDF8', icon: ICON.shield('#38BDF8'), footprint: FOOTPRINT.akamai }),
     cdnC: dev('cdnC', { layer: 2, x: X[2], z: 450, kind: 'edge', accent: '#F38020', icon: ICON.shield('#F38020'), footprint: FOOTPRINT.cloudflare }),
     psaas: dev('psaas', { layer: 3, x: X[3], z: -450, kind: 'gateway', w: 160, h: 150, d: 130, accent: '#FBBF24', icon: ICON.shield('#FBBF24'), footprint: FOOTPRINT.psaas }),
     waf: dev('waf', { layer: 3, x: X[3], z: 450, kind: 'gateway', w: 160, h: 150, d: 130, accent: '#FF9900', icon: ICON.shield('#FF9900'), footprint: FOOTPRINT.waf }),
     t2: dev('t2', { layer: 4, x: X[4], z: -450, kind: 'rack', h: 190, accent: '#22D3EE', icon: ICON.proxy('#22D3EE'), footprint: FOOTPRINT.t2 }),
+    t2c: dev('t2c', { layer: 4, x: X[4], z: 450, kind: 'rack', h: 190, color: '#2A1A05', accent: '#FF9900', icon: ICON.proxy('#FF9900') }),
     bpOn: dev('bpOn', { layer: P, x: X[0], z: PZ.on, kind: 'rack', w: 100, h: 140, d: 90, color: '#134E4A', accent: '#2DD4BF' }),
     bpAws: dev('bpAws', { layer: P, x: 430, z: PZ.aws, kind: 'pods', color: '#3B2A10', accent: '#FF9900', count: 2, gap: 130 }),
     eni: dev('eni', { layer: P, x: 800, z: PZ.aws, kind: 'rack', w: 60, h: 80, d: 60, color: '#2A1A05', accent: '#FF9900', led: '#FF9900' }),
     bpp: dev('bpp', { layer: P, x: X[3], z: PZ.on, kind: 'gateway', w: 150, h: 130, d: 120, color: '#0F2E2B', accent: '#2DD4BF', icon: ICON.shield('#2DD4BF') }),
     pl: dev('pl', { layer: P, x: 800, z: 860, kind: 'portal', accent: '#2DD4BF' }),
-    t3web: dev('t3web', { layer: 5, x: X[5], z: -650, kind: 'gateway', w: 140, h: 130, d: 110, accent: '#818CF8', icon: ICON.web('#818CF8') }),
-    t3api: dev('t3api', { layer: 5, x: X[5], z: -250, kind: 'gateway', w: 140, h: 130, d: 110, accent: '#818CF8', icon: ICON.api('#818CF8') }),
-    cweb: dev('cweb', { layer: 5, x: X[5], z: 250, kind: 'gateway', w: 140, h: 130, d: 110, accent: '#FF9900', icon: ICON.web('#FF9900') }),
-    capi: dev('capi', { layer: 5, x: X[5], z: 650, kind: 'gateway', w: 140, h: 130, d: 110, accent: '#FF9900', icon: ICON.api('#FF9900') }),
-    wlOn: dev('wlOn', { layer: 6, x: X[6], z: -450, kind: 'pods', color: '#1E3A5F', count: 3, gap: 140 }),
-    fraud: dev('fraud', { layer: 6, x: X[6], z: -820, kind: 'rack', w: 110, h: 130, d: 90, color: '#2A1020', accent: '#F472B6', led: '#F472B6' }),
-    wlCl: dev('wlCl', { layer: 6, x: X[6], z: 450, kind: 'pods', color: '#3B2A10', accent: '#FF9900', count: 3, gap: 140 }),
-    attacker: dev('attacker', { layer: 0, x: X[1] - 100, z: 880, kind: 'laptop', color: '#4C0519', led: '#F43F5E', accent: '#F43F5E', hidden: true,
+    wf: dev('wf', { layer: P, x: X[6], z: PZ.on, kind: 'laptop', color: '#334155', screen: SCR.wf }),
+    wlOn: dev('wlOn', { layer: 5, x: X[5], z: -450, kind: 'pods', color: '#1E3A5F', count: 3, gap: 140 }),
+    wlCl: dev('wlCl', { layer: 5, x: X[5], z: 450, kind: 'pods', color: '#3B2A10', accent: '#FF9900', count: 3, gap: 140 }),
+    sess: dev('sess', { layer: 6, x: X[6], z: -820, kind: 'rack', w: 110, h: 130, d: 90, color: '#1E293B', accent: '#22D3EE', led: '#22D3EE' }),
+    svc: dev('svc', { layer: 6, x: X[6], z: -450, kind: 'pods', color: '#14402F', accent: '#34D399', count: 2, gap: 140 }),
+    sig: dev('sig', { layer: 6, x: X[6], z: -110, kind: 'rack', w: 110, h: 130, d: 90, color: '#2A1020', accent: '#F472B6', led: '#F472B6' }),
+    broker: dev('broker', { layer: 6, x: X[6], z: 170, kind: 'rack', w: 110, h: 90, d: 90, color: '#1E1B4B', accent: '#A78BFA', led: '#A78BFA' }),
+    sor: dev('sor', { layer: 6, x: X[6], z: 450, kind: 'rack', w: 120, h: 140, d: 100, color: '#14402F', accent: '#34D399', led: '#34D399' }),
+    cfg: dev('cfg', { layer: 6, x: X[6], z: 760, kind: 'rack', w: 110, h: 100, d: 90, color: '#1E293B', accent: '#94A3B8', led: '#94A3B8' }),
+    attacker: dev('attacker', { layer: 1, x: X[1] - 100, z: 880, kind: 'laptop', color: '#4C0519', led: '#F43F5E', accent: '#F43F5E', hidden: true,
       screen: `<div style="background:#0F0A14;height:100%;color:#FB7185;font:8px ui-monospace,monospace;padding:8px 9px">$ curl --resolve \\<br>&nbsp; app:443:203.0.113.10<br><span style="color:#94A3B8">bypass the CDN</span></div>` })
   };
   slab(stage.billboard(null, `<div class="fk-label" style="--led:#94A3B8;border-color:rgba(148,163,184,.4)"><i></i>Internet</div>`, { screen: true, p: [X[1], -110, 0] }), 2);
@@ -2615,38 +2720,37 @@ window.FK_CAPTIONS = {
     cCA: lk(3, [[-590, 450], [-440, -450]]), cCC: lk(3, [[-590, 450], [-440, 450]]),
     inA: lk(3, [[-440, -450], [-80, -450]]), inC: lk(3, [[-440, 450], [-80, 450]]),
     psT2: lk(4, [[80, -450], [640, -450]]),
+    wafT2: lk(4, [[80, 450], [640, 450]]),
     pvtOn: lk(P, [[X[0] + 60, PZ.on], [-80, PZ.on]], { cls: 'pvt', t: 16 }),
     pInner: lk(P, [[470, PZ.aws], [770, PZ.aws]], { cls: 'pvt', t: 10 }),
     pvtAws: lk(P, [[800, PZ.aws - 35], [800, 860]], { cls: 'pvt', t: 16 }),
-    bpT2: lk(4, [[80, PZ.on], [X[4], PZ.on], [X[4], -510]]),
-    plIn: lk(5, [[800, 860], [900, 650]]),
-    t2W: lk(5, [[760, -450], [900, -650], [1330, -650]]), t2A: lk(5, [[760, -450], [900, -250], [1330, -250]]),
-    wafW: lk(5, [[80, 450], [250, 250], [900, 250]]), wafA: lk(5, [[80, 450], [250, 650], [900, 650]]),
-    tW: lk(5, [[900, 250], [1330, 250]]), tA: lk(5, [[900, 650], [1330, 650]]),
-    oW: lk(6, [[1470, -650], [1620, -450]]), oA: lk(6, [[1470, -250], [1620, -450]]), onT: lk(6, [[1620, -450], [2030, -450]]),
-    cWo: lk(6, [[1470, 250], [1620, 450]]), cAo: lk(6, [[1470, 650], [1620, 450]]), clT: lk(6, [[1620, 450], [2030, 450]]),
+    bpT2: lk(P, [[80, PZ.on], [X[4] - 30, PZ.on], [X[4] - 30, -520]]),
+    plIn: lk(P, [[800, 860], [730, 530]]),
+    wfT2: lk(P, [[X[6] - 70, PZ.on], [X[4] + 40, PZ.on], [X[4] + 40, -520]], { cls: 'pvt', t: 12 }),
+    t2On: lk(5, [[760, -450], [1330, -450]]), t2Cl: lk(5, [[760, 450], [1330, 450]]),
+    onSvc: lk(6, [[1470, -450], [2030, -450]]), clSor: lk(6, [[1470, 450], [2030, 450]]),
     atk: lk(3, [[X[1] + 20, 880], [-560, 880], [-372, 450]], { hidden: true })
   };
-  for (const [pt, txt, side] of [[[-1050, -90, PZ.on], 'VAN · private circuit · leased line', 'on'], [[800, -110, 1060], 'AWS PrivateLink · VPC to VPC · no internet, no public IPs', 'aws']])
+  for (const [pt, txt, side] of [[[-1050, -90, PZ.on], 'P1 · VAN · private circuit · leased line', 'on'], [[800, -110, 1060], 'P2 · AWS PrivateLink · VPC to VPC · no internet, no public IPs', 'aws'], [[1450, -90, PZ.on], 'P3 · internal network ingress', 'int']])
     slab(stage.billboard(null, `<div class="fk-label" style="--led:#2DD4BF;border-color:rgba(45,212,191,.5);color:#99F6E4"><i></i>${txt}</div>`, { screen: true, p: pt }), P, side);
-  // L1 box: two NS groups, each wired to its smart-routing service; one quiet pipe to the client column
+  // L0 box: two NS groups, each wired to its smart-routing service; one quiet pipe to the client column
   const gz = (i1, i2) => (DNSB.nz[i1] + DNSB.nz[i2]) / 2, GZ = { jpm: gz(0, NJ - 1), cf: gz(NJ, 6) };
-  const CNG = { jpm: lk(1, [[DNSB.ns + 80, -30, GZ.jpm], [DNSB.sr - 75, -60, DNSB.za]], { cls: 'steer', t: 7 }),
-                cf: lk(1, [[DNSB.ns + 80, -30, GZ.cf], [DNSB.sr - 75, -60, DNSB.zc]], { cls: 'steer', t: 7 }) };
+  const CNG = { jpm: lk(0, [[DNSB.ns + 80, -30, GZ.jpm], [DNSB.sr - 75, -60, DNSB.za]], { cls: 'steer', t: 7 }),
+                cf: lk(0, [[DNSB.ns + 80, -30, GZ.cf], [DNSB.sr - 75, -60, DNSB.zc]], { cls: 'steer', t: 7 }) };
   const CN = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map(n => [n, n <= NJ ? CNG.jpm : CNG.cf]));
   const nsBox = (i1, i2, color) => outline(stage, W, { pts: [[DNSB.ns - 170, DNSB.nz[i1] - 90], [DNSB.ns + 100, DNSB.nz[i1] - 90], [DNSB.ns + 100, DNSB.nz[i2] + 90], [DNSB.ns - 170, DNSB.nz[i2] + 90]],
     color, width: 4, dash: '12 8', fill: .03 });
   nsBox(0, NJ - 1, '#94A3B8'); nsBox(NJ, 6, '#F38020');
-  const tag = (p, txt, c) => slab(stage.billboard(null, `<div class="fk-label" style="--led:rgb(${c});border-color:rgba(${c},.45);color:rgb(${c});font-size:11px"><i></i>${txt}</div>`, { screen: true, p }), 1);
+  const tag = (p, txt, c) => slab(stage.billboard(null, `<div class="fk-label" style="--led:rgb(${c});border-color:rgba(${c},.45);color:rgb(${c});font-size:11px"><i></i>${txt}</div>`, { screen: true, p }), 0);
   tag([DNSB.ns - 30, -60, GZ.jpm], 'JPMorgan DNS · 4 NS · primary', '148,163,184');
   tag([DNSB.ns - 30, -60, GZ.cf], 'Cloudflare DNS · 3 NS · secondary to JPMorgan', '243,128,32');
   const PIPE = { a: [-1985, -70, -150], b: [-2295, -70, -150] };
-  const pipe = lk(1, [[PIPE.a[0], PIPE.a[1], PIPE.a[2]], [PIPE.b[0], PIPE.b[1], PIPE.b[2]]], { cls: 'dnspipe', t: 26 });
+  const pipe = lk(0, [[PIPE.a[0], PIPE.a[1], PIPE.a[2]], [PIPE.b[0], PIPE.b[1], PIPE.b[2]]], { cls: 'dnspipe', t: 26 });
   tag([(PIPE.a[0] + PIPE.b[0]) / 2, -110, PIPE.a[2]], 'DNS lookups', '148,163,184');
   // Small animated flow lines: each client -> pipe; pipe -> each NS group and -> GTM / LB (the resolver asks each directly).
   // Dash size is set per segment so every line shows the same world-space pattern despite the z-stretch.
   const flow = pts => {
-    const l = lk(1, pts, { cls: 'dnsflow', t: 5 });
+    const l = lk(0, pts, { cls: 'dnsflow', t: 5 });
     l.segs.forEach((sg, k) => { const L = Math.hypot(...[0, 1, 2].map(j => pts[k + 1][j] - pts[k][j])); sg.style.setProperty('--ps', (2400 / L).toFixed(2) + 'px');
       sg.querySelectorAll('.fk-f').forEach(f => { f.style.animationDelay = (-(pts[k][2] * 7 % 2600) / 1000).toFixed(2) + 's'; }); });
     return l;
@@ -2656,32 +2760,34 @@ window.FK_CAPTIONS = {
   const OUT = Object.fromEntries(Object.entries(ENTRY).map(([k, e]) => [k, flow([PIPE.b, e])]));
   const entryOf = d => d === D.steerA ? 'gtm' : d === D.steerC ? 'lb' : DNSB.nz.indexOf(d.z) < NJ ? 'jpm' : 'cf';
   const RT = {
-    web: [L.cl.browser, L.hubA, L.cAA, L.inA, L.psT2, L.t2W, L.oW, L.onT],
-    api: [L.cl.api, L.hubC, L.cCC, L.inC, L.wafA, L.tA, L.cAo, L.clT],
-    bpOn: [L.pvtOn, L.bpT2, L.t2A, L.oA, L.onT],
-    bpAws: [L.pInner, L.pvtAws, L.plIn, L.tA, L.cAo, L.clT],
-    m2m: [L.cl.m2m, L.hubA, L.cAA, L.inA, L.psT2, L.t2A, L.oA, L.onT],
-    mobile: [L.cl.mobile, L.hubC, L.cCC, L.inC, L.wafW, L.tW, L.cWo, L.clT]
+    web: [L.cl.browser, L.hubA, L.cAA, L.inA, L.psT2, L.t2On, L.onSvc],
+    api: [L.cl.api, L.hubC, L.cCC, L.inC, L.wafT2, L.t2Cl, L.clSor],
+    bpOn: [L.pvtOn, L.bpT2, L.t2On],
+    bpAws: [L.pInner, L.pvtAws, L.plIn, L.t2Cl],
+    wf: [L.wfT2, L.t2On],
+    m2m: [L.cl.m2m, L.hubA, L.cAA, L.inA, L.psT2, L.t2On],
+    mobile: [L.cl.mobile, L.hubC, L.cCC, L.inC, L.wafT2, L.t2Cl]
   };
 
   const pk = new Packet(stage, W, { size: 34 });
-  // T2 deployment view, modelled on ingress-poc: gateway-envoy's filter chain makes one ext_authz call to
-  // auth-service, which checks the session JWT and then evaluates the Rego payload policies in-process.
+  // L4 deployment view, modelled on ingress-poc: gateway-envoy's filter chain makes one ext_authz call to
+  // auth-service, which resolves the session, exchanges the token and then evaluates the Rego payload policies in-process.
   const T2W = 1180, T2P = 18 + 4 * (148 + 20);
   const T2D = new FK.Drill(stage, {
     at: [X[4], -250, -450], dx: -280, w: T2W,
-    title: 'T2 Gateway · gateway-envoy', sub: 'SESF / Tier 2 · deployment view',
-    frame: 'GVSI host · envoy (image from GCR)  →  ext_authz  →  auth-service · Rego payload policies (embedded OPA)',
+    title: 'L4 · T2 gateway · gateway-envoy', sub: 'Enforcement tier · SESF · deployment view',
+    frame: 'envoy (Envoy / Kong data plane, xDS control plane)  →  ext_authz  →  auth-service · session validator, token exchange, Rego payload policies (embedded OPA)',
     lanes: [
       { label: 'gateway-envoy · HTTP filter chain', h: 96, stages: [
-        { label: 'listener :443', sub: 'TLS termination', items: ['TLS from PSaaS+', 'Host → virtual host'] },
+        { label: 'listener :443', sub: 'break and inspect TLS', items: ['TLS from L3', 'Host → virtual host'] },
         { label: 'route match', sub: 'routing', items: ['exact / {param} paths', 'route → cluster'] },
         { label: 'ext_authz', sub: 'call auth-service', items: ['request + body →', 'body ≤ 1 MB'] },
-        { label: 'router', sub: 'forward upstream', items: ['mTLS → Tier 3', 'timeouts · retries'] }] },
-      { box: 'auth-service · ext_authz server: session check, then Rego payload policies in order', h: 210, stages: [
-        { label: 'session JWT', sub: 'coarse-grained', items: ['iss = session mgr', 'aud = ingress-gateway', 'ES256 sig · JWKS', 'DPoP (cnf.jkt)'] },
+        { label: 'router', sub: 'forward to L5', items: ['mTLS → workload', 'verified identity headers'] }] },
+      { box: 'auth-service · ext_authz server: live state and token exchange, then the Rego payload policies in order', h: 210, stages: [
+        { label: 'session', sub: 'session validator', items: ['aud = ingress-gateway', 'signature · DPoP (cnf.jkt)', 'live state · revoke cache'] },
+        { label: 'token exchange', sub: 'internal token · cached', items: ['scopes and lifetime', 'mandate (agents)', 'acting-for chain'] },
         { label: 'global policy', sub: 'payload.global · every route', items: ['SQL injection', 'XSS', 'NoSQL / template'] },
-        { label: 'route policy', sub: 'payload_policy_ref · this route', items: ['required fields', 'email format', 'phone (E.164)', 'dob YYYY-MM-DD'] }] }
+        { label: 'route policy', sub: 'generated from the workload code', items: ['required fields', 'email format', 'phone (E.164)', 'dob YYYY-MM-DD'] }] }
     ],
     panel: { full: true, x: T2P, w: T2W - 18 - T2P }
   });
@@ -2726,8 +2832,8 @@ window.FK_CAPTIONS = {
     global: { ok: 'has_injection = false  →  allow = true', no: 'has_injection = true  →  allow = false<br>deny_reason: "request body contains a potentially malicious pattern (possible injection attempt)"' },
     route: { ok: 'every rule holds  →  allow = true', no: 'email_valid = false  →  allow = false<br>deny_reason: "email is not a valid email address"' }
   };
-  const RESP = { valid: ['→ 201 Created (forwarded to the backend)', 'ok'], sqli: ['→ 403 {"error":"Payload validation failed","reason":["request body contains a potentially malicious pattern…"]}', 'no'],
-    email: ['→ 403 {"error":"Payload validation failed","reason":["email is not a valid email address"]}', 'no'], get: ['→ allow · session valid, no body to inspect', 'ok'] };
+  const RESP = { valid: ['→ 201 Created (forwarded to the workload in L5)', 'ok'], sqli: ['→ 403 {"error":"Payload validation failed","reason":["request body contains a potentially malicious pattern…"]}', 'no'],
+    email: ['→ 403 {"error":"Payload validation failed","reason":["email is not a valid email address"]}', 'no'], get: ['→ allow · session live, token exchanged, no body to inspect', 'ok'] };
   // One snapshot of the evaluation panel. phase: 'pre' | 'global' | 'route'; j: row being evaluated; done: show the policy's result
   function evalHtml(k, phase, j, done, resp) {
     const q = PAY[k];
@@ -2752,8 +2858,9 @@ window.FK_CAPTIONS = {
     t = T2D.visit(tl, t, [0, 1], { tick: 300, hold: 150 });
     t = T2D.visit(tl, t, [0, 2], { tick: 300, hold: 150, keep: true });
     t = T2D.visit(tl, t, [1, 0], { tick: 330 });
+    t = T2D.visit(tl, t, [1, 1], { tick: 300 });
     let lastPhase = 'pre', lastJ = -1;
-    if (k === 'get') { T2D.skip(tl, t, [1, 1], 'skipped · no body'); T2D.skip(tl, t, [1, 2], 'skipped · no body'); t += 1200; }
+    if (k === 'get') { T2D.skip(tl, t, [1, 2], 'skipped · no body'); T2D.skip(tl, t, [1, 3], 'skipped · no body'); t += 1200; }
     else {
       // execute a policy: the token sits on the stage while the panel walks the rows
       const run = (li, phase, rows, checks) => {
@@ -2767,9 +2874,9 @@ window.FK_CAPTIONS = {
         lastPhase = phase; lastJ = rows.length - 1;
         return bad;
       };
-      const gBad = run([1, 1], 'global', GLOBAL(k), k === 'sqli' ? ['fail', 'pass', 'pass'] : ['pass', 'pass', 'pass']);
-      if (gBad) { T2D.tokState(tl, t, 'bad'); T2D.skip(tl, t, [1, 2], 'never evaluated'); t += 500; }
-      else if (run([1, 2], 'route', ROUTE(k), k === 'email' ? ['pass', 'fail', 'pass', 'pass'] : ['pass', 'pass', 'pass', 'pass'])) T2D.tokState(tl, t, 'bad');
+      const gBad = run([1, 2], 'global', GLOBAL(k), k === 'sqli' ? ['fail', 'pass', 'pass'] : ['pass', 'pass', 'pass']);
+      if (gBad) { T2D.tokState(tl, t, 'bad'); T2D.skip(tl, t, [1, 3], 'never evaluated'); t += 500; }
+      else if (run([1, 3], 'route', ROUTE(k), k === 'email' ? ['pass', 'fail', 'pass', 'pass'] : ['pass', 'pass', 'pass', 'pass'])) T2D.tokState(tl, t, 'bad');
     }
     t = T2D.move(tl, t + 200, [0, 2], 600);
     T2D.panel(tl, t, evalHtml(k, lastPhase, lastJ, true, true));
@@ -2780,20 +2887,21 @@ window.FK_CAPTIONS = {
     t = T2D.visit(tl, t, [0, 3], { tick: 300, hold: 150 });
     return T2D.exit(tl, t, 1) + 300;
   }
-  // T3 deployment view (ESF / Tier 3): Envoy + session manager + CAEP receiver + enforcement policy (draft, to confirm)
+  // L4 live-state view: the session validator sidecar resolves each request against the session manager (L6) through
+  // a revoke cache; the signal receiver takes CAEP events from the signal manager (L6) via the message broker (draft, to confirm)
   const T3D = new FK.Drill(stage, {
-    at: [X[5], -240, -650], dx: -280, w: T2W,
-    title: 'T3 · ESF gateway', sub: 'ESF / Tier 3 · Session & Signals · deployment view',
-    frame: 'envoy (T3 IFA web)  →  ext_authz  →  session manager   ·   fraud / IdP / device signals  →  CAEP receiver  →  enforcement policy',
+    at: [X[4], -250, -450], dx: -280, w: T2W,
+    title: 'L4 · Session & signals', sub: 'Enforcement tier · live state · deployment view',
+    frame: 'envoy  →  session validator sidecar (revoke cache)  →  session manager (L6)   ·   signal manager (L6)  →  message broker  →  signal receiver  →  enforcement',
     lanes: [
-      { label: 'T3 envoy · HTTP filter chain', h: 96, stages: [
-        { label: 'listener :443', sub: 'mTLS from Tier 2', items: ['client cert: T2 gateway', 'workload identity ok'] },
-        { label: 'session check', sub: 'ext_authz → session mgr', items: ['look up live session', 'apply enforcement state'] },
-        { label: 'token exchange', sub: 'internal identity', items: ['internal token minted', 'never leaves ESF'] },
-        { label: 'router', sub: 'forward to workload', items: ['mTLS → L6', 'identity headers'] }] },
-      { box: 'Session & Signals · session manager, CAEP receiver (Shared Signals), enforcement policy', h: 210, stages: [
-        { label: 'session manager', sub: 'live session state', items: ['session active', 'AAL2 · DPoP bound', 'risk level'] },
-        { label: 'CAEP receiver', sub: 'Shared Signals (SSF)', items: ['SET signature valid', 'aud = ingress receiver', 'subject = live session'] },
+      { label: 'T2 envoy · per request', h: 96, stages: [
+        { label: 'listener :443', sub: 'break and inspect TLS', items: ['TLS from L3', 'credential presented'] },
+        { label: 'session validator', sub: 'sidecar · live state', items: ['revoke cache checked', 'enforcement state applied'] },
+        { label: 'token exchange', sub: 'internal token', items: ['scopes and lifetime', 'cached per session'] },
+        { label: 'router', sub: 'forward to L5', items: ['mTLS → workload', 'identity headers'] }] },
+      { box: 'Live state · the session manager and signal manager in L6, reached through the session validator and the message broker', h: 210, stages: [
+        { label: 'session manager', sub: 'L6 · identity platform', items: ['session active', 'AAL2 · DPoP bound', 'risk level'] },
+        { label: 'signal receiver', sub: 'Shared Signals (SSF) · via broker', items: ['SET signature valid', 'aud = ingress receiver', 'subject = live session'] },
         { label: 'enforcement', sub: 'policy · signal → action', items: ['risk high → step-up', 'session-revoked → revoke', 'credential-change → re-auth'] }] }
     ],
     panel: { full: true, x: T2P, w: T2W - 18 - T2P }
@@ -2804,9 +2912,9 @@ window.FK_CAPTIONS = {
   };
   const t3Html = {
     ok: done => `<div class="ev">${T3P.req('GET /accounts', 'session live', '#34D399')}<div class="js"><div>GET /accounts HTTP/2</div><div>x-session-id: sid-7f3c…e21</div><div>x-auth-sub: ada@client.com</div><div>traceparent: 00-4bf9…-01</div></div>` +
-      T3P.sess([[1, 'status', 'active'], [1, 'assurance', 'AAL2 (passkey)'], [1, 'device binding', 'DPoP jkt matches'], [1, 'risk level', 'low'], [1, 'enforcement', 'none']], done ? ['allow → internal token minted → workload (mTLS)', 'ok'] : null) + '</div>',
-    set: step => `<div class="ev">${T3P.req('CAEP event · Security Event Token', 'from fraud detection', '#F472B6')}<div class="js"><div>{ "iss": "https://fraud.jpmc.internal",</div><div>  "aud": "ingress-caep-receiver",</div><div>  "events": { "…/caep/event-type/risk-level-change": {</div><div class="${step >= 1 ? 'scan' : ''}">      "subject": { "format": "opaque", "id": "sid-7f3c…e21" },</div><div class="${step >= 1 ? 'hit' : ''}">      "previous_level": "low", "current_level": "high",</div><div>      "reason_admin": "impossible travel + new payee" } } }</div></div>` +
-      (step >= 1 ? `<div class="pk">CAEP receiver <span>· verify, then match to a live session</span></div><div class="rl"><i>✓</i><span>signature</span><em>ES256 · transmitter JWKS</em></div><div class="rl"><i>✓</i><span>audience</span><em>ingress-caep-receiver</em></div><div class="rl"><i>✓</i><span>subject</span><em>sid-7f3c…e21 is live</em></div>` : '') +
+      T3P.sess([[1, 'status', 'active'], [1, 'assurance', 'AAL2 (passkey)'], [1, 'device binding', 'DPoP jkt matches'], [1, 'risk level', 'low'], [1, 'enforcement', 'none']], done ? ['allow → internal token minted → workload in L5 (mTLS)', 'ok'] : null) + '</div>',
+    set: step => `<div class="ev">${T3P.req('CAEP event · Security Event Token', 'from the signal manager, via the broker', '#F472B6')}<div class="js"><div>{ "iss": "https://signals.jpmc.internal",</div><div>  "aud": "ingress-caep-receiver",</div><div>  "events": { "…/caep/event-type/risk-level-change": {</div><div class="${step >= 1 ? 'scan' : ''}">      "subject": { "format": "opaque", "id": "sid-7f3c…e21" },</div><div class="${step >= 1 ? 'hit' : ''}">      "previous_level": "low", "current_level": "high",</div><div>      "reason_admin": "impossible travel + new payee" } } }</div></div>` +
+      (step >= 1 ? `<div class="pk">signal receiver <span>· verify, then match to a live session</span></div><div class="rl"><i>✓</i><span>signature</span><em>ES256 · transmitter JWKS</em></div><div class="rl"><i>✓</i><span>audience</span><em>ingress-caep-receiver</em></div><div class="rl"><i>✓</i><span>subject</span><em>sid-7f3c…e21 is live</em></div>` : '') +
       (step >= 2 ? `<div class="pk route">enforcement policy <span>· risk-level-change → action</span></div><div class="rl x"><i>!</i><span>current_level</span><em>"high" → require step-up (AAL3)</em></div><div class="out no">action: step_up · session enforcement state updated · effective on the next request</div>` : '') + '</div>',
     stepup: done => `<div class="ev">${T3P.req('POST /v1/payments', 'same session, next request', '#FBBF24')}<div class="js"><div>POST /v1/payments HTTP/2</div><div>x-session-id: sid-7f3c…e21</div><div>{ "amount": 25000.00, "payee": "···9921" }</div></div>` +
       T3P.sess([[1, 'status', 'active'], [1, 'assurance', 'AAL2 (passkey)'], [0, 'risk level', 'high (CAEP, 4 s ago)'], [0, 'enforcement', 'step-up to AAL3 required']],
@@ -2849,7 +2957,7 @@ window.FK_CAPTIONS = {
   }
   const dnsDot = new FK.Dot(stage, W, { color: '#E2E8F0', size: 11 });
   const drawDots = Array.from({ length: 6 }, () => new FK.Dot(stage, W, { color: '#E2E8F0', size: 11 }));
-  const pkB = new Packet(stage, W, { size: 30 }), pkC = new Packet(stage, W, { size: 30 }), pkD = new Packet(stage, W, { size: 30 }), pkE = new Packet(stage, W, { size: 30 });
+  const pkB = new Packet(stage, W, { size: 30 }), pkC = new Packet(stage, W, { size: 30 }), pkD = new Packet(stage, W, { size: 30 }), pkE = new Packet(stage, W, { size: 30 }), pkF = new Packet(stage, W, { size: 30 });
   stage.tracker = pk;
 
   /* ---------- helpers ---------- */
@@ -2877,7 +2985,7 @@ window.FK_CAPTIONS = {
       let prev = path.at(0).p;
       for (let i = 1; i <= N; i++) {
         const cur = path.at(E(i / N)).p;
-        if ((prev[0] - w.x) * (cur[0] - w.x) < 0 && cur[2] >= w.z1 && cur[2] <= w.z2) {
+        if ((prev[0] >= w.x) !== (cur[0] >= w.x) && cur[2] >= w.z1 && cur[2] <= w.z2) {   // side test: a sample exactly on the wall still counts once
           const lane = Object.keys(w.gates).map(Number).reduce((a, b) => Math.abs(b - cur[2]) < Math.abs(a - cur[2]) ? b : a);
           w.pass(tl, t + (i / N) * dur - 900, lane, 1900);   // fully open well before the packet, closes after it clears
         }
@@ -2892,13 +3000,13 @@ window.FK_CAPTIONS = {
   }
   // DNS lookup, walked step by step. The client's resolver asks one of the dual authoritative nameservers,
   // follows the CNAME hand-off to GTM or Cloudflare LB, and gets the best edge IP. The request itself then goes
-  // client -> internet -> edge and never touches L1.
+  // client -> internet -> edge and never touches L0.
   //   steps: [{ dev, q, ans, sub, check: {title, items, result, color}, link, to }]
   function dns(tl, t, client, steps, o = {}) {
     const a = [client.x - 60, client.topY - 20, client.z], cache = o.cache || 'miss';
     if (cache === 'hit') {
       client.activate(tl, t, 1600);
-      return stage.checklist(tl, t, { at: client.top, title: 'DNS cache (resolver / OS)', items: [{ t: `app.jpmorgan.com cached · ${o.ttlLeft || 14}s of TTL left` }], result: 'No lookup · L1 not contacted', step: 280, hold: 700 });
+      return stage.checklist(tl, t, { at: client.top, title: 'DNS cache (resolver / OS)', items: [{ t: `app.jpmorgan.com cached · ${o.ttlLeft || 14}s of TTL left` }], result: 'No lookup · L0 not contacted', step: 280, hold: 700 });
     }
     const feed = FEED.get(client), port = feed ? feed.pts[0] : [client.x - 110, -40, client.z];
     const top = d => [d.x, d.topY + 20, d.z];
@@ -2915,7 +3023,7 @@ window.FK_CAPTIONS = {
       st.dev.activate(tl, t, st.check ? 2600 : 1200);
       const c = st.check;
       if (c && o.quiet) t += 900;
-      else if (c) t = stage.checklist(tl, t, { at: st.dev.top, title: c.title, items: c.items.map(x => typeof x === 'string' ? { t: x } : x), result: c.result, resultColor: c.color || '#E2E8F0', step: 300, hold: 400, dx: 40, dy: -40 });
+      else if (c) t = stage.checklist(tl, t, { at: st.dev.top, title: c.title, items: c.items.map(x => typeof x === 'string' ? { t: x } : x), result: c.result, resultColor: c.color || '#E2E8F0', step: 300, hold: 400, dx: 40, dy: 10 });
       else t += 600;
       if (st.link) { st.link.mark(tl, t - 200, 'dns'); lit.push(st.link); }
       if (st.to) ring(stage, W, tl, t - 700, st.to.top, '#CBD5E1', 260);
@@ -2966,12 +3074,14 @@ window.FK_CAPTIONS = {
     cloud: { x: 700, y: -170, z: 450, rx: -30, ry: -14, d: 2900 },
     obs: { x: 0, y: -840, z: -1550, rx: -6, ry: 0, d: 5600 },
     t2drill: { x: 1400, y: -925, z: -450, rx: -26, ry: -10, d: 2700 },   // puts the T2 node low-left, the callout opens above it
-    t3drill: { x: 2100, y: -925, z: -650, rx: -26, ry: -10, d: 2700 },
     front: { x: -950, y: -200, z: -260, rx: -34, ry: 6, d: 4600 },
     van: { x: -1100, y: -40, z: -1300, rx: -64, ry: 0, d: 3400 },
-    plink: { x: 700, y: -40, z: 1100, rx: -40, ry: -12, d: 2700 }
+    plink: { x: 700, y: -40, z: 1100, rx: -40, ry: -12, d: 2700 },
+    intnet: { x: 1450, y: -60, z: -1000, rx: -52, ry: -8, d: 3300 },
+    l4: { x: -450, y: -200, z: 0, rx: -30, ry: 0, d: 5600 }   // clients through to L4, for the client-type walk
   };
-  const pod = (wl, i) => [X[6], -150, wl.pods[i].z];
+  SHOT.t3drill = SHOT.t2drill;   // both L4 views open from the on-prem T2 gateway
+  const pod = (wl, i) => [X[5], -150, wl.pods[i].z];
   function wlPulse(tl, t, wl) {
     wl.activate(tl, t, 2000);
     ring(stage, W, tl, t, [wl.x, -140, wl.z], '#34D399', 240);
@@ -2979,22 +3089,22 @@ window.FK_CAPTIONS = {
   }
   function workload(tl, t, wl, pkt, lnk, cls, name, start, dur) {
     wl.activate(tl, t, 2000);
-    ring(stage, W, tl, t, [X[6], -140, wl.z], '#34D399', 240);
+    ring(stage, W, tl, t, [X[5], -140, wl.z], '#34D399', 240);
     tl.add(wl.pods.map(p => p.g), { y: [0, -14, 0], duration: 600, ease: 'inOutSine', delay: (e, i) => i * 120 }, t);
     span(tl, t, wl, name, start, dur);
     return t;
   }
 
-  /* ---------- Chapter 1: the seven layers ---------- */
-  const TOUR_TITLE = ['L0 · Client', 'L1 · DNS control plane', 'L2 · Edge protection / CDN', 'L3 · Regional perimeter', 'L4 · SESF / Tier 2 proxy', 'L5 · ESF / Tier 3 session & signals', 'L6 · Workloads'];
+  /* ---------- Chapter 1: the layers ---------- */
+  const TOUR_TITLE = ['L0 · DNS control plane', 'L1 · Client', 'L2 · Edge protection / CDN', 'L3 · Regional perimeter', 'L4 · Enforcement tier', 'L5 · IFA workload zone', 'L6 · Internal network'];
   const TOUR_LINE = [
-    'Browsers, mobile apps, API clients, machine-to-machine callers and AI agents: untrusted callers on the public internet',
-    'Tells each client which edge to connect to, from beside the request path rather than in it',
-    'Akamai and Cloudflare terminate TLS close to the user and absorb attacks before they reach us',
-    'PSaaS+ and AWS WAF admit only CDN traffic into JPMorgan networks',
-    'The internal DMZ, where the request is authenticated, inspected for malicious content and validated against its API schema',
-    'Brokers every call into the trusted network, holding the live session and acting on real-time risk signals',
-    'Trusted application services that only accept requests from Tier 3'
+    'Resolves the hostname to an edge address before any request is made, from beside the request path rather than in it',
+    'Browsers, mobile apps, API clients, delegated and autonomous agents and M2M callers. Every request starts here, untrusted regardless of type',
+    'Akamai and Cloudflare terminate TLS close to the user, absorb attacks and classify callers, without establishing identity',
+    'PSaaS+ and AWS WAF admit only CDN traffic into JPMorgan networks, which is what makes origin lockdown enforceable',
+    'The single enforcement point: resolves every credential to live state, inspects the payload, enforces scopes and mandates, and injects verified identity',
+    'Application workloads on GKP and EKS, reachable only from L4 over mutual TLS',
+    'Downstream services, systems of record and the identity platform, with identity propagated rather than re-asserted'
   ];
   function chTour(tl) {
     base(tl, '', 400);
@@ -3002,15 +3112,18 @@ window.FK_CAPTIONS = {
     devs.forEach(d => d.show(tl, 0, false));
     // Cables introduced by a step are drawn in by small dots travelling from the previous layer into the new one
     const DRAW = {
-      2: [[L.cl.browser, L.hubA], [L.cl.mobile, L.hubC], [L.cl.api, L.hubA], [L.cl.m2m, L.hubC], [L.cl.agent, L.hubC]],
+      2: [[L.cl.browser, L.hubA], [L.cl.mobile, L.hubC], [L.cl.api, L.hubA], [L.cl.dagent, L.hubC], [L.cl.aagent, L.hubC], [L.cl.m2m, L.hubA]],
       3: [[L.cAA, L.inA], [L.cCC, L.inC], [L.cAC, L.inC], [L.cCA, L.inA]],
-      4: [[L.psT2]],
-      5: [[L.t2W], [L.t2A], [L.wafW, L.tW], [L.wafA, L.tA]],
-      6: [[L.oW, L.onT], [L.cWo, L.clT], [L.oA, L.onT], [L.cAo, L.clT]],
+      4: [[L.psT2], [L.wafT2]],
+      5: [[L.t2On], [L.t2Cl]],
+      6: [[L.onSvc], [L.clSor]],
       on: [[L.pvtOn, L.bpT2]],
-      aws: [[L.pInner, L.pvtAws, L.plIn]]
+      aws: [[L.pInner, L.pvtAws, L.plIn]],
+      int: [[L.wfT2]]
     };
     const drawn = new Set(Object.values(DRAW).flat(2));
+    // The DNS flow lines start at the clients, so they appear with the clients (L1) rather than with the DNS box (L0)
+    const feeds = new Set(FEED.values());
     const segVis = (sg, pos, v) => tl.set(sg, 'draw', pos, v, x => { sg.style.display = x ? '' : 'none'; }, true);
     stage.links.filter(l => !l.hidden).forEach(l => drawn.has(l) ? l.segs.forEach(sg => segVis(sg, 0, false)) : l.show(tl, 0, false));
     const drawIn = (routes, t0) => {
@@ -3030,55 +3143,57 @@ window.FK_CAPTIONS = {
     const lab = (o, pos, v) => tl.set(o.bb, 'vis', pos, v, x => { o.bb.el.style.display = x ? '' : 'none'; }, true);
     SL.forEach(o => lab(o, 0, false));
     let t = 300;
-    cap(tl, t, 'Seven layers', 'Every request crosses up to seven layers between the internet and a trusted workload');
+    cap(tl, t, 'The layers', 'Every request is resolved at L0, then crosses up to six layers from the client to the internal network');
     t = stage.shot(tl, t, SHOT.wide, 2200) + 400;
     const tour = [
-      { x: -1605, y: -200, z: 60, rx: -26, ry: 24, d: 3400 },
       { x: -2605, y: -180, z: 60, rx: -34, ry: 24, d: 3500 },
+      { x: -1650, y: -200, z: 0, rx: -30, ry: 24, d: 4300 },
       { x: -800, y: -200, z: 0, rx: -28, ry: 10, d: 3200 },
       { x: -50, y: -180, z: 0, rx: -30, ry: -8, d: 3300 },
-      { x: 650, y: -180, z: 250, rx: -30, ry: -14, d: 3500 },
+      { x: 650, y: -180, z: -40, rx: -36, ry: -14, d: 4300 },
       { x: 1350, y: -170, z: 0, rx: -32, ry: -16, d: 3400 },
-      { x: 2000, y: -170, z: 0, rx: -32, ry: -20, d: 3200 },
-      LAYERS[P].shot
+      { x: 2000, y: -170, z: 0, rx: -32, ry: -20, d: 3400 }
     ];
-    for (let i = 0; i < LAYERS.length; i++) {
-      const Ly = LAYERS[i];
-      if (i === P) {   // two sub-steps, each centred: VAN to BP PSaaS (back edge), then AWS PrivateLink (front)
-        const pd = devs.filter(d => d.layer === P), pl = stage.links.filter(l => l.layer === P && !l.hidden);
-        const onSide = z => z < 0;
-        stage.focus(tl, t, P);
-        cap(tl, t, 'P · VAN → BP PSaaS', 'Business partners connect over private circuits straight to BP PSaaS, never touching the internet path');
-        stage.shot(tl, t, SHOT.van, 1800);
-        pd.filter(d => onSide(d.z)).forEach((d, j) => d.reveal(tl, t + 700 + j * 200));
-        SL.filter(o => o.layer === P && o.side === 'on').forEach(o => lab(o, t + 900, true));
-        pl.filter(l => onSide(l.pts[0][2]) && !drawn.has(l)).forEach(l => l.show(tl, t + 700, true));
-        t = Math.max(t + 4400, drawIn(DRAW.on, t + 900) + 900);
-        cap(tl, t, 'P · AWS PrivateLink', 'Partner services in their own AWS VPC reach ours privately, without leaving AWS');
-        stage.shot(tl, t, SHOT.plink, 1800);
-        pd.filter(d => !onSide(d.z)).forEach((d, j) => d.reveal(tl, t + 700 + j * 200));
-        SL.filter(o => o.layer === P && o.side === 'aws').forEach(o => lab(o, t + 900, true));
-        pl.filter(l => !onSide(l.pts[0][2]) && !drawn.has(l)).forEach(l => l.show(tl, t + 700, true));
-        t = Math.max(t + 4400, drawIn(DRAW.aws, t + 900) + 900);
-        continue;
-      }
+    for (let i = 0; i < P; i++) {
       cap(tl, t, TOUR_TITLE[i], TOUR_LINE[i]);   // one sentence per layer; the layer chapters go into detail
-      stage.focus(tl, t, i === 1 ? [0, 1] : i);   // L1: keep the clients lit, the lookup starts there
+      stage.focus(tl, t, i === 1 ? [0, 1] : i);   // L1: keep L0 lit, the lookup that follows starts at a client
       stage.shot(tl, t, tour[i], 1600);
       devs.filter(d => d.layer === i).forEach((d, j) => d.reveal(tl, t + 600 + j * 160));
-      if (i === 0) devs.filter(d => d.layer === 0).forEach((d, j) => d.activate(tl, t + 1300 + j * 350, 4100 - j * 350));
       SL.filter(o => o.layer === i).forEach(o => lab(o, t + 800, true));
-      stage.links.filter(l => l.layer === i && !l.hidden && !drawn.has(l)).forEach(l => l.show(tl, t + 600, true));
+      stage.links.filter(l => l.layer === i && !l.hidden && !drawn.has(l) && !feeds.has(l)).forEach(l => l.show(tl, t + 600, true));
       let next = t + 4200;
       if (DRAW[i]) next = Math.max(next, drawIn(DRAW[i], t + 900) + 900);
-      if (i === 0) next = t + 5900;   // hold on the lit client types so they can be read
-      if (i === 1) next = Math.max(next, dns(tl, t + 2000, C.browser, DNSQ.tour, { final: ['', ''], quiet: true }) + 800);
+      if (i === 1) {
+        // light each client type in turn, hold so they can be read, then resolve before the first request
+        feeds.forEach(l => l.show(tl, t + 900, true));
+        CLIENTS.forEach((d, j) => d.activate(tl, t + 1300 + j * 300, 4400 - j * 300));
+        t += 6200;
+        cap(tl, t, 'Resolve first', 'Before a client sends anything, its resolver asks L0 for an edge address');
+        stage.shot(tl, t, { x: -2200, y: -190, z: 60, rx: -32, ry: 22, d: 4300 }, 1400);
+        next = dns(tl, t + 1200, C.browser, DNSQ.tour, { final: ['', ''], quiet: true }) + 800;
+      }
       t = next;
     }
+    // Private connectivity: three sub-steps, each centred
+    const side = d => d.z > 0 ? 'aws' : d.x < 500 ? 'on' : 'int';
+    const pd = devs.filter(d => d.layer === P), pl = stage.links.filter(l => l.layer === P && !l.hidden);
+    stage.focus(tl, t, P);
+    for (const [k, title, line, shot] of [
+      ['on', 'P1 · VAN → BP PSaaS', 'Institutional clients on private circuits bypass L0 and L2 and enter at L3. They are still L1 clients and still carry a credential', SHOT.van],
+      ['aws', 'P2 · AWS PrivateLink', 'Partner services in their own AWS VPC reach our endpoint service privately, entering at L4', SHOT.plink],
+      ['int', 'P3 · Internal network', 'Workforce users on the internal network reach L4 directly, subject to the same enforcement', SHOT.intnet]]) {
+      cap(tl, t, title, line);
+      stage.shot(tl, t, shot, 1800);
+      pd.filter(d => side(d) === k).forEach((d, j) => d.reveal(tl, t + 700 + j * 200));
+      SL.filter(o => o.layer === P && o.side === k).forEach(o => lab(o, t + 900, true));
+      pl.filter(l => !drawn.has(l) && side({ x: l.pts[0][0], z: l.pts[0][2] }) === k).forEach(l => l.show(tl, t + 700, true));
+      t = Math.max(t + 4400, drawIn(DRAW[k], t + 900) + 900);
+    }
     stage.focus(tl, t, null);
-    cap(tl, t, 'All together', 'Web on-prem, API into AWS, M2M on-prem and business partners over private connectivity, all at once');
+    cap(tl, t, 'All together', 'Web on-prem, an API call into AWS, M2M on-prem, partners over P1 and P2 and a workforce user over P3, all at once');
     t = stage.shot(tl, t, SHOT.overview, 2200);
-    const flows = [[pk, RT.web, 'tls', 'GET /accounts'], [pkB, RT.api, 'tls', 'GET /v1/accounts'], [pkC, RT.m2m, 'tls', 'POST /v1/batch'], [pkD, RT.bpAws, 'priv', 'GET /v1/positions'], [pkE, RT.bpOn, 'priv', 'POST /v1/payments']];
+    const flows = [[pk, RT.web, 'tls', 'GET /accounts'], [pkB, RT.api, 'tls', 'GET /v1/accounts'], [pkC, RT.m2m, 'tls', 'POST /v1/batch'],
+      [pkD, RT.bpAws, 'priv', 'GET /v1/positions'], [pkE, RT.bpOn, 'priv', 'POST /v1/payments'], [pkF, RT.wf, 'priv', 'GET /cases/48213']];
     flows.forEach(([p, r, s, txt], i) => {
       const a = t + i * 500, first = r[0].pts[0];
       const t1 = p.appear(tl, a, first, s, txt);
@@ -3087,7 +3202,7 @@ window.FK_CAPTIONS = {
       const t3 = go(tl, t2 + 300, p, r, 5200, { reverse: true, cls: 'ok', ease: 'inOutSine' });
       p.vanish(tl, t3);
     });
-    tl.wait(t + 2000 + 7400 + 5500, 1500);
+    tl.wait(t + 2500 + 7400 + 5500, 1500);
   }
 
   /* ---------- Layer chapters: what each layer is, what it does, why it exists, and its latency budget ---------- */
@@ -3097,7 +3212,7 @@ window.FK_CAPTIONS = {
     devs.forEach((d, i) => d.activate(tl, t + i * 200, Math.max(1200, hold - 400 - i * 200)));
     let end = t + hold;
     if (panel) end = Math.max(end, stage.checklist(tl, t + 400, { at: panel.at.top || panel.at, title: panel.title, items: panel.items.map(x => typeof x === 'string' ? { t: x } : x),
-      result: panel.result, resultColor: panel.color, step: 420, hold: 900, dx: panel.dx ?? 30, dy: panel.dy ?? -20 }) - 250);
+      result: panel.result, resultColor: panel.color, step: panel.step || 420, hold: 900, dx: panel.dx ?? 30, dy: panel.dy ?? -20 }) - 250);
     return end + 300;
   }
   const layerCh = spec => tl => {
@@ -3112,13 +3227,56 @@ window.FK_CAPTIONS = {
     tl.wait(t, 1500);
   };
   const CLIENTS = Object.values(C), NS = [1, 2, 3, 4, 5, 6, 7].map(n => D['ns' + n]);
+  // Per client type, from the client-type table (also used by the 'Client types' journey)
+  const CT = [
+    { d: C.browser, n: 'Browser', l2: 'JavaScript challenge, fingerprinting, CAPTCHA', present: 'Signed session artefact, opaque reference', resolve: 'Live session state', stepup: 'Redirect to re-authenticate', risk: 'Revoke session', inject: 'Verified user identity' },
+    { d: C.mobile, n: 'Mobile app', l2: 'App attestation, certificate pinning', present: 'Access token, key-bound', resolve: 'Live session state and device binding', stepup: 'In-app biometric or one-time code', risk: 'Revoke session or device binding', inject: 'Verified user identity' },
+    { d: C.api, n: 'API client', l2: 'Schema validation, per-client rate limits, API discovery', mtls: true, present: 'Delegated access token, DPoP or certificate bound', resolve: 'User grant and consented scopes', stepup: '401 insufficient_user_authentication', risk: 'Revoke the grant to that app', inject: 'User identity and client identity' },
+    { d: C.dagent, n: 'Delegated agent', l2: 'Agent classification, schema validation, rate limits', present: 'Exchanged agent-scoped token, sub = user, act = agent', resolve: 'Delegation, user entitlements as ceiling', stepup: 'Back to the user, CIBA push', risk: 'Revoke delegation or user session', inject: 'User identity, agent as actor, task scope' },
+    { d: C.aagent, n: 'Autonomous agent', l2: 'Agent classification, signed-request check, strict rate and transaction limits', mtls: true, present: 'Agent credential plus signed request', resolve: 'Registered agent and its live mandate', stepup: 'Out-of-band to the owner’s approver, or deny', risk: 'Suspend agent or shrink mandate', inject: 'Agent identity, mandate reference' },
+    { d: C.m2m, n: 'M2M', l2: 'Rate limits, IP allow-lists', mtls: true, present: 'Client credentials or signed assertion', resolve: 'Workload identity and fixed scopes', stepup: 'Not applicable', risk: 'Revoke credentials', inject: 'Workload identity' }
+  ];
+  // The step-up story at L4: a signal from L6 changes the session's enforcement state, and the next request is refused
+  function signalStory(tl, t) {
+    cap(tl, t, 'A signal arrives', 'The signal manager in L6 raises a CAEP risk-level-change for this session; the message broker carries it to the L4 signal receiver');
+    stage.shot(tl, t, { x: 1500, y: -260, z: -400, rx: -32, ry: -12, d: 3600 }, 1400);
+    D.sig.activate(tl, t + 900, 2400); ring(stage, W, tl, t + 900, D.sig.top, '#F472B6', 240);
+    const chip = `<div class="fk-chip" style="--pc:#F472B6;transform:translate(-50%,-50%)">CAEP · risk-level-change</div>`;
+    t = fly(stage, W, tl, t + 1200, [D.sig.x, D.sig.topY - 10, D.sig.z], [D.broker.x, D.broker.topY - 10, D.broker.z], { html: chip, dur: 900, arc: -120 });
+    D.broker.activate(tl, t, 1400);
+    t = fly(stage, W, tl, t + 100, [D.broker.x, D.broker.topY - 10, D.broker.z], [D.t2.x, D.t2.topY - 10, D.t2.z], { html: chip, dur: 1800, arc: -260 });
+    stage.shot(tl, t, SHOT.t3drill, 1000);
+    stage.present(tl, t, true); t = T3D.open(tl, t + 200, 600);
+    cap(tl, t, 'Receive, verify, enforce', 'The signal receiver verifies the Security Event Token and matches it to the live session; the policy decides the action: step-up to AAL3');
+    t = t3Signal(tl, t + 300);
+    cap(tl, t, 'The next request is stopped', 'The same session tries a payment. Its enforcement state now requires step-up, so L4 refuses it with a 401 and nothing reaches L5');
+    t = t3Run(tl, t + 300, 'stepup');
+    t = T3D.close(tl, t + 300, 500); stage.present(tl, t, false);
+    pk.state_(tl, t, 'bad', '401 · step-up required', 'acr_values=aal3');
+    pk._place(tl, t, 0, 'linear', () => [D.t2.x - 80, Y, D.t2.z]); pk._show(tl, t, true);
+    tl.add(pk.sc, { scale: [1, 1], duration: 0 }, t);
+    stage.shot(tl, t, SHOT.overview, 1800);
+    t = go(tl, t + 300, pk, [L.cl.browser, L.hubA, L.cAA, L.inA, L.psT2], 4200, { reverse: true, cls: 'bad', ease: 'inOutQuad' });
+    C.browser.html(tl, t, SCR.stepup); ring(stage, W, tl, t, C.browser.top, '#FBBF24', 260);
+    return pk.vanish(tl, t + 900) + 300;
+  }
   const LAYER_CH = {
-    L0: layerCh({ focus: [0], legs: [0], shot: { x: -1605, y: -200, z: 60, rx: -26, ry: 24, d: 3400 }, steps: [
-      (tl, t) => say(tl, t + 400, 'L0 · Client', 'Everything that calls us from outside: browsers, mobile apps, API clients, machine-to-machine callers and AI agents. None of it is trusted', { devs: CLIENTS, hold: 5600 }),
-      (tl, t) => say(tl, t, 'How each client proves who it is', 'Different clients carry different credentials, and each is verified again further in', { hold: 6200,
-        panel: { at: C.api, title: 'Client credentials', items: ['Browser · session cookie + DPoP-bound session JWT', 'Mobile app · app attestation + OAuth tokens', 'API client · user-delegated OAuth2 access token', 'M2M · client credentials or mTLS certificate', 'AI agent · declared, signed agent identity'], dx: 60, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Why: assume compromise', 'Devices get malware, cookies get stolen and bots imitate people. So no layer trusts a request just because it arrived; each one verifies again', { hold: 5800,
-        panel: { at: C.m2m, title: 'Threats that start at L0', items: [{ t: 'Stolen session cookies or tokens', s: 'warn' }, { t: 'Credential stuffing and bots', s: 'warn' }, { t: 'Scraping AI agents', s: 'warn' }, { t: 'Malicious payloads', s: 'warn' }], dx: 60, dy: -40 } }),
+    L0: layerCh({ focus: [0, 1], shot: SHOT.steer, steps: [
+      (tl, t) => say(tl, t + 400, 'L0 · DNS control plane', 'It resolves the hostname to an edge address before any request is made. It sits ahead of the request path: no traffic flows through it', { devs: [...NS, D.steerA, D.steerC], hold: 5200 }),
+      (tl, t) => say(tl, t, 'Two DNS providers', 'jpmorgan.com is served by 4 JPMorgan primary nameservers and 3 Cloudflare secondaries (zone transfer). Resolvers ask any of them, so either provider can fail without an outage', { hold: 6400,
+        panel: { at: D.ns3, title: 'Dual DNS', items: ['4 × JPMorgan NS · primary, zone authored here', '3 × Cloudflare NS · secondary via zone transfer', 'Resolvers pick by RTT and retry the others', 'DNSSEC where in use'], dx: 40, dy: -60 } }),
+      (tl, t) => { cap(tl, t, 'A lookup, step by step', 'The resolver asks a nameserver, follows the hand-off to Akamai GTM, and gets the best edge IP back'); return dns(tl, t + 600, C.browser, DNSQ.tour, { final: ['', ''] }) + 600; },
+      (tl, t) => say(tl, t, 'Smart routing', 'Akamai GTM and Cloudflare Load Balancing pick the edge from the client’s location, latency, load and health, using handout policies, liveness tests, pools and monitors', { hold: 6000,
+        panel: { at: D.steerA, title: 'Steering inputs', items: ['Location · resolver IP or ECS subnet', 'Edge latency and load', 'GTM liveness tests · LB monitors', 'Multi-CDN policy and failover'], dx: 40, dy: 20 } }),
+      (tl, t) => say(tl, t, 'Steering is not instant', 'Changes are bounded by the TTL and resolver caching rather than taking effect immediately. Cached answers also mean DNS adds nothing to most requests, so it sits outside the 50 ms budget', { hold: 5800 })] }),
+    L1: layerCh({ focus: [1], legs: [0], shot: { x: -1650, y: -200, z: 0, rx: -30, ry: 24, d: 4300 }, steps: [
+      (tl, t) => say(tl, t + 400, 'L1 · Client', 'Browsers, mobile apps, API clients, delegated agents, autonomous agents and M2M callers. Every request starts here, untrusted regardless of type', { devs: CLIENTS, hold: 6000 }),
+      (tl, t) => say(tl, t, 'Not security categories', 'Human, machine and agent are not security categories: any of them can hold a credential. What counts is the credential, and the key it is bound to', { hold: 6600,
+        panel: { at: C.api, title: 'Sender-constrained credentials', items: CT.map(c => `${c.n} · ${c.present}`), step: 360, dx: 60, dy: -80 } }),
+      (tl, t) => say(tl, t, 'Three ways in', 'Over the internet through L2 and L3, over private connectivity (P1 enters at L3, P2 at L4), or from the internal network (P3, at L4). The path changes; the check at L4 does not', { hold: 6000,
+        panel: { at: C.m2m, title: 'Paths', items: ['Browser, mobile, agents · internet', 'API client, M2M · internet, or P1 / P2', 'Workforce users · P3, internal network', 'mTLS terminates at L4: API client, autonomous agent, M2M'], dx: 60, dy: -40 } }),
+      (tl, t) => say(tl, t, 'Why: assume compromise', 'Devices get malware, tokens get stolen, bots imitate people and agents overreach. So no layer trusts a request because of where it came from', { hold: 5800,
+        panel: { at: C.aagent, title: 'Threats that start at L1', items: [{ t: 'Stolen session cookies or tokens', s: 'warn' }, { t: 'Credential stuffing and bots', s: 'warn' }, { t: 'Agents exceeding a delegation or mandate', s: 'warn' }, { t: 'Malicious payloads', s: 'warn' }], dx: 60, dy: -40 } }),
       (tl, t) => {
         cap(tl, t, 'Latency · client → edge: 8 ms', 'Network distance, not our processing: DNS steering or anycast picks a nearby PoP, and warm connections (TLS resumption, HTTP/2 or HTTP/3 reuse) avoid extra round trips. Mobile networks take longer');
         stage.shot(tl, t, { x: -1200, y: -200, z: -200, rx: -30, ry: 12, d: 3400 }, 1600);
@@ -3127,63 +3285,57 @@ window.FK_CAPTIONS = {
         budget.spend(tl, t, 0, 7); ring(stage, W, tl, t, D.cdnA.top, '#38BDF8', 240);
         return pk.vanish(tl, t + 2400) + 800;
       }] }),
-    L1: layerCh({ focus: [0, 1], shot: SHOT.steer, steps: [
-      (tl, t) => say(tl, t + 400, 'L1 · DNS control plane', 'Beside the clients, not in the request path: it decides which edge each client connects to', { devs: [...NS, D.steerA, D.steerC], hold: 5200 }),
-      (tl, t) => say(tl, t, 'Two DNS providers', 'jpmorgan.com is served by 4 JPMorgan primary nameservers and 3 Cloudflare secondaries (zone transfer). Resolvers ask any of them, so either provider can fail without an outage', { hold: 6400,
-        panel: { at: D.ns3, title: 'Dual DNS', items: ['4 × JPMorgan NS · primary, zone authored here', '3 × Cloudflare NS · secondary via zone transfer', 'Resolvers pick by RTT and retry the others'], dx: 40, dy: -60 } }),
-      (tl, t) => { cap(tl, t, 'A lookup, step by step', 'The resolver asks a nameserver, follows the hand-off to Akamai GTM, and gets the best edge IP back'); return dns(tl, t + 600, C.browser, DNSQ.tour, { final: ['', ''] }) + 600; },
-      (tl, t) => say(tl, t, 'Smart routing', 'Akamai GTM and Cloudflare LB pick the edge from the client’s location (resolver or EDNS client subnet), latency, load and health, and can steer between CDNs', { hold: 6000,
-        panel: { at: D.steerA, title: 'Steering inputs', items: ['Location · resolver IP or ECS subnet', 'Edge latency and load', 'Health checks per PoP and origin', 'Multi-CDN policy and failover'], dx: 40, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency: outside the 50 ms budget', 'Answers are cached for their TTL, so DNS adds nothing to most requests. The same TTL bounds how quickly a failover takes effect', { hold: 5600 })] }),
     L2: layerCh({ focus: [2], legs: [0, 1, 2], shot: { x: -900, y: -190, z: 0, rx: -28, ry: 10, d: 3100 }, steps: [
-      (tl, t) => say(tl, t + 400, 'L2 · Edge protection / CDN', 'Akamai (4,100+ PoPs) and Cloudflare (310+ cities): the first hop we control, as close to the client as possible', { devs: [D.cdnA, D.cdnC], hold: 5200 }),
+      (tl, t) => say(tl, t + 400, 'L2 · Edge protection / CDN', 'Akamai (4,100+ PoPs) and Cloudflare (310+ cities), active-active from one source ruleset: the first hop we control, as close to the client as possible', { devs: [D.cdnA, D.cdnC], hold: 5600 }),
       (tl, t) => {
-        cap(tl, t, 'What the edge does', 'TLS ends at the PoP; the edge checks the request, serves from cache when it can, and otherwise forwards to origin');
+        cap(tl, t, 'What the edge does', 'TLS ends at the PoP; the edge classifies the caller, serves from cache when it can, and otherwise forwards to the perimeter. It classifies; it does not establish identity');
         t = pk.appear(tl, t + 300, [X[0] + 60, Y, C.browser.z], 'tls', 'GET /accounts', 'to the nearest PoP');
         t = go(tl, t, pk, [L.cl.browser, L.hubA], 2200); budget.spend(tl, t, 0, 7);
-        t = visit(tl, t, D.cdnA, 'cdnA'); budget.spend(tl, t - 600, 1, 2);
+        t = visit(tl, t, D.cdnA, 'cdnA', { dy: 30 }); budget.spend(tl, t - 600, 1, 2);
         return t;
       },
       (tl, t) => {
         const rnd = (a, b, s2) => a + (b - a) * ((Math.sin(s2 * 12.9898) * 43758.5453) % 1 + 1) % 1;
         for (let i = 0; i < 18; i++) { const tg = i % 2 ? D.cdnC : D.cdnA; fly(stage, W, tl, t + 300 + i * 110, [rnd(-2000, -1500, i), -60 - rnd(0, 200, i + 50), rnd(-850, 850, i + 9)], [tg.x - 60, -120, tg.z + rnd(-60, 60, i + 3)], { color: '#F43F5E', dur: 1100, arc: -140, size: 9 }); }
-        return say(tl, t, 'Why at the edge', 'Volumetric DDoS, bots and common web attacks are absorbed across thousands of PoPs, far away from our data centres', { hold: 5600,
-          panel: { at: D.cdnC, title: 'Edge controls', items: ['DDoS absorbed across the provider network', 'WAF managed rules · bot management', 'Cache and origin shielding', 'TLS terminated close to the user'], dx: 40, dy: -40 } });
+        return say(tl, t, 'Why at the edge', 'Volumetric attacks, bots and common web attacks are absorbed across thousands of PoPs, far away from our data centres', { hold: 5600,
+          panel: { at: D.cdnC, title: 'Edge controls', items: ['DDoS absorbed across the provider network', 'WAF, bot and agent classification', 'Geographic policy · per-client rate limits', 'One ruleset rendered to both providers'], dx: 40, dy: -40 } });
       },
+      (tl, t) => say(tl, t, 'Defences by client type', 'With no identity yet, the edge picks its defences by what the caller looks like', { hold: 6600,
+        panel: { at: D.cdnA, title: 'L2 defences', items: CT.map(c => `${c.n} · ${c.l2}`), step: 360, dx: 40, dy: 30 } }),
       (tl, t) => {
-        cap(tl, t, 'Hand-off to a region: 10 ms', 'The edge re-encrypts and forwards over pooled, persistent connections. Each CDN can reach both regional perimeters, so a regional outage is routed around');
+        cap(tl, t, 'Hand-off to a region: 10 ms', 'The edge re-originates over TLS to the perimeter, from source addresses the perimeter restricts to. Each CDN can reach both regional perimeters, so a regional outage is routed around');
         stage.shot(tl, t, { x: -450, y: -190, z: 0, rx: -30, ry: 0, d: 3300 }, 1600);
         t = go(tl, t + 600, pk, [L.cAA, L.inA], 2000); budget.spend(tl, t, 2, 9);
         return pk.vanish(tl, t + 2600) + 400;
       },
-      (tl, t) => say(tl, t, 'Latency · 21 ms of the 50', 'Client → edge 8 ms and edge → region 10 ms are network distance, which depends on where the user is; the edge\u2019s own processing is about 3 ms', { hold: 5200 })] }),
+      (tl, t) => say(tl, t, 'Latency · 21 ms of the 50', 'Client → edge 8 ms and edge → region 10 ms are network distance, which depends on where the user is; the edge’s own processing is about 3 ms', { hold: 5200 })] }),
     L3: layerCh({ focus: [3], legs: [3], shot: { x: -60, y: -180, z: 0, rx: -30, ry: -8, d: 3300 }, steps: [
-      (tl, t) => say(tl, t + 400, 'L3 · Regional perimeter', 'The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions', { devs: [D.psaas, D.waf], hold: 5200 }),
+      (tl, t) => say(tl, t + 400, 'L3 · Regional perimeter', 'The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions. No platform components of our own run here', { devs: [D.psaas, D.waf], hold: 5400 }),
       (tl, t) => {
-        cap(tl, t, 'What it does', 'It admits only CDN origin traffic, scrubs and filters it regionally, and re-originates TLS into the internal DMZ');
+        cap(tl, t, 'What it does', 'It admits only traffic from the CDN, then applies a second WAF pass and perimeter traffic policy before handing over to SESF');
         t = pk.appear(tl, t + 300, [-590, Y, -450], 'tls', 'GET /accounts', 'from Akamai');
         t = go(tl, t, pk, [L.cAA, L.inA], 1600);
         t = visit(tl, t, D.psaas, 'psaas'); budget.spend(tl, t - 600, 3, 2);
         return pk.vanish(tl, t);
       },
       (tl, t) => {
-        cap(tl, t, 'Why: nobody bypasses the edge', 'Traffic that does not come from the CDNs is dropped here, so the edge protections cannot be skipped');
+        cap(tl, t, 'Why: origin lockdown', 'Source addresses are restricted to CDN ranges (Akamai SiteShield on-prem) and direct-to-origin paths are closed, so the edge cannot be skipped');
         D.attacker.show(tl, t, true); L.atk.show(tl, t, true);
         tl.add(D.attacker.body, { y: [-500, 0], rotateY: [-90, 0], duration: 900, ease: 'outBack(1.2)' }, t);
         stage.shot(tl, t, { x: -700, y: -180, z: 600, rx: -28, ry: 10, d: 2900 }, 1600);
         t = pkB.appear(tl, t + 1100, [X[1] + 20, Y, 880], 'attack', 'POST /login', 'direct to origin');
         t = pkB.travel(tl, t, route([L.atk]), 2200);
         W1.deny(tl, t - 100, 450); ring(stage, W, tl, t, [-350, -120, 450], '#F43F5E', 240);
-        t = stage.checklist(tl, t, { at: [-350, -240, 450], title: 'Perimeter', items: [{ t: 'Source not in CDN origin ranges', s: 'fail' }, { t: 'No authenticated origin pull', s: 'fail' }], result: 'DROP', resultColor: '#FB7185', step: 380, hold: 600 });
+        t = stage.checklist(tl, t, { at: [-350, -240, 450], title: 'Perimeter', items: [{ t: 'Source not in CDN ranges', s: 'fail' }, { t: 'Direct-to-origin path closed', s: 'fail' }], result: 'DROP', resultColor: '#FB7185', step: 380, hold: 600 });
         return pkB.shatter(tl, t - 400) + 400;
       },
-      (tl, t) => say(tl, t, 'Why a second control point', 'An independent regional layer: its own WAF and DDoS scrubbing, and a clean trust boundary before anything reaches the internal DMZ', { hold: 5800,
-        panel: { at: D.psaas, title: 'Perimeter controls', items: ['CDN origin allow-list · authenticated origin pulls', 'Regional WAF and DDoS scrubbing', 'TLS re-origination into SESF / AWS', 'Regional failover across 9 DCs / 8 regions'], dx: 40, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency · 3 ms', 'Network policy and re-origination only; payload inspection happens further in, at Tier 2', { hold: 4600 })] }),
-    L4: layerCh({ focus: [4], legs: [4], shot: look(D.t2, { dx: -150, dz: 100 }), steps: [
-      (tl, t) => say(tl, t + 400, 'L4 · SESF / Tier 2 proxy', 'SESF, the Secure Enterprise Server Farm: the internal DMZ. The T2 gateway proxy is gateway-envoy on GVSI hosts, in 9 data centres', { devs: [D.t2], hold: 5400 }),
+      (tl, t) => say(tl, t, 'Why a second control point', 'An independent regional layer with its own WAF pass and traffic policy, and a clean boundary before anything reaches the enforcement tier', { hold: 5800,
+        panel: { at: D.waf, title: 'Perimeter controls', items: ['CDN source allow-list · Akamai SiteShield', 'PSaaS+ rulesets · second WAF pass', 'AWS WAF web ACLs on the load balancers', 'P1 enters here too, through BP PSaaS'], dx: 40, dy: -20 } }),
+      (tl, t) => say(tl, t, 'Latency · 3 ms', 'Network policy and a second WAF pass only; identity and payload policy happen at L4', { hold: 4600 })] }),
+    L4: layerCh({ focus: [4], legs: [4, 5], shot: look(D.t2, { dx: -150, dz: 400, dist: 2600 }), steps: [
+      (tl, t) => say(tl, t + 400, 'L4 · Enforcement tier', 'Tier 2, the DMZ gateway inside SESF, on both substrates: Envoy and Kong data planes on-prem and on EKS. The single enforcement point, and it fails closed', { devs: [D.t2, D.t2c], hold: 6000 }),
       (tl, t) => {
-        cap(tl, t, 'What it does', 'Envoy routes the request and calls auth-service, which checks the session JWT and runs the global and route payload policies');
+        cap(tl, t, 'Inspect and apply policy', 'Envoy breaks and inspects TLS and calls auth-service, which resolves the session, exchanges the token, then runs the global malicious-content policy and the route policy generated from the workload’s code');
         t = pk.appear(tl, t + 300, [80, Y, -450], 'tls', 'POST /api/v1/users/register', 'valid payload');
         t = go(tl, t, pk, [L.psT2], 1300);
         stage.shot(tl, t, SHOT.t2drill, 1400); t = pk.open(tl, t);
@@ -3191,85 +3343,92 @@ window.FK_CAPTIONS = {
         t = t2Run(tl, t + 300, 'valid');
         t = T2D.close(tl, t + 400, 500); stage.present(tl, t, false);
         budget.spend(tl, t, 4, 9);
-        stage.shot(tl, t, look(D.t2, { dx: -150, dz: 100 }), 1200);
-        return pk.vanish(tl, t + 300) + 400;
+        return t + 300;
       },
-      (tl, t) => say(tl, t, 'Why Tier 2', 'It is the first place the decrypted request is inside our network, so untrusted payloads are inspected and rejected here, before anything crosses into ESF', { hold: 6200,
-        panel: { at: D.t2, title: 'Tier 2 guarantees', items: ['Coarse session check · iss, aud, signature, DPoP', 'Global payload policy on every route', 'Route policy per API contract', 'Re-encrypted with mTLS to Tier 3'], dx: 40, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency · 10 ms', 'Envoy, the ext_authz round trip, JWT verification, two Rego evaluations and mTLS to Tier 3. Large bodies take longer: Envoy buffers the whole body (up to 1 MB) before inspecting it', { hold: 4600 })] }),
-    L5: layerCh({ focus: [5, 6], legs: [5], shot: look(D.t3web, { dx: -150, dz: 150 }), steps: [
-      (tl, t) => say(tl, t + 400, 'L5 · ESF / Tier 3 · Session & Signals', 'ESF, the Enterprise Server Farm. Its gateways broker every call into the trusted network, and it holds the live session and acts on real-time signals', { devs: [D.t3web, D.t3api, D.cweb, D.capi], hold: 5800 }),
       (tl, t) => {
-        cap(tl, t, 'A normal request', 'The T3 gateway asks the session manager about the live session, mints an internal token and forwards to the workload');
-        t = pk.appear(tl, t + 300, [760, Y, -450], 'mtls', 'GET /accounts', 'from Tier 2');
-        t = go(tl, t, pk, [L.t2W], 1400, { cls: 'mtls' });
-        stage.shot(tl, t, SHOT.t3drill, 1400);
-        stage.present(tl, t, true); t = T3D.open(tl, t + 200, 700);
+        cap(tl, t, 'Live state, not just a valid token', 'The session validator sidecar resolves the session against the session manager in L6, through a revoke cache, then mints the internal token');
+        stage.present(tl, t, true); t = T3D.open(tl, t + 200, 600);
         t = t3Run(tl, t + 300, 'ok'); budget.spend(tl, t, 5, 12);
         t = T3D.close(tl, t + 300, 500); stage.present(tl, t, false);
         return pk.vanish(tl, t) + 200;
       },
+      (tl, t) => signalStory(tl, t),
+      (tl, t) => { stage.shot(tl, t, look(D.t2, { dx: -150, dz: 400, dist: 2600 }), 1600); return say(tl, t, 'What L4 resolves, per client type', 'Every client type presents something different, and L4 resolves each one to live state before anything goes further', { hold: 6800,
+        panel: { at: D.t2, title: 'Presented → resolved to', items: CT.map(c => `${c.n} · ${c.resolve}`), step: 360, dx: 40, dy: 30 } }); },
+      (tl, t) => say(tl, t, 'Why one enforcement point', 'Internet, private and internal paths all converge here, so identity, payload policy and signals are enforced once, consistently. Onward to L5 is mutual TLS, and the workload verifies the client certificate', { hold: 6600,
+        panel: { at: D.t2c, title: 'L4 guarantees', items: ['Credential resolved to live state', 'Global then route payload policy', 'Scopes, mandates and lifetimes enforced', 'Revocation and risk signals consumed', 'Verified identity injected · fails closed'], dx: 40, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Latency · 24 ms', 'The largest slice: break and inspect, ext_authz and two Rego evaluations (about 10 ms), then live state, token exchange and mTLS to L5 (about 14 ms). Signals arrive asynchronously, and enforcement state is cached locally', { hold: 5200 })] }),
+    L5: layerCh({ focus: [5], shot: { x: 1350, y: -170, z: 0, rx: -32, ry: -16, d: 3400 }, steps: [
+      (tl, t) => say(tl, t + 400, 'L5 · IFA workload zone', 'The isolated firewall application zone: application workloads on GKP and EKS with their sidecars, bounded by firewall rules on the internal network', { devs: [D.wlOn, D.wlCl], hold: 5400 }),
       (tl, t) => {
-        cap(tl, t, 'A signal arrives', 'Fraud detection spots impossible travel and a new payee, and sends a CAEP risk-level-change event for this session');
-        stage.shot(tl, t, { x: 1750, y: -220, z: -650, rx: -30, ry: -14, d: 2400 }, 1400);
-        D.fraud.activate(tl, t + 900, 2400); ring(stage, W, tl, t + 900, D.fraud.top, '#F472B6', 240);
-        const chip = `<div class="fk-chip" style="--pc:#F472B6;transform:translate(-50%,-50%)">CAEP · risk-level-change</div>`;
-        t = fly(stage, W, tl, t + 1200, [D.fraud.x, D.fraud.topY - 10, D.fraud.z], [D.t3web.x, D.t3web.topY - 10, D.t3web.z], { html: chip, dur: 1800, arc: -220 });
-        stage.shot(tl, t, SHOT.t3drill, 1000);
-        stage.present(tl, t, true); t = T3D.open(tl, t + 200, 600);
-        cap(tl, t, 'Receive, verify, enforce', 'The CAEP receiver verifies the Security Event Token and matches it to the live session; the policy decides the action: step-up to AAL3');
-        t = t3Signal(tl, t + 300);
-        return t;
-      },
-      (tl, t) => {
-        cap(tl, t, 'The next request is stopped', 'The same session tries a payment. The enforcement state now requires step-up, so it is refused at Tier 3 with a 401');
-        t = t3Run(tl, t + 300, 'stepup');
-        t = T3D.close(tl, t + 300, 500); stage.present(tl, t, false);
-        pk.state_(tl, t, 'bad', '401 · step-up required', 'acr_values=aal3');
-        pk._place(tl, t, 0, 'linear', () => [D.t3web.x - 80, Y, D.t3web.z]); pk._show(tl, t, true);
-        tl.add(pk.sc, { scale: [1, 1], duration: 0 }, t);
-        stage.shot(tl, t, SHOT.overview, 1800);
-        t = go(tl, t + 300, pk, [L.cl.browser, L.hubA, L.cAA, L.inA, L.psT2, L.t2W], 4200, { reverse: true, cls: 'bad', ease: 'inOutQuad' });
-        C.browser.html(tl, t, SCR.stepup); ring(stage, W, tl, t, C.browser.top, '#FBBF24', 260);
-        return pk.vanish(tl, t + 900) + 300;
-      },
-      (tl, t) => say(tl, t, 'Why at Tier 3', 'It is the last hop before trusted workloads, so it holds the live session and can act on signals from anywhere in the bank within seconds, not at the next login', { hold: 6000,
-        panel: { at: D.t3web, title: 'Session & Signals', items: ['Live session state per request', 'CAEP / Shared Signals receiver', 'Policy: step-up, revoke, re-auth', 'Internal token never leaves ESF'], dx: 40, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency · 14 ms', 'The largest processing slice: session lookup, enforcement state and token exchange, then mTLS to the workload. Signals arrive asynchronously, so they add nothing per request while enforcement state is local', { hold: 4600 })] }),
-    L6: layerCh({ focus: [6], shot: { x: 2000, y: -170, z: 0, rx: -32, ry: -20, d: 3200 }, steps: [
-      (tl, t) => say(tl, t + 400, 'L6 · Workloads', 'Trusted application services, on-prem and in the cloud. They accept requests only from Tier 3, over mTLS', { devs: [D.wlOn, D.wlCl], hold: 5200 }),
-      (tl, t) => {
-        cap(tl, t, 'What arrives here', 'Every request has already been authenticated, inspected and checked against the live session');
-        t = pk.appear(tl, t + 300, [1470, Y, -650], 'mtls', 'GET /accounts', 'internal token');
-        t = go(tl, t, pk, [L.oW, L.onT], 1600, { cls: 'mtls' });
+        cap(tl, t, 'What arrives here', 'Only traffic from L4, over mutual TLS. The workload verifies the peer certificate on every connection and receives verified identity as headers, rather than parsing tokens');
+        t = pk.appear(tl, t + 300, [760, Y, -450], 'mtls', 'GET /accounts', 'from L4');
+        t = go(tl, t, pk, [L.t2On], 1600, { cls: 'mtls' });
         wlPulse(tl, t, D.wlOn);
-        return pk.vanish(tl, t + 1200) + 300;
+        t = stage.checklist(tl, t, { at: D.wlOn.top, title: 'Arrives with identity', items: [{ t: 'mTLS · peer certificate: L4 gateway' }, { t: 'x-auth-sub: ada@client.com' }, { t: 'x-auth-client: web' }, { t: 'traceparent: 00-4bf9…-01' }], result: 'No token to parse', step: 380, hold: 700, dx: -320, dy: 20 });
+        return pk.vanish(tl, t) + 300;
       },
-      (tl, t) => say(tl, t, 'What services can rely on', 'Authentication, payload hygiene and session risk are handled once, consistently, by the layers in front', { hold: 6000,
-        panel: { at: D.wlOn, title: 'Guaranteed on arrival', items: ['Caller authenticated, session live', 'Payload validated by policy', 'Identity in an internal token', 'mTLS from Tier 3 only'], dx: -300, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency · outside the 50 ms', 'The ingress budget ends at Tier 3; what happens here is the application’s own time', { hold: 4600 })] }),
-    P: layerCh({ focus: [P, 4, 5, 6], shot: SHOT.van, steps: [
-      (tl, t) => say(tl, t + 400, 'P · Private connectivity', 'Business partners who never use the internet path: VAN, private circuits and leased lines on-prem, and AWS PrivateLink in the cloud', { devs: [D.bpOn, D.bpp], hold: 5400 }),
+      (tl, t) => say(tl, t, 'Injected identity, per client type', 'What the workload receives depends on who is calling, and for agents on whose behalf', { hold: 6600,
+        panel: { at: D.wlCl, title: 'Injected to L5', items: CT.map(c => `${c.n} · ${c.inject}`), step: 360, dx: -360, dy: -80 } }),
+      (tl, t) => say(tl, t, 'What workloads can rely on', 'Authentication, live state, payload hygiene and risk are handled once, consistently, at L4', { hold: 5600,
+        panel: { at: D.wlOn, title: 'Guaranteed on arrival', items: ['Caller resolved to live state at L4', 'Payload validated by policy', 'Verified identity as headers', 'mTLS from L4 only'], dx: -320, dy: -60 } }),
+      (tl, t) => say(tl, t, 'Latency · outside the 50 ms', 'The ingress budget ends on arrival at L5; what happens here is the application’s own time', { hold: 4600 })] }),
+    L6: layerCh({ focus: [6], shot: { x: 1950, y: -190, z: 0, rx: -30, ry: -22, d: 3600 }, steps: [
+      (tl, t) => say(tl, t + 400, 'L6 · Internal network', 'Trusted services on the internal network: downstream services and systems of record, the identity platform’s session and signal managers, the message broker and the configuration pipeline', { devs: [D.sess, D.svc, D.sig, D.broker, D.sor, D.cfg], hold: 6000 }),
       (tl, t) => {
-        cap(tl, t, 'VAN → BP PSaaS', 'A partner network connects over a private circuit straight to BP PSaaS, a dedicated entry point, and then into Tier 2 like everything else');
-        t = pkE.appear(tl, t + 300, [X[0] + 60, Y, PZ.on], 'priv', 'POST /v1/payments', 'partner: acme · VAN');
+        cap(tl, t, 'Identity carried forward', 'When a workload calls a downstream service, the correlation identifier and the acting-for chain go with it, over mutual TLS. Identity is propagated, not re-asserted');
+        t = pk.appear(tl, t + 300, [1470, Y, -450], 'mtls', 'GET /accounts/4821', 'from the workload');
+        t = go(tl, t, pk, [L.onSvc], 1500, { cls: 'mtls' });
+        wlPulse(tl, t, D.svc);
+        t = stage.checklist(tl, t, { at: D.svc.top, title: 'Propagated', items: [{ t: 'mTLS between services' }, { t: 'traceparent: 00-4bf9…-01' }, { t: 'acting-for: ada@client.com' }, { t: 'No new login, no token parsing' }], result: 'Same identity, end to end', step: 380, hold: 700, dx: -340, dy: -60 });
+        return pk.vanish(tl, t) + 300;
+      },
+      (tl, t) => {
+        cap(tl, t, 'It also feeds L4', 'The session manager supplies live state, the signal manager raises risk signals that the broker carries, and the configuration pipeline distributes route policy to the enforcement tier');
+        stage.shot(tl, t, { x: 1400, y: -260, z: -100, rx: -34, ry: -10, d: 4600 }, 1600);
+        const chips = [[D.sess, 'live state', '#22D3EE'], [D.broker, 'signals', '#F472B6'], [D.cfg, 'route policy', '#94A3B8']];
+        chips.forEach(([d, txt, c], i) => {
+          d.activate(tl, t + 900 + i * 500, 2600);
+          for (const tgt of [D.t2, D.t2c]) fly(stage, W, tl, t + 1000 + i * 500, [d.x, d.topY - 10, d.z], [tgt.x, tgt.topY - 10, tgt.z],
+            { html: `<div class="fk-chip" style="--pc:${c};transform:translate(-50%,-50%)">${txt}</div>`, dur: 2000, arc: -260 });
+        });
+        return t + 1000 + 1000 + 2000 + 1600;
+      },
+      (tl, t) => say(tl, t, 'Observability', 'Every layer reports to the observability stack, with the same trace ID from L1 to L6', { hold: 4600 })] }),
+    P: layerCh({ focus: [P, 3, 4, 5], shot: LAYERS[P].shot, steps: [
+      (tl, t) => say(tl, t + 400, 'P · Private connectivity', 'Three paths that skip part of the internet route. On every one, the client is still L1 and still carries a credential', { devs: [D.bpOn, D.bpp, D.bpAws, D.pl, D.wf], hold: 5600 }),
+      (tl, t) => {
+        cap(tl, t, 'P1 · VAN → BP PSaaS', 'An institutional client on a VAN, private circuit or leased line bypasses L0 and L2 and enters at L3, through BP PSaaS. The circuit is only the network path');
+        stage.shot(tl, t, SHOT.van, 1600);
+        t = pkE.appear(tl, t + 600, [X[0] + 60, Y, PZ.on], 'priv', 'POST /v1/payments', 'client: acme · VAN');
         t = go(tl, t, pkE, [L.pvtOn], 2600, { cls: 'priv' });
-        t = visit(tl, t, D.bpp, 'bpp');
+        t = visit(tl, t, D.bpp, 'bpp', { dx: -330 });
         t = go(tl, t, pkE, [L.bpT2], 1600, { cls: 'priv' });
+        D.t2.activate(tl, t, 1400);
         return pkE.vanish(tl, t + 600) + 300;
       },
       (tl, t) => {
-        cap(tl, t, 'AWS PrivateLink', 'A partner service in its own AWS VPC reaches our endpoint service privately; traffic never leaves AWS');
+        cap(tl, t, 'P2 · AWS PrivateLink', 'A partner service in its own AWS VPC never touches the internet: it bypasses L0, L2 and L3 and enters at L4, through our endpoint service and its load balancer');
         stage.shot(tl, t, SHOT.plink, 1800);
         t = pkD.appear(tl, t + 1200, [470, Y, PZ.aws], 'priv', 'GET /v1/positions', 'partner: globex');
         t = go(tl, t, pkD, [L.pInner], 900, { cls: 'priv' });
         t = go(tl, t + 200, pkD, [L.pvtAws], 1600, { cls: 'priv' });
-        t = visit(tl, t, D.pl, 'pl');
-        return pkD.vanish(tl, t + 300) + 300;
+        t = visit(tl, t, D.pl, 'pl', { dy: 50 });
+        t = go(tl, t, pkD, [L.plIn], 900, { cls: 'priv' });
+        D.t2c.activate(tl, t, 1400);
+        return pkD.vanish(tl, t + 600) + 300;
       },
-      (tl, t) => say(tl, t, 'Why a separate path', 'No public exposure, partner-specific entry points and allow-lists, yet the same Tier 2 and Tier 3 controls still apply once inside', { hold: 6000,
-        panel: { at: D.pl, title: 'Private paths', items: ['No internet, DNS steering or CDN', 'Dedicated entry: BP PSaaS or PrivateLink', 'Partner allow-lists and mTLS', 'Same Tier 2 / Tier 3 controls inside'], dx: 40, dy: -60 } }),
-      (tl, t) => say(tl, t, 'Latency', 'Set by the circuit or the AWS network rather than the internet; the internal hops share the Tier 2 and Tier 3 budgets', { hold: 4600 })] })
+      (tl, t) => {
+        cap(tl, t, 'P3 · Internal network ingress', 'Workforce users on the internal network arrive at L4 without the edge or the perimeter, and get exactly the same enforcement');
+        stage.shot(tl, t, SHOT.intnet, 1800);
+        t = pkF.appear(tl, t + 1200, [X[6] - 70, Y, PZ.on], 'priv', 'GET /cases/48213', 'workforce');
+        t = go(tl, t, pkF, [L.wfT2], 2400, { cls: 'priv' });
+        t = visit(tl, t, D.t2, 't2', { check: { title: 'T2 gateway · P3', items: ['Workforce session → live state', 'Same global and route policies', 'Inject identity · mTLS to L5'] } });
+        return pkF.vanish(tl, t) + 300;
+      },
+      (tl, t) => { stage.shot(tl, t, LAYERS[P].shot, 1600); return say(tl, t, 'Why they still converge on L4', 'Each path secures its own hop, but none of them replaces the credential check: every one is enforced at L4 like internet traffic', { hold: 6200,
+        panel: { at: D.t2, title: 'Securing the hop in', items: ['P1 · dedicated circuit, source restriction at L3', 'P2 · endpoint service policy, credential at L4', 'P3 · network path only; L4 unchanged'], dx: 40, dy: 20 } }); },
+      (tl, t) => say(tl, t, 'Latency', 'Set by the circuit, the AWS network or the internal network rather than the internet; the L4 budget is the same as for internet traffic', { hold: 4600 })] })
   };
 
   /* ---------- Chapter 2: web journey, on-prem ---------- */
@@ -3279,7 +3438,7 @@ window.FK_CAPTIONS = {
     let t = 300;
     cap(tl, t, 'Web journey · on-prem', 'A customer opens the web app in a browser');
     t = stage.shot(tl, t, look(C.browser, { dist: 1800, ry: 24, dx: 250, dz: 100 }), 2000);
-    cap(tl, t, 'L1 · Steering (DNS)', 'Outside the request: the resolver asks one of the seven nameservers. A JPMorgan primary returns a CNAME to Akamai GTM, and GTM picks the best edge');
+    cap(tl, t, 'L0 · DNS', 'Before the request: the resolver asks one of the seven nameservers. A JPMorgan primary returns a CNAME to Akamai GTM, and GTM picks the best edge');
     stage.shot(tl, t, SHOT.steer, 1800);
     t = dns(tl, t + 300, C.browser, DNSQ.web);
     span(tl, t - 1200, D.steerA, 'dns.akamai', 0, 18);
@@ -3289,45 +3448,44 @@ window.FK_CAPTIONS = {
     span(tl, t, C.browser, 'browser', 20, 400);
     t = go(tl, t, pk, [L.cl.browser, L.hubA], 2200);
     budget.spend(tl, t, 0, 7);
-    t = visit(tl, t, D.cdnA, 'cdnA');
+    t = visit(tl, t, D.cdnA, 'cdnA', { dy: 30 });
     budget.spend(tl, t - 600, 1, 2);
     span(tl, t - 900, D.cdnA, 'akamai.cdn', 32, 380);
-    cap(tl, t, 'L3 · Regional perimeter', 'Only CDN origin traffic may enter the on-prem network; PSaaS+ admits it into the internal DMZ');
+    cap(tl, t, 'L3 · Regional perimeter', 'Only CDN traffic may enter the on-prem network; PSaaS+ admits it into SESF');
     stage.shot(tl, t, look(D.psaas, { dx: -150, dz: 100 }), 1800);
     t = go(tl, t + 100, pk, [L.cAA, L.inA], 1400);
     budget.spend(tl, t, 2, 9);
     t = visit(tl, t, D.psaas, 'psaas');
     budget.spend(tl, t - 600, 3, 2);
     span(tl, t - 900, D.psaas, 'psaas+', 46, 360);
-    cap(tl, t, 'L4 · SESF / Tier 2', 'The request reaches the T2 gateway proxy in the internal DMZ');
+    cap(tl, t, 'L4 · Enforcement tier', 'The request reaches the T2 gateway in SESF, the single enforcement point');
     stage.shot(tl, t, look(D.t2, { dx: -150, dz: 100 }), 1800);
     t = go(tl, t + 100, pk, [L.psT2], 1200);
     const t2Start = t;
     D.t2.activate(tl, t, 1200);
-    cap(tl, t, 'Inside T2 · gateway-envoy', 'The T2 node expands: Envoy on a GVSI host calls auth-service (ext_authz) for the session check and the payload policies');
+    cap(tl, t, 'Inside L4 · gateway-envoy', 'The T2 node expands: Envoy calls auth-service (ext_authz) to resolve the session, exchange the token and run the payload policies');
     stage.shot(tl, t, SHOT.t2drill, 1400);
     t = pk.open(tl, t);
     stage.present(tl, t, true);
     t = T2D.open(tl, t + 200, 800);
-    cap(tl, t, 'Route, then check the session', 'Envoy matches the route and calls auth-service, which verifies the session JWT: issued by the session manager, for ingress-gateway, signed, DPoP-bound');
+    cap(tl, t, 'Route, then resolve the session', 'Envoy matches the route; the session validator checks the session (for ingress-gateway, signed, DPoP-bound) against live state, and the token is exchanged for an internal one');
     t = t2Run(tl, t + 200, 'get');
-    cap(tl, t - 1800, 'No body, no payload policies', 'This GET has no body, so the global and route payload policies are skipped; chapter 3 shows them at work');
+    cap(tl, t - 1800, 'No body, no payload policies', 'This GET has no body, so the global and route payload policies are skipped; the Payload policies journey shows them at work');
     t = T2D.close(tl, t + 300, 600);
     stage.present(tl, t, false);
     span(tl, t2Start, D.t2, 'envoy.t2', 60, 340);
-    budget.spend(tl, t, 4, 9);
+    budget.spend(tl, t, 4, 9); budget.spend(tl, t + 300, 5, 12);
     stage.shot(tl, t, look(D.t2, { dx: -150, dz: 100 }), 1200);
     t = pk.seal(tl, t, 'mtls');
-    cap(tl, t, 'L5 · ESF / Tier 3', 'The T3 IFA web gateway brokers the call across the firewall into the trusted network');
-    stage.shot(tl, t, look(D.t3web, { dx: -150, dz: 150 }), 1800);
-    t = go(tl, t + 100, pk, [L.t2W], 1400, { cls: 'mtls' });
-    t = visit(tl, t, D.t3web, 't3web');
-    budget.spend(tl, t - 600, 5, 12);
-    span(tl, t - 900, D.t3web, 't3.web.envoy', 74, 318);
-    cap(tl, t, 'L6 · Trusted workloads', 'The application service in the trusted zone answers the request');
-    stage.shot(tl, t, look(D.wlOn, { dx: -200, dz: 100, dist: 1900 }), 1600);
-    t = go(tl, t + 100, pk, [L.oW, L.onT], 1400, { cls: 'mtls' });
+    cap(tl, t, 'L5 · IFA workload zone', 'Over mutual TLS, the accounts workload on GKP receives the verified identity as headers');
+    stage.shot(tl, t, look(D.wlOn, { dx: -250, dz: 100, dist: 2000 }), 1800);
+    t = go(tl, t + 100, pk, [L.t2On], 1600, { cls: 'mtls' });
     workload(tl, t, D.wlOn, pk, null, 'mtls', 'accounts-svc', 92, 280);
+    t += 1400;
+    cap(tl, t, 'L6 · Internal network', 'The workload reads the system of record downstream, with the trace ID and the acting-for chain carried forward');
+    stage.shot(tl, t, look(D.svc, { dx: -250, dz: 100, dist: 1900 }), 1600);
+    t = go(tl, t + 100, pk, [L.onSvc], 1300, { cls: 'mtls' });
+    wlPulse(tl, t, D.svc); span(tl, t, D.svc, 'accounts-sor', 150, 160);
     t += 1600;
     cap(tl, t, 'Response', '200 OK returns along the same path, with one trace ID across every layer');
     pk.state_(tl, t, 'ok', '200 OK', 'trace 4bf9…4736');
@@ -3336,7 +3494,7 @@ window.FK_CAPTIONS = {
     C.browser.html(tl, t, SCR.accounts);
     ring(stage, W, tl, t, C.browser.top, '#34D399', 260);
     t = pk.vanish(tl, t);
-    cap(tl, t, 'Next click · caches', 'The DNS answer is still cached, so L1 is not contacted, and the edge serves the static asset from its cache');
+    cap(tl, t, 'Next click · caches', 'The DNS answer is still cached, so L0 is not contacted, and the edge serves the static asset from its cache');
     t = stage.shot(tl, t, { x: -1250, y: -220, z: -250, rx: -26, ry: 16, d: 2700 }, 2000);
     t = dns(tl, t, C.browser, DNSQ.web, { cache: 'hit', q: 'A? app.jpmorgan.com' });
     t = pk.appear(tl, t, [X[0] + 60, Y, C.browser.z], 'tls', 'GET /static/app.js', '→ 23.45.67.89');
@@ -3354,9 +3512,9 @@ window.FK_CAPTIONS = {
   /* ---------- Chapter: payload policies at T2 (ingress-poc test payloads) ---------- */
   function chPayload(tl) {
     base(tl, '3f2a9c1e7b5d4e8fa0c6b2d9e1f47a53', 300);
-    const IN = [L.cl.browser, L.hubA, L.cAA, L.inA, L.psT2], ONWARD = [L.t2W, L.oW, L.onT];
+    const IN = [L.cl.browser, L.hubA, L.cAA, L.inA, L.psT2], ONWARD = [L.t2On];
     const runs = [
-      ['valid', '1 · Valid payload', 'Session JWT checked; the global policy finds no injection patterns; the route policy confirms required fields and formats: allowed, 201 Created',
+      ['valid', '1 · Valid payload', 'Session resolved and token exchanged; the global policy finds no injection patterns; the route policy confirms required fields and formats: allowed, 201 Created',
         'auth-service      allow  global ✓ route_users_register ✓', '#C7D2FE', 0],
       ['sqli', '2 · SQL injection', 'The global policy (a blocklist, default allow) matches an injection pattern in full_name and denies: 403. The route policy never runs',
         'auth-service      403  payload.global  injection pattern in full_name', '#FDA4AF', 1],
@@ -3364,13 +3522,13 @@ window.FK_CAPTIONS = {
         'auth-service      403  route_users_register  email is not a valid email address', '#FDA4AF', 1]
     ];
     let t = 300;
-    cap(tl, t, 'Payload policies · T2', 'Three requests to POST /api/v1/users/register show the two Rego policies that protect every route');
+    cap(tl, t, 'Payload policies · L4', 'Three requests to POST /api/v1/users/register show the two Rego policies that protect every route');
     t = stage.shot(tl, t, SHOT.front, 1800);
     runs.forEach(([k, st, tx, log, col, err], n) => {
       // client -> T2
       [...IN, ...ONWARD].forEach(l => l.clear(tl, t));
       C.browser.html(tl, t, SCR.reg);
-      cap(tl, t, st, 'The browser submits the registration form; the request crosses the edge and perimeter to T2');
+      cap(tl, t, st, 'The browser submits the registration form; the request crosses the edge and perimeter to L4');
       stage.shot(tl, t, SHOT.front, 1400);
       t = pk.appear(tl, t + 300, [X[0] + 60, Y, C.browser.z], 'tls', 'POST /api/v1/users/register', PAY[k].badge[0]);
       t = go(tl, t, pk, IN, 3000);
@@ -3388,7 +3546,7 @@ window.FK_CAPTIONS = {
       stage.present(tl, t, false);
       if (err) {
         // policy violation: the 403 travels all the way back to the client
-        cap(tl, t, st + ' · 403', 'The 403 goes straight back to the client; nothing reaches Tier 3 or the backend');
+        cap(tl, t, st + ' · 403', 'The 403 goes straight back to the client; nothing reaches L5');
         pk.state_(tl, t, 'bad', '403 Forbidden', 'payload validation failed');
         t = pk.seal(tl, t, 'bad');
         stage.shot(tl, t, SHOT.front, 1400);
@@ -3396,8 +3554,8 @@ window.FK_CAPTIONS = {
         C.browser.html(tl, t, SCR.reg403);
         ring(stage, W, tl, t, C.browser.top, '#F43F5E', 260);
       } else {
-        // allowed: on to Tier 3 and the backend, then 201 back to the client
-        cap(tl, t, st + ' · 201', 'Allowed: the request continues over mTLS through Tier 3 to the backend, and 201 Created returns to the client');
+        // allowed: on to the workload in L5, then 201 back to the client
+        cap(tl, t, st + ' · 201', 'Allowed: the request continues over mTLS to the workload in L5, and 201 Created returns to the client');
         t = pk.seal(tl, t, 'mtls');
         stage.shot(tl, t, SHOT.overview, 2200, 'inOutSine');
         t = go(tl, t, pk, ONWARD, 2200, { cls: 'mtls' });
@@ -3409,7 +3567,7 @@ window.FK_CAPTIONS = {
       }
       t = pk.vanish(tl, t + 700) + 600;
     });
-    cap(tl, t, 'One lever for every route', 'The global policy patches every route at once against new attack patterns; each route policy only knows its own fields');
+    cap(tl, t, 'One lever for every route', 'The global policy patches every route at once against new attack patterns; each route policy is generated from its workload\u2019s code and knows only its own fields');
     t = stage.shot(tl, t, SHOT.obs, 2200);
     tl.wait(t, 3000);
   }
@@ -3422,7 +3580,7 @@ window.FK_CAPTIONS = {
     cap(tl, t, 'API journey · AWS', 'An API client calls the accounts API');
     t = stage.shot(tl, t, look(C.api, { dist: 1700, ry: 24, dx: 250, dz: 100 }), 2000);
     C.api.html(tl, t - 800, TERM.req);
-    cap(tl, t, 'L1 · Steering (DNS)', 'This resolver happened to ask a Cloudflare secondary. The zone came from the JPMorgan primary, but this hostname is overridden to Cloudflare LB, which answers with an anycast IP');
+    cap(tl, t, 'L0 · DNS', 'This resolver happened to ask a Cloudflare secondary. The zone came from the JPMorgan primary, but this hostname is overridden to Cloudflare LB, which answers with an anycast IP');
     stage.shot(tl, t, SHOT.steer, 1800);
     t = dns(tl, t + 300, C.api, DNSQ.api);
     span(tl, t - 1200, D.steerC, 'dns.cloudflare', 0, 12);
@@ -3442,26 +3600,24 @@ window.FK_CAPTIONS = {
     t = visit(tl, t, D.waf, 'waf');
     budget.spend(tl, t - 600, 3, 2);
     span(tl, t - 900, D.waf, 'aws.waf', 36, 286);
-    cap(tl, t, 'L4 · no Tier 2 hop in AWS', 'In AWS the WAF hands off directly to the EKS gateways in the cross-firewall zone');
-    stage.shot(tl, t, look(D.capi, { dx: -450, dz: 150, dist: 2400 }), 2200);
-    t = go(tl, t + 100, pk, [L.wafA, L.tA], 2400);
-    cap(tl, t, 'L5 · Cloud API gateway', 'Kong on EKS validates the token, the scope and the payload against the OpenAPI contract');
-    D.capi.activate(tl, t, 3600);
+    cap(tl, t, 'L4 · Enforcement tier · AWS', 'The T2 gateway on EKS terminates mTLS, resolves the key-bound token to the user\u2019s grant, exchanges it, and runs the global and route policies');
+    stage.shot(tl, t, look(D.t2c, { dx: -250, dz: 150, dist: 2200 }), 2000);
+    t = go(tl, t + 100, pk, [L.wafT2], 1400);
+    D.t2c.activate(tl, t, 3600);
     t = pk.open(tl, t);
-    budget.spend(tl, t, 4, 0);
-    t = visit(tl, t, D.capi, 'capi', { hold: 3200 });
-    budget.spend(tl, t - 600, 5, 11);
-    span(tl, t - 900, D.capi, 'kong.cloud-api', 48, 262);
+    t = visit(tl, t, D.t2c, 't2c', { hold: 3200 });
+    budget.spend(tl, t - 900, 4, 8); budget.spend(tl, t - 600, 5, 11);
+    span(tl, t - 900, D.t2c, 'envoy.t2-aws', 48, 262);
     t = pk.seal(tl, t - 200, 'mtls');
-    cap(tl, t, 'L6 · Trusted workloads', 'The cloud accounts service answers');
-    stage.shot(tl, t, look(D.wlCl, { dx: -200, dz: 150, dist: 1900 }), 1600);
-    t = go(tl, t + 100, pk, [L.cAo, L.clT], 1300, { cls: 'mtls' });
+    cap(tl, t, 'L5 · IFA workload zone', 'The accounts workload on EKS answers, with the user and client identity in headers');
+    stage.shot(tl, t, look(D.wlCl, { dx: -250, dz: 150, dist: 2000 }), 1600);
+    t = go(tl, t + 100, pk, [L.t2Cl], 1400, { cls: 'mtls' });
     workload(tl, t, D.wlCl, pk, null, 'mtls', 'accounts-svc', 70, 210);
     t += 1600;
     cap(tl, t, 'Response', '200 OK and a JSON body return to the client');
     pk.state_(tl, t, 'ok', '200 OK', 'application/json');
     stage.shot(tl, t, SHOT.overview, 3000, 'inOutSine');
-    t = go(tl, t + 200, pk, RT.api, 4200, { reverse: true, cls: 'ok', ease: 'inOutQuad' });
+    t = go(tl, t + 200, pk, RT.api.slice(0, -1), 4200, { reverse: true, cls: 'ok', ease: 'inOutQuad' });
     C.api.html(tl, t, TERM.ok);
     ring(stage, W, tl, t, C.api.top, '#34D399', 240);
     t = pk.vanish(tl, t);
@@ -3469,88 +3625,130 @@ window.FK_CAPTIONS = {
     tl.wait(t, 2500);
   }
 
-  /* ---------- Chapter 4: business partners over private connectivity ---------- */
+  /* ---------- Chapter 4: private connectivity, P1 to P3 ---------- */
   function chPrivate(tl) {
     base(tl, '5b8aa5a2d2c872e8321cf37308d69df2', 300);
     const track = (pos, v) => tl.set(stage, 'tracker', pos, v, x => { stage.tracker = x; }, pk);
     let t = 300;
-    cap(tl, t, 'Private connectivity', 'Business partners on VAN, private circuits or leased lines use their own route, outside the internet path');
+    cap(tl, t, 'Private connectivity', 'Institutional clients, partner services and workforce users can skip part of the internet route');
     stage.focus(tl, t, [P]);
     t = stage.shot(tl, t, LAYERS[P].shot, 2400);
-    cap(tl, t, 'A distinct route', 'No DNS steering, no CDN, no internet perimeter (L1 to L3): each partner lands on a dedicated entry point');
+    cap(tl, t, 'Distinct routes, one enforcement point', 'No DNS steering or CDN: each path lands on its own entry point, and every one converges on L4');
     t += 3200;
-    // on-prem: partner -> VAN -> BP PSaaS -> T2 -> T3 API -> workloads
-    cap(tl, t, 'P · Private circuit to on-prem', 'Partner Acme sends a payment over its VAN / leased line');
-    stage.focus(tl, t, [P, 4, 5, 6]);
+    // P1: institutional client -> VAN -> BP PSaaS (L3) -> T2 (L4) -> workload (L5)
+    cap(tl, t, 'P1 · Private circuit', 'Institutional client Acme sends a payment over its VAN / leased line');
+    stage.focus(tl, t, [P, 3, 4, 5]);
     stage.shot(tl, t, SHOT.van, 2000);
     D.bpOn.activate(tl, t + 800, 1600);
-    t = pkE.appear(tl, t + 1200, [X[0] + 60, Y, PZ.on], 'priv', 'POST /v1/payments', 'partner: acme · VAN');
+    t = pkE.appear(tl, t + 1200, [X[0] + 60, Y, PZ.on], 'priv', 'POST /v1/payments', 'client: acme · VAN');
     track(t - 400, pkE);
-    span(tl, t, D.bpOn, 'partner.acme', 0, 296);
+    span(tl, t, D.bpOn, 'client.acme', 0, 296);
     t = go(tl, t, pkE, [L.pvtOn], 3000, { cls: 'priv' });
-    cap(tl, t, 'P · BP PSaaS entry point', 'The dedicated business partner entry point admits the circuit into the on-prem network');
+    cap(tl, t, 'P1 · BP PSaaS, entering at L3', 'BP PSaaS terminates the circuit, checks the client allow-list and maps the route. The circuit is only the network path');
     stage.shot(tl, t - 1200, look(D.bpp, { dx: -150, dz: 250, ry: -12, rx: -32, dist: 2000 }), 1600);
     t = visit(tl, t, D.bpp, 'bpp');
     span(tl, t - 900, D.bpp, 'bp-psaas', 10, 280);
-    cap(tl, t, 'L4 · SESF / Tier 2', 'From here it joins the internal path: the T2 gateway proxy inspects and re-encrypts with mTLS');
+    cap(tl, t, 'L4 · Enforcement tier', 'The client is still L1 and still carries a credential: the T2 gateway resolves it and applies the same policies as for internet traffic');
     stage.shot(tl, t, look(D.t2, { dx: -250, dz: -300, ry: -10, rx: -36, dist: 2400 }), 1800);
     t = go(tl, t + 100, pkE, [L.bpT2], 1800, { cls: 'priv' });
     D.t2.activate(tl, t, 2600);
     t = pkE.open(tl, t);
-    t = visit(tl, t, D.t2, 't2', { step: 220, check: { items: ['TLS terminated and inspected', 'Route: partner payments API', 'Re-encrypt with mTLS to Tier 3'] } });
+    t = visit(tl, t, D.t2, 't2', { step: 240, check: { items: ['mTLS terminated · client certificate: Acme', 'Client credentials → workload identity', 'Scope: payments:create', 'Route policy: payments contract', 'Inject identity · mTLS to L5'] } });
     span(tl, t - 900, D.t2, 'envoy.t2', 24, 260);
     t = pkE.seal(tl, t - 200, 'mtls');
-    cap(tl, t, 'L5 · T3 IFA API gateway', 'Kong on GKP authenticates the partner and enforces its plan and the API contract');
-    stage.shot(tl, t, look(D.t3api, { dx: -200, dz: 100 }), 1800);
-    t = go(tl, t + 100, pkE, [L.t2A], 1400, { cls: 'mtls' });
-    t = visit(tl, t, D.t3api, 't3api', { step: 240, check: { items: ['OAuth2 client credentials: partner Acme', 'Scope: payments:create', 'Partner plan quota: ok', 'OpenAPI schema validation'] } });
-    span(tl, t - 900, D.t3api, 't3.api.kong', 40, 236);
-    cap(tl, t, 'L6 · Trusted workloads', 'The on-prem payments service accepts the instruction');
-    stage.shot(tl, t, look(D.wlOn, { dx: -200, dz: 100, dist: 1900 }), 1600);
-    t = go(tl, t + 100, pkE, [L.oA, L.onT], 1300, { cls: 'mtls' });
+    cap(tl, t, 'L5 · IFA workload zone', 'The payments workload on GKP accepts the instruction');
+    stage.shot(tl, t, look(D.wlOn, { dx: -250, dz: 100, dist: 2000 }), 1600);
+    t = go(tl, t + 100, pkE, [L.t2On], 1400, { cls: 'mtls' });
     workload(tl, t, D.wlOn, pkE, null, 'mtls', 'payments-svc', 60, 200);
     t += 1400;
     pkE.state_(tl, t, 'ok', '201 Created', 'over the private circuit');
     cap(tl, t, 'Response', '201 Created returns over the same private circuit');
-    stage.shot(tl, t, { ...LAYERS[P].shot, z: -300 }, 2600, 'inOutSine');
+    stage.shot(tl, t, { ...SHOT.van, x: -400, z: -900, d: 4600 }, 2600, 'inOutSine');
     t = go(tl, t + 200, pkE, RT.bpOn, 3800, { reverse: true, cls: 'ok', ease: 'inOutQuad' });
     ring(stage, W, tl, t, D.bpOn.top, '#34D399', 240);
     t = pkE.vanish(tl, t);
-    // AWS: partner service (its own account) -> interface endpoint -> AWS network -> our endpoint service -> Cloud API -> workloads
-    cap(tl, t, 'P · Partner VPC', 'A trusted 3rd party runs its service in its own AWS account and VPC, alongside ours on the AWS network');
-    stage.focus(tl, t, [P, 5, 6]);
-    stage.shot(tl, t, { x: 700, y: -40, z: 1100, rx: -40, ry: -12, d: 2700 }, 2200);
+    // P2: partner service (its own account) -> interface endpoint -> AWS network -> endpoint service -> T2 on EKS (L4) -> workload (L5)
+    cap(tl, t, 'P2 · Partner VPC', 'A trusted 3rd party runs its service in its own AWS account and VPC, alongside ours on the AWS network');
+    stage.focus(tl, t, [P, 4, 5]);
+    stage.shot(tl, t, SHOT.plink, 2200);
     wlPulse(tl, t + 900, D.bpAws);
     t = pkD.appear(tl, t + 1400, [470, Y, PZ.aws], 'priv', 'GET /v1/positions', 'partner: globex');
     track(t - 400, pkD);
-    cap(tl, t, 'P · Interface endpoint', 'It calls a private IP inside its own VPC: an interface endpoint for our service');
+    cap(tl, t, 'P2 · Interface endpoint', 'It calls a private IP inside its own VPC: an interface endpoint for our service');
     t = go(tl, t, pkD, [L.pInner], 900, { cls: 'priv' });
     t = visit(tl, t, D.eni, 'eni', { step: 280 });
     obs.log(tl, t - 900, 'vpce              partner=globex  10.20.3.14:443', '#99F6E4');
-    cap(tl, t, 'P · VPC to VPC', 'PrivateLink carries it from the partner VPC straight into our VPC: no internet gateway, NAT or public IP, and no L1 to L3');
+    cap(tl, t, 'P2 · VPC to VPC', 'PrivateLink carries it from the partner VPC straight into our VPC: no internet gateway, NAT or public IP, and no L0, L2 or L3');
     stage.shot(tl, t, { x: 800, y: -60, z: 960, rx: -44, ry: -18, d: 2500 }, 1800);
     t = go(tl, t + 300, pkD, [L.pvtAws], 2000, { cls: 'priv' });
-    cap(tl, t, 'P · Our endpoint service', 'Only allow-listed partner accounts can connect, only to this one service, and only in that direction');
+    cap(tl, t, 'P2 · Endpoint service, entering at L4', 'Only allow-listed partner accounts can connect, only to this one service, and only in that direction. Its load balancer fronts the enforcement tier');
     stage.shot(tl, t - 600, look(D.pl, { dx: 200, dz: -50, ry: -18, rx: -32, dist: 2200 }), 1400);
     t = visit(tl, t, D.pl, 'pl');
     obs.log(tl, t - 900, 'privatelink       accept account=1111-2222-3333', '#99F6E4');
-    cap(tl, t, 'L5 · Cloud API gateway', 'Kong on EKS authenticates the partner with mTLS and OAuth client credentials');
-    stage.shot(tl, t, look(D.capi, { dx: -300, dz: 350, dist: 2300 }), 1800);
-    t = go(tl, t + 100, pkD, [L.plIn, L.tA], 2200, { cls: 'priv' });
-    t = visit(tl, t, D.capi, 'capi', { step: 240, check: { items: ['mTLS client certificate: partner CA', 'OAuth2 client credentials', 'Scope: positions:read', 'Partner plan quota: ok'] } });
-    obs.log(tl, t - 900, 'kong.cloud-api    200 partner=globex', '#C7D2FE');
-    stage.shot(tl, t, look(D.wlCl, { dx: -200, dz: 150, dist: 1900 }), 1600);
-    t = go(tl, t + 100, pkD, [L.cAo, L.clT], 1300, { cls: 'mtls' });
+    cap(tl, t, 'L4 · Enforcement tier · AWS', 'A credential is still required: the T2 gateway on EKS terminates mTLS and resolves the partner’s signed assertion to workload identity');
+    stage.shot(tl, t, look(D.t2c, { dx: -200, dz: 350, dist: 2300 }), 1800);
+    t = go(tl, t + 100, pkD, [L.plIn], 1200, { cls: 'priv' });
+    t = visit(tl, t, D.t2c, 't2c', { step: 240, dy: 30, check: { items: ['mTLS client certificate: partner CA', 'Signed assertion → workload identity', 'Scope: positions:read', 'Inject identity · mTLS to L5'] } });
+    obs.log(tl, t - 900, 'envoy.t2-aws      200 partner=globex', '#C7D2FE');
+    stage.shot(tl, t, look(D.wlCl, { dx: -250, dz: 150, dist: 2000 }), 1600);
+    t = go(tl, t + 100, pkD, [L.t2Cl], 1300, { cls: 'mtls' });
     wlPulse(tl, t, D.wlCl);
     t += 1400;
     pkD.state_(tl, t, 'ok', '200 OK', 'back over PrivateLink');
-    stage.shot(tl, t, { x: 1100, y: -100, z: 750, rx: -42, ry: -10, d: 4200 }, 2400, 'inOutSine');
+    stage.shot(tl, t, { x: 900, y: -100, z: 750, rx: -42, ry: -10, d: 4000 }, 2400, 'inOutSine');
     t = go(tl, t + 200, pkD, RT.bpAws, 3400, { reverse: true, cls: 'ok', ease: 'inOutQuad' });
     ring(stage, W, tl, t, D.bpAws.top, '#34D399', 240);
     t = pkD.vanish(tl, t);
+    // P3: workforce user on the internal network -> T2 (L4) -> workload (L5)
+    cap(tl, t, 'P3 · Internal network', 'An employee on the internal network opens a case in an internal tool');
+    stage.focus(tl, t, [P, 4, 5]);
+    stage.shot(tl, t, SHOT.intnet, 2200);
+    D.wf.activate(tl, t + 800, 1600);
+    t = pkF.appear(tl, t + 1200, [X[6] - 70, Y, PZ.on], 'priv', 'GET /cases/48213', 'workforce');
+    track(t - 400, pkF);
+    t = go(tl, t, pkF, [L.wfT2], 2600, { cls: 'priv' });
+    cap(tl, t, 'P3 · Straight to L4', 'No edge and no perimeter, but no shortcut either: the T2 gateway enforces exactly what it enforces for internet traffic');
+    stage.shot(tl, t - 800, look(D.t2, { dx: 150, dz: -350, ry: -14, rx: -36, dist: 2400 }), 1600);
+    t = visit(tl, t, D.t2, 't2', { step: 260, check: { items: ['Workforce session → live state', 'Same global and route policies', 'Scope: cases:read', 'Inject identity · mTLS to L5'] } });
+    t = pkF.seal(tl, t - 200, 'mtls');
+    t = go(tl, t + 100, pkF, [L.t2On], 1400, { cls: 'mtls' });
+    wlPulse(tl, t, D.wlOn);
+    t += 1200;
+    pkF.state_(tl, t, 'ok', '200 OK', 'case 48213');
+    t = go(tl, t + 200, pkF, RT.wf, 3000, { reverse: true, cls: 'ok', ease: 'inOutQuad' });
+    D.wf.html(tl, t, SCR.wfOk); ring(stage, W, tl, t, D.wf.top, '#34D399', 240);
+    t = pkF.vanish(tl, t);
     stage.focus(tl, t, null);
-    cap(tl, t, 'Two worlds, one platform', 'Internet traffic climbs through L1 to L3. Partners enter at BP PSaaS over private circuits, or over PrivateLink from inside AWS, and join the internal path');
+    cap(tl, t, 'Three private paths, one enforcement point', 'Internet traffic comes through L2 and L3. P1 enters at L3, P2 and P3 at L4, and all of it meets the same L4 enforcement');
     t = stage.shot(tl, t, SHOT.overview, 2400);
+    tl.wait(t, 3500);
+  }
+
+  /* ---------- Chapter: the six client types at L4 ---------- */
+  function chClients(tl) {
+    base(tl, '', 300);
+    stage.flag(tl, 0, 'fk-notrace', true);
+    let t = 300;
+    cap(tl, t, 'Client types', 'Six client types, one enforcement point: what each presents at L4, what L4 resolves it to, and what reaches the workload');
+    stage.focus(tl, t, [1, 2, 3, 4]);
+    t = stage.shot(tl, t, SHOT.l4, 2200) + 600;
+    const on = [L.hubA, L.cAA, L.inA, L.psT2], aws = [L.hubC, L.cCC, L.inC, L.wafT2];
+    const path = { browser: on, mobile: aws, api: aws, dagent: aws, aagent: on, m2m: on };
+    CT.forEach((c, i) => {
+      const key = Object.keys(C).find(k => C[k] === c.d), r = [L.cl[key], ...path[key]], gw = path[key] === on ? D.t2 : D.t2c;
+      cap(tl, t, c.n, `At L2: ${c.l2.charAt(0).toLowerCase() + c.l2.slice(1)}. At L4 it presents: ${c.present.charAt(0).toLowerCase() + c.present.slice(1)}`);
+      c.d.activate(tl, t, 3000);
+      const p = [pk, pkB][i % 2];
+      t = p.appear(tl, t + 400, r[0].pts[0], 'tls', c.n, c.mtls ? 'mTLS to L4' : 'TLS');
+      t = go(tl, t, p, r, 3000);
+      t = stage.checklist(tl, t, { at: gw.top, title: c.n + ' at L4', items: [
+        { t: 'Presents · ' + c.present }, { t: 'Resolves to · ' + c.resolve }, { t: 'Step-up · ' + c.stepup, s: c.stepup === 'Not applicable' ? 'skip' : undefined },
+        { t: 'On risk signal · ' + c.risk, s: 'warn' }, { t: 'Injects to L5 · ' + c.inject }], result: 'Forward to L5 · mTLS', step: 520, hold: 1200, dx: 40, dy: -60 });
+      t = p.vanish(tl, t) + 300;
+    });
+    cap(tl, t, 'One table, one place', 'Human, machine and agent are not security categories: the credential and its key decide what L4 resolves, and L4 is the only place that decides it');
+    stage.focus(tl, t, null);
+    t = stage.shot(tl, t, SHOT.overview, 2200);
     tl.wait(t, 3500);
   }
 
@@ -3588,34 +3786,34 @@ window.FK_CAPTIONS = {
     t = go(tl, t + 100, pk, [L.cCC, L.inC], 1400);
     t = visit(tl, t, D.waf, 'waf', { step: 220 });
     span(tl, t - 900, D.waf, 'aws.waf', 48, 452);
-    cap(tl, t, 'L5 · Cloud web gateway', 'Envoy on EKS routes to the web service with outlier detection and retries');
-    stage.shot(tl, t, look(D.cweb, { dx: -350, dz: 200, dist: 2300 }), 2000);
-    t = go(tl, t + 100, pk, [L.wafW, L.tW], 2200);
-    t = visit(tl, t, D.cweb, 'cweb', { step: 220 });
-    span(tl, t - 900, D.cweb, 'envoy.cloud-web', 60, 436);
+    cap(tl, t, 'L4 · T2 gateway · AWS', 'The same enforcement on EKS: the session resolves to live state, then Envoy routes to the workload with outlier detection and retries');
+    stage.shot(tl, t, look(D.t2c, { dx: -300, dz: 200, dist: 2300 }), 2000);
+    t = go(tl, t + 100, pk, [L.wafT2], 1600);
+    t = visit(tl, t, D.t2c, 't2c', { step: 220, check: { items: ['Session → live state', 'Outlier detection: pod health', 'Retry budget available', 'Inject identity · mTLS to L5'] } });
+    span(tl, t - 900, D.t2c, 'envoy.t2-aws', 60, 436);
     pk.seal(tl, t - 400, 'mtls');
     stage.shot(tl, t, look(D.wlCl, { dx: -250, dz: 100, dist: 1900 }), 1600);
-    t = go(tl, t + 100, pk, [L.cWo, L.clT], 1100, { cls: 'mtls' });
+    t = go(tl, t + 100, pk, [L.t2Cl], 1300, { cls: 'mtls' });
     const W6 = D.wlCl;
-    t = pk.travel(tl, t, { pts: [[2030, Y, 450], pod(W6, 0)] }, 400);
+    t = pk.travel(tl, t, { pts: [[1330, Y, 450], pod(W6, 0)] }, 400);
     tl.set(W6.pods[0].g, 'err', t, true, v => W6.pods[0].g.classList.toggle('err', v), false);
     tl.add(W6.pods[0].g, { x: [0, -6, 6, -4, 0], duration: 400, ease: 'linear' }, t);
     ring(stage, W, tl, t, pod(W6, 0), '#F43F5E', 200);
-    cap(tl, t, 'L6 · Upstream error', 'The first pod returns 503');
-    span(tl, t, [X[6], -200, W6.pods[0].z], 'balances (pod 1)', 76, 40, 'error', 'balances-svc      503 upstream  trace=c07d5e21');
+    cap(tl, t, 'L5 · Upstream error', 'The first pod returns 503');
+    span(tl, t, [X[5], -200, W6.pods[0].z], 'balances (pod 1)', 76, 40, 'error', 'balances-svc      503 upstream  trace=c07d5e21');
     t = pk.state_(tl, t, 'bad', 'GET /balances', '503 from pod 1');
-    t = pk.travel(tl, t + 500, { pts: [pod(W6, 0), [1900, -150, 450]] }, 600);
+    t = pk.travel(tl, t + 500, { pts: [pod(W6, 0), [1200, -150, 450]] }, 600);
     cap(tl, t, 'Retry', 'The gateway retries the idempotent request on a healthy pod');
     pk.state_(tl, t, 'mtls', 'GET /balances', 'retry 1');
-    t = pk.travel(tl, t + 200, { pts: [[1900, -150, 450], pod(W6, 2)] }, 700);
+    t = pk.travel(tl, t + 200, { pts: [[1200, -150, 450], pod(W6, 2)] }, 700);
     ring(stage, W, tl, t, pod(W6, 2), '#34D399', 200);
     tl.add(W6.pods[2].g, { y: [0, -14, 0], duration: 600, ease: 'inOutSine' }, t);
-    span(tl, t, [X[6], -200, W6.pods[2].z], 'balances (pod 3)', 124, 180, 'ok', 'balances-svc      200 retry=1  trace=c07d5e21');
+    span(tl, t, [X[5], -200, W6.pods[2].z], 'balances (pod 3)', 124, 180, 'ok', 'balances-svc      200 retry=1  trace=c07d5e21');
     t += 900;
     cap(tl, t, 'Response', '200 OK returns through AWS and Cloudflare; two failovers, zero errors for the user');
     pk.state_(tl, t, 'ok', '200 OK', 'retry 1 · 2 failovers');
     stage.shot(tl, t, SHOT.overview, 3000, 'inOutSine');
-    t = pk.travel(tl, t + 200, { pts: [pod(W6, 2), [2030, Y, 450]] }, 300);
+    t = pk.travel(tl, t + 200, { pts: [pod(W6, 2), [1330, Y, 450]] }, 300);
     t = go(tl, t, pk, RT.mobile, 4200, { reverse: true, cls: 'ok', ease: 'inOutQuad' });
     C.mobile.html(tl, t, PHONE('ok'));
     ring(stage, W, tl, t, C.mobile.top, '#34D399', 240);
@@ -3643,12 +3841,12 @@ window.FK_CAPTIONS = {
     D.cdnA.activate(tl, t + 1100, 2600);
     t = visit(tl, t + 1100, D.cdnC, 'cdnC', { check: { items: ['L3/L4 flood absorbed at the edge', 'L7 rate limit: 429 to offenders', 'Origins shielded'], result: 'Absorbed at L2', color: '#FB7185' }, step: 360, linger: 700 });
     // 2. abusive AI agent
-    cap(tl, t, 'L2 · Bot and agent policy', 'An AI agent scrapes pages it is not allowed to; bot management blocks it at the edge');
+    cap(tl, t, 'L2 · Agent classification', 'An unregistered agent scrapes pages it has no delegation or mandate for; agent classification blocks it at the edge');
     stage.shot(tl, t, look(D.cdnC, { dx: -700, dz: 100, ry: 16, dist: 2900 }), 1800);
-    t = pk.appear(tl, t + 400, [X[0] + 60, Y, C.agent.z], 'attack', 'GET /statements/*', 'agent: unknown');
-    t = go(tl, t, pk, [L.cl.agent, L.hubC], 2000);
-    t = visit(tl, t, D.cdnC, 'cdnC', { check: { items: ['TLS 1.3 valid', { t: 'Declared AI crawler: signature verified', s: 'warn' }, { t: 'Not on the AI access allow-list', s: 'fail' }, { t: 'Request rate: 60/s', s: 'fail' }], result: 'BLOCK · 403 at the edge', color: '#FB7185' }, step: 360 });
-    span(tl, t - 900, D.cdnC, 'cloudflare.cdn', 0, 6, 'error', 'cloudflare.bot    403 ai-agent  trace=7c1e0f4a');
+    t = pk.appear(tl, t + 400, [X[0] + 60, Y, C.aagent.z], 'attack', 'GET /statements/*', 'agent: unknown');
+    t = go(tl, t, pk, [L.cl.aagent, L.hubC], 2000);
+    t = visit(tl, t, D.cdnC, 'cdnC', { check: { items: ['TLS 1.3 valid', { t: 'Agent signature: not a registered agent', s: 'fail' }, { t: 'No delegation or mandate presented', s: 'warn' }, { t: 'Request rate: 60/s', s: 'fail' }], result: 'BLOCK · 403 at the edge', color: '#FB7185' }, step: 360 });
+    span(tl, t - 900, D.cdnC, 'cloudflare.cdn', 0, 6, 'error', 'cloudflare.bot    403 agent  trace=7c1e0f4a');
     t = pk.shatter(tl, t - 300);
     // 3. direct to origin
     cap(tl, t, 'L3 · Direct to origin', 'An attacker skips the CDN and targets the regional perimeter directly');
@@ -3665,7 +3863,7 @@ window.FK_CAPTIONS = {
     t = pk.shatter(tl, t - 400);
     L.atk.mark(tl, t - 900, 'bad');
     // 4. malformed payload that looks clean at the edge
-    cap(tl, t, 'L5 · Contract violation', 'A syntactically clean request passes the edge and WAF, but breaks the API contract');
+    cap(tl, t, 'L4 · Contract violation', 'A syntactically clean request passes the edge and WAF, but breaks the route policy generated from the API contract');
     C.api.html(tl, t, TERM.req.replace('/v1/accounts', '/v1/payments'));
     stage.shot(tl, t, SHOT.wide, 2000);
     t = pkB.appear(tl, t + 300, [X[0] + 60, Y, C.api.z], 'tls', 'POST /v1/payments', 'trace 7c1e…9e77');
@@ -3673,9 +3871,9 @@ window.FK_CAPTIONS = {
     t = go(tl, t, pkB, [L.cl.api, L.hubC, L.cCC, L.inC], 3600);
     D.cdnC.activate(tl, t - 1800, 1000); D.waf.activate(tl, t, 1000);
     span(tl, t - 1800, D.cdnC, 'cloudflare.cdn', 40, 70); span(tl, t, D.waf, 'aws.waf', 52, 56);
-    stage.shot(tl, t, look(D.capi, { dx: -150, dz: 150, dist: 1800 }), 2000);
-    t = go(tl, t + 100, pkB, [L.wafA, L.tA], 2000);
-    D.capi.activate(tl, t, 4000);
+    stage.shot(tl, t, look(D.t2c, { dx: -150, dz: 150, dist: 1800 }), 2000);
+    t = go(tl, t + 100, pkB, [L.wafT2], 1400);
+    D.t2c.activate(tl, t, 4000);
     t = pkB.open(tl, t);
     const bad = `POST /v1/payments
 {
@@ -3683,32 +3881,33 @@ window.FK_CAPTIONS = {
   "currency": "USD",
   <span class="bad">"beneficiaryOverride": "···4471"</span>
 }`;
-    t = stage.checklist(tl, t, { at: D.capi.top, title: 'Kong · OpenAPI validation', code: bad, items: [{ t: 'OAuth2 token valid' }, { t: 'amount must be a number', s: 'fail' }, { t: 'Unknown field beneficiaryOverride', s: 'fail' }], result: 'REJECT · 400 Bad Request', resultColor: '#FB7185', step: 480, hold: 700, dx: 40, dy: -40 });
-    span(tl, t - 900, D.capi, 'kong.cloud-api', 60, 8, 'error', 'kong.cloud-api    400 schema_violation  trace=7c1e0f4a');
+    t = stage.checklist(tl, t, { at: D.t2c.top, title: 'L4 · route policy', code: bad, dy: 30, items: [{ t: 'Token resolved to a live grant' }, { t: 'amount must be a number', s: 'fail' }, { t: 'Unknown field beneficiaryOverride', s: 'fail' }], result: 'REJECT · 400 Bad Request', resultColor: '#FB7185', step: 480, hold: 700, dx: 40 });
+    span(tl, t - 900, D.t2c, 'envoy.t2-aws', 60, 8, 'error', 'envoy.t2-aws      400 schema_violation  trace=7c1e0f4a');
     pkB.state_(tl, t - 400, 'bad', '400 Bad Request', 'schema_violation');
     t = pkB.seal(tl, t - 400, 'bad');
     stage.shot(tl, t, SHOT.wide, 1800);
-    t = go(tl, t + 200, pkB, [L.cl.api, L.hubC, L.cCC, L.inC, L.wafA, L.tA], 4200, { reverse: true, cls: 'bad', ease: 'inOutQuad' });
+    t = go(tl, t + 200, pkB, [L.cl.api, L.hubC, L.cCC, L.inC, L.wafT2], 4200, { reverse: true, cls: 'bad', ease: 'inOutQuad' });
     ring(stage, W, tl, t, C.api.top, '#F43F5E', 240);
     C.api.html(tl, t, TERM.bad);
     t = pkB.vanish(tl, t + 500);
-    obs.alert(tl, t, 'Attacks stopped at L2, L3 and L5<br><span style="font-size:28px;font-weight:500">flood absorbed · AI agent blocked · origin bypass dropped · contract enforced</span>');
+    obs.alert(tl, t, 'Attacks stopped at L2, L3 and L4<br><span style="font-size:28px;font-weight:500">flood absorbed · agent blocked · origin bypass dropped · contract enforced</span>');
     t = stage.shot(tl, t, SHOT.obs, 2200);
     tl.wait(t, 3500);
   }
 
   const chapters = [
-    { group: 'Layers', title: 'The seven layers', build: chTour },
-    { group: 'Layers', title: 'L0 · Client', build: LAYER_CH.L0 },
-    { group: 'Layers', title: 'L1 · DNS Control Plane', build: LAYER_CH.L1 },
+    { group: 'Layers', title: 'The layers', build: chTour },
+    { group: 'Layers', title: 'L0 · DNS Control Plane', build: LAYER_CH.L0 },
+    { group: 'Layers', title: 'L1 · Client', build: LAYER_CH.L1 },
     { group: 'Layers', title: 'L2 · Edge Protection / CDN', build: LAYER_CH.L2 },
     { group: 'Layers', title: 'L3 · Regional Perimeter', build: LAYER_CH.L3 },
-    { group: 'Layers', title: 'L4 · SESF / Tier 2 Proxy', build: LAYER_CH.L4 },
-    { group: 'Layers', title: 'L5 · ESF / Tier 3 Session & Signals', build: LAYER_CH.L5 },
-    { group: 'Layers', title: 'L6 · Workloads', build: LAYER_CH.L6 },
+    { group: 'Layers', title: 'L4 · Enforcement Tier', build: LAYER_CH.L4 },
+    { group: 'Layers', title: 'L5 · IFA Workload Zone', build: LAYER_CH.L5 },
+    { group: 'Layers', title: 'L6 · Internal Network', build: LAYER_CH.L6 },
     { group: 'Layers', title: 'P · Private Connectivity', build: LAYER_CH.P },
     { group: 'Journeys', title: 'Web · on-prem', build: chWeb },
-    { group: 'Journeys', title: 'Payload policies · T2', build: chPayload },
+    { group: 'Journeys', title: 'Client types · L4', build: chClients },
+    { group: 'Journeys', title: 'Payload policies · L4', build: chPayload },
     { group: 'Journeys', title: 'API · AWS', build: chApi },
     { group: 'Journeys', title: 'Private connectivity', build: chPrivate },
     { group: 'Journeys', title: 'Failover', build: chFailover },

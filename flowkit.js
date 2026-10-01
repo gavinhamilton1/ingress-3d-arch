@@ -815,12 +815,12 @@
     // share one opening instead of snapping the door shut on each other.
     pass(tl, pos, lane, hold = 900) {
       if (!tl._doors) {
-        tl._doors = new Map();
-        tl.freezers.unshift(t2 => t2._doors.forEach((iv, q) => this._emit(t2, q, iv)));   // before caption dilation
+        tl._doors = new Map();   // gate -> { wall, iv: [[open, close]] }
+        tl.freezers.unshift(t2 => t2._doors.forEach((d, q) => d.wall._emit(t2, q, d.iv)));   // before caption dilation
       }
       const q = this.gates[lane];
-      if (!tl._doors.has(q)) tl._doors.set(q, []);
-      tl._doors.get(q).push([pos, pos + hold]);
+      if (!tl._doors.has(q)) tl._doors.set(q, { wall: this, iv: [] });
+      tl._doors.get(q).iv.push([pos, pos + hold]);
       return pos + 600;
     }
     _emit(tl, q, iv) {
