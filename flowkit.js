@@ -811,13 +811,31 @@
     }
     _paint(q, s) { q.pl.style.background = s === 'pass' ? 'rgba(52,211,153,.35)' : s === 'deny' ? 'rgba(244,63,94,.5)' : this.rgba(.22); }
     _state(tl, pos, lane, s) { const q = this.gates[lane]; tl.set(q, 'st', pos, s, v => this._paint(q, v), 'idle'); }
+    // Openings are collected and merged per gate when the timeline freezes, so packets that overlap at a gate
+    // share one opening instead of snapping the door shut on each other.
     pass(tl, pos, lane, hold = 900) {
+      if (!tl._doors) {
+        tl._doors = new Map();
+        tl.freezers.unshift(t2 => t2._doors.forEach((iv, q) => this._emit(t2, q, iv)));   // before caption dilation
+      }
       const q = this.gates[lane];
-      this._state(tl, pos, lane, 'pass');
-      tl.add(q.door, { rotateY: [0, -82], duration: 350, ease: 'outQuad' }, pos);
-      tl.add(q.door, { rotateY: [-82, 0], duration: 450, ease: 'inOutQuad' }, pos + hold);
-      this._state(tl, pos + hold + 450, lane, 'idle');
-      return pos + 350;
+      if (!tl._doors.has(q)) tl._doors.set(q, []);
+      tl._doors.get(q).push([pos, pos + hold]);
+      return pos + 600;
+    }
+    _emit(tl, q, iv) {
+      iv.sort((a, b) => a[0] - b[0]);
+      const merged = [];
+      for (const [a, b] of iv) {
+        const m = merged[merged.length - 1];
+        if (m && a <= m[1] + 600 + 150) m[1] = Math.max(m[1], b); else merged.push([a, b]);
+      }
+      for (const [a, b] of merged) {
+        tl.set(q, 'st', a, 'pass', v => this._paint(q, v), 'idle');
+        tl.add(q.door, { rotateY: [0, -86], duration: 600, ease: 'inOutQuad' }, a);
+        tl.add(q.door, { rotateY: [-86, 0], duration: 600, ease: 'inOutQuad' }, b);
+        tl.set(q, 'st', b + 600, 'idle', v => this._paint(q, v), 'idle');
+      }
     }
     deny(tl, pos, lane) {
       const q = this.gates[lane];

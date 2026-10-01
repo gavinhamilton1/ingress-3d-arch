@@ -1,8 +1,9 @@
 """Bundle a FlowKit scene page into one self-contained HTML file (works offline).
-Usage: python3 build.py ingress.html dist/ingress-journeys.html
+Usage: python3 build.py [page.html] [out.html]   (defaults: ingress.html -> dist/ingress-journeys.html)
 """
 import re, sys, pathlib
-src, out = sys.argv[1], sys.argv[2]
+src = sys.argv[1] if len(sys.argv) > 1 else 'ingress.html'
+out = sys.argv[2] if len(sys.argv) > 2 else 'dist/ingress-journeys.html'
 root = pathlib.Path(src).parent
 html = pathlib.Path(src).read_text()
 read = lambda p: (root / p).read_text()

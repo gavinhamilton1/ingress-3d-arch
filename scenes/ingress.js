@@ -511,19 +511,22 @@
   // Travel along links, opening every firewall gate the path crosses just before the packet arrives
   function go(tl, t, p, links, dur, o = {}) {
     const r = Array.isArray(links) ? route(links, o.reverse) : links, ez = o.ease || 'inOutSine';
-    const path = FK.pathFn(r.pts), E = FK.ease(ez), N = 240;
+    gates(tl, t, r.pts, dur, ez);
+    return p.travel(tl, t, r, dur, { cls: o.cls || 'lit', ease: ez });
+  }
+  function gates(tl, t, pts, dur, ez) {
+    const path = FK.pathFn(pts), E = FK.ease(ez), N = 240;
     for (const w of WALLS) {
       let prev = path.at(0).p;
       for (let i = 1; i <= N; i++) {
         const cur = path.at(E(i / N)).p;
         if ((prev[0] - w.x) * (cur[0] - w.x) < 0 && cur[2] >= w.z1 && cur[2] <= w.z2) {
           const lane = Object.keys(w.gates).map(Number).reduce((a, b) => Math.abs(b - cur[2]) < Math.abs(a - cur[2]) ? b : a);
-          w.pass(tl, t + (i / N) * dur - 330, lane);
+          w.pass(tl, t + (i / N) * dur - 900, lane, 1900);   // fully open well before the packet, closes after it clears
         }
         prev = cur;
       }
     }
-    return p.travel(tl, t, r, dur, { cls: o.cls || 'lit', ease: ez });
   }
   function visit(tl, t, d, key, o = {}) {
     const c = { ...CHECKS[key], ...(o.check || {}) };
@@ -660,6 +663,7 @@
         const a = t0 + j * 280, dur = Math.max(1100, Math.min(2600, path.total * 1.3));
         dot.show(tl, a, true);
         dot.travel(tl, a, r.pts, dur, 'inOutSine');
+        gates(tl, a, r.pts, dur, 'inOutSine');
         r.segs.forEach((sg, k) => { if (sg && path.segs[k]) segVis(sg, a + dur * FK.invEase(E, path.segs[k].start / path.total), true); });
         dot.show(tl, a + dur, false);
         end = Math.max(end, a + dur);

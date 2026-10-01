@@ -11,7 +11,7 @@ A small kit for 3D architecture animations, built on CSS 3D transforms with its 
 - `build.py`: bundles a page into one offline HTML file
 - `dist/ingress-journeys.html`: built, self-contained output
 
-Build: `python3 build.py ingress.html dist/ingress-journeys.html`
+Build: `python3 build.py` (defaults to `ingress.html` → `dist/ingress-journeys.html`; pass a page and output path to bundle another scene)
 
 Run locally: `python3 -m http.server 8765`, then open `http://localhost:8765/ingress.html`.
 
