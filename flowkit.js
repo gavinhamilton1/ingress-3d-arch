@@ -1172,7 +1172,8 @@
       const f = this.f;
       if (f === this._f) return; this._f = f;
       this.g.style.display = f > .01 ? '' : 'none';
-      const s = .7 + .3 * f, C = this.card, lift = C ? C.lift * f : 0;
+      // with a card, the card does the growing and the contents stay full size (so lines out to other layers stay attached)
+      const C = this.card, s = C ? 1 : .7 + .3 * f, lift = C ? C.lift * f : 0;
       this.g.style.transform = `translate3d(${cx}px,${-lift}px,${cz}px) scale3d(${s},${s},${s}) translate3d(${-cx}px,0,${-cz}px)`;
       this.g.style.setProperty('--lod', f.toFixed(3));
       if (C) {

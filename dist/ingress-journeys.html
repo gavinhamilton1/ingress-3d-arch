@@ -1566,7 +1566,8 @@
       const f = this.f;
       if (f === this._f) return; this._f = f;
       this.g.style.display = f > .01 ? '' : 'none';
-      const s = .7 + .3 * f, C = this.card, lift = C ? C.lift * f : 0;
+      // with a card, the card does the growing and the contents stay full size (so lines out to other layers stay attached)
+      const C = this.card, s = C ? 1 : .7 + .3 * f, lift = C ? C.lift * f : 0;
       this.g.style.transform = `translate3d(${cx}px,${-lift}px,${cz}px) scale3d(${s},${s},${s}) translate3d(${-cx}px,0,${-cz}px)`;
       this.g.style.setProperty('--lod', f.toFixed(3));
       if (C) {
@@ -2728,7 +2729,7 @@ window.FK_AWS = {
     psaas: 'Entry point to the on-prem network. PSaaS+ rulesets with Akamai SiteShield source lists admit only CDN traffic into SESF (L4). No platform components of our own.',
     waf: 'Entry point to AWS, in the CTC edge account: internet gateway, internet-facing ALB with AWS WAF web ACLs admitting only CDN traffic, and an interface VPC endpoint that carries it over PrivateLink to the L4 endpoint service.',
     t2: 'The enforcement tier (Tier 2) on-prem, inside SESF: Envoy and Kong data planes with their xDS and admin control planes, the session validator sidecar, the policy engine (global and route policies), token exchange and cache, revoke and policy caches, the signal receiver and the config distributor. Fails closed.',
-    t2c: 'The enforcement tier (Tier 2) in AWS, in the Spoke VPC: VPC endpoint service (PrivateLink, for L3 and P2) → NLB → internal ALB → EKS, where the Envoy and Kong gateway pods each run a session-validator sidecar. Zoom in for the detail view.',
+    t2c: 'The enforcement tier (Tier 2) in AWS, in the Ingress VPC: VPC endpoint service (PrivateLink, for L3 and P2) → NLB → internal ALB → EKS, where the Envoy gateway pods run a session-validator sidecar and the Kong gateway pods an API validator sidecar (OAS validation, token validation, tokenization). Zoom in for the detail view.',
     bpOn: 'An institutional client on a VAN, private circuit or leased line. The circuit establishes the network path; the client is still L1 and still carries a credential.',
     bpAws: 'A trusted 3rd party\'s service running in its own AWS account and VPC. It calls our API through an interface endpoint and never leaves the AWS network.',
     eni: 'Network interfaces with private IPs in the partner\'s VPC that front our endpoint service. Created and owned by the partner; its DNS name resolves to these private IPs.',
@@ -2940,11 +2941,12 @@ window.FK_AWS = {
   };
 
   /* ---------- Detail views: zoom in on a device with the free camera to see its architecture ---------- */
-  // L4 on AWS (Spoke VPC, us-east-1, AZs a and b). Traffic arrives over PrivateLink: from L3 (the CTC edge account's
+  // L4 on AWS (Ingress VPC, us-east-1, AZs a and b). Traffic arrives over PrivateLink: from L3 (the CTC edge account's
   // internet gateway, internet-facing ALB with AWS WAF, and interface VPC endpoint) and from P2 partners' own interface
   // endpoints, into our VPC endpoint service, then the NLB (public subnet), then the internal ALB (private subnet), then
-  // the EKS cluster: namespace ingress-gateway runs the Envoy (web) and Kong (API) gateway pods, each with a
-  // session-validator sidecar that also does the session check, token exchange and ext_authz policy evaluation;
+  // the EKS cluster: namespace ingress-gateway runs the Envoy (web) gateway pods, each with a session-validator sidecar
+  // (session check, token exchange, ext_authz policies), and the Kong (API) gateway pods, each with an API validator
+  // sidecar (OAS validation, token validation, tokenization);
   // namespace ingress-control runs the Kong control plane (proxy hub, analytics, config manager, backed by Aurora
   // PostgreSQL), the xDS control plane, the config distributor and the signal receiver. ElastiCache for Redis holds the
   // token, revoke and policy caches. Onward to L5 is mTLS.
@@ -2961,7 +2963,7 @@ window.FK_AWS = {
     // the three hops into the cluster: identical boxes, logo on top, name printed on the floor beneath (as in a flat diagram)
     const hop = (x, icon, text, bg = '#fff') => { box({ x, y: -15, z: 450, w: 50, h: 30, d: 70, c: '#3B1F66' }); iconTop({ x, y: -30, z: 450, icon, size: 38, bg }); tag({ x, z: 512, text, w: 100, h: 44, size: 14 }); };
     const KONG_BG = '#001408';
-    group({ x1: 250, z1: 40, x2: 1150, z2: 990, color: '#8C4FFF', icon: AWS.vpc, title: 'Spoke VPC', sub: 'us-east-1 · AZ a · b', hw: 300, width: 4, fill: .04 });
+    group({ x1: 250, z1: 40, x2: 1150, z2: 990, color: '#8C4FFF', icon: AWS.vpc, title: 'Ingress VPC', sub: 'us-east-1 · AZ a · b', hw: 300, width: 4, fill: .04 });
     // VPC endpoint service at the edge of the VPC: both L3 and P2 arrive here over PrivateLink
     hop(300, AWS.privatelink, 'VPC endpoint<br>service', 'transparent');
     group({ x1: 355, z1: 95, x2: 500, z2: 975, color: '#7AA116', icon: AWS.pubsubnet, title: 'Public', sub: 'subnet', hw: 108, hh: 36, width: 3, dash: '8 6' });
@@ -2983,12 +2985,12 @@ window.FK_AWS = {
       if (icon) iconTop({ x, y: -44, z: 280, icon, size: 28, bg });
       tag({ x, z: 326, text: name, w: 70, h: 34, size: 10 });
     }
-    // ingress-gateway: an Envoy group (web) and a Kong group (API), each pod with its session-validator sidecar
+    // ingress-gateway: an Envoy group (web, session-validator sidecars) and a Kong group (API, API validator sidecars)
     group({ x1: 670, z1: 365, x2: 1105, z2: 925, color: '#A78BFA', title: 'ingress-gateway', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
     group({ x1: 690, z1: 410, x2: 1090, z2: 610, color: '#D163CE', icon: AWS.envoy, iconBg: '#fff', title: 'Envoy', sub: 'web gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
     group({ x1: 690, z1: 630, x2: 1090, z2: 905, color: '#CCFF00', icon: AWS.kong, iconBg: KONG_BG, title: 'Kong', sub: 'API gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
-    for (const x of [770, 880, 990]) { pod(x, 520, '#3B1636'); iconTop({ x, y: -44, z: 520, icon: AWS.envoy, size: 30 }); }
-    for (const x of [770, 880, 990]) { pod(x, 770, '#1A2A05'); iconTop({ x, y: -44, z: 770, icon: AWS.kong, size: 30, bg: KONG_BG }); }
+    [770, 880, 990].forEach((x, i) => { pod(x, 520, '#3B1636'); iconTop({ x, y: -44, z: 520, icon: AWS.envoy, size: 30 }); tag({ x: x + 8, z: 556, text: `pod ${i + 1}`, w: 60, h: 18, size: 11 }); });
+    [770, 880, 990].forEach((x, i) => { pod(x, 770, '#1A2A05'); iconTop({ x, y: -44, z: 770, icon: AWS.kong, size: 30, bg: KONG_BG }); tag({ x: x + 8, z: 806, text: `pod ${i + 1}`, w: 60, h: 18, size: 11 }); });
     // flows, left to right
     flow([80, -4, 450], [273, -4, 450], '#FBBF24');             // from L3 (the edge account's interface endpoint), replacing the L3 cable
     // from P2: the partner's interface endpoint, replacing the PrivateLink cable. Right angles around the outside of the
@@ -2997,19 +2999,21 @@ window.FK_AWS = {
       flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
     flow([327, -4, 450], [401, -4, 450], '#8C4FFF');            // endpoint service -> NLB
     flow([455, -4, 450], [551, -4, 450], '#8C4FFF');            // NLB -> ALB
-    flow([605, -4, 440], [745, -4, 520], '#22D3EE');            // ALB -> Envoy (web)
-    flow([605, -4, 465], [745, -4, 770], '#22D3EE', 4);         // ALB -> Kong (API)
-    flow([1022, -4, 528], [1150, -4, 470], '#22D3EE', 4);       // gateways -> L5 over mTLS
-    flow([1022, -4, 778], [1150, -4, 480], '#22D3EE', 4);
+    flow([605, -4, 440], [690, -4, 505], '#22D3EE');            // ALB -> the Envoy group (web): any pod can take it
+    flow([605, -4, 465], [690, -4, 765], '#22D3EE', 4);         // ALB -> the Kong group (API)
+    flow([1090, -4, 505], [1150, -4, 470], '#22D3EE', 4);       // the gateway groups -> L5 over mTLS
+    flow([1090, -4, 765], [1150, -4, 480], '#22D3EE', 4);
     flow([1150, -4, 475], [1330, -4, 450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
     flow([650, -4, 760], [610, -4, 760], '#F87171', 4);         // EKS <-> ElastiCache (the sidecars' caches)
     flow([650, -4, 880], [610, -4, 880], '#94A3B8', 4);         // EKS <-> Aurora (the Kong control plane)
-    flow([1280, -4, 280], [1088, -4, 280], '#F472B6', 4);       // CAEP risk signals from L6, via the message broker, into the signal receiver
+    // CAEP risk signals into the signal receiver, from an L5 AWS service for now (the real source is still to be decided)
+    flow([1340, -4, 300], [1088, -4, 280], '#F472B6', 4);
     // floor labels, printed next to what they name
-    tag({ x: 165, z: 525, text: ic('alb', 'waf', 'endpoint') + 'from L3', sub: 'edge account: ALB + AWS WAF<br>→ interface endpoint', w: 170, h: 60, size: 14 });
+    tag({ x: 175, z: 482, text: 'from L3', w: 100, h: 24, size: 14 });   // the L3 edge account gets its own deployment diagram later
     tag({ x: 520, z: 1056, text: 'from P2', sub: 'partner interface endpoints', w: 200, h: 40, size: 14 });
-    tag({ x: 1215, z: 245, text: 'CAEP risk signals', sub: 'from L6 via the broker', w: 150, h: 36, size: 12 });
-    tag({ x: 880, z: 578, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
+    tag({ x: 1215, z: 238, text: 'CAEP risk signals', sub: 'from an L5 AWS service (source TBC)', w: 170, h: 36, size: 12 });
+    tag({ x: 880, z: 586, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
+    tag({ x: 880, z: 840, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
     tag({ x: 578, z: 805, text: 'ElastiCache for Redis', sub: 'token · revoke · policy caches', w: 120, h: 44, size: 12 });
     tag({ x: 578, z: 925, text: 'Aurora PostgreSQL', sub: 'Kong control plane', w: 120, h: 44, size: 12 });
     tag({ x: 1195, z: 500, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
