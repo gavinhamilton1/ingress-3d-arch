@@ -330,61 +330,71 @@
   const AWS = window.FK_AWS || {}, ic = (...k) => `<span class="ics">${k.map(n => AWS[n] ? `<span class="ic" title="${n}">${AWS[n]}</span>` : '').join('')}</span>`;
   new FK.Detail(stage, D.t2c, ({ box, flow, group, iconTop, tag }) => {
     // Left to right like the main diagram: endpoint service → NLB → ALB → EKS → Envoy / Kong → out to L5.
-    // Group boxes carry their icon and title in the top-left corner, as in AWS deployment diagrams.
+    // Wider than the L4 column (x 250..1150): while it is open it spills into the L3 and L5 space and the firewall walls
+    // on either side fade, so the components have room. Group boxes carry their icon and title in the top-left corner.
     const pod = (x, z, c, side = true) => {
       box({ x, y: -22, z, w: 44, h: 44, d: 44, c });
       if (side) box({ x: x + 30, y: -13, z: z + 8, w: 18, h: 26, d: 18, c: '#166534' });   // session-validator sidecar
     };
     // the three hops into the cluster: identical boxes, logo on top, name printed on the floor beneath (as in a flat diagram)
-    const hop = (x, icon, text, bg = '#fff') => { box({ x, y: -15, z: 450, w: 50, h: 30, d: 70, c: '#3B1F66' }); iconTop({ x, y: -30, z: 450, icon, size: 38, bg }); tag({ x, z: 512, text, w: 96, h: 44, size: 14 }); };
+    const hop = (x, icon, text, bg = '#fff') => { box({ x, y: -15, z: 450, w: 50, h: 30, d: 70, c: '#3B1F66' }); iconTop({ x, y: -30, z: 450, icon, size: 38, bg }); tag({ x, z: 512, text, w: 100, h: 44, size: 14 }); };
     const KONG_BG = '#001408';
-    group({ x1: 380, z1: 40, x2: 1020, z2: 990, color: '#8C4FFF', icon: AWS.vpc, title: 'Spoke VPC', sub: 'us-east-1 · AZ a · b', hw: 300, width: 4, fill: .04 });
+    group({ x1: 250, z1: 40, x2: 1150, z2: 990, color: '#8C4FFF', icon: AWS.vpc, title: 'Spoke VPC', sub: 'us-east-1 · AZ a · b', hw: 300, width: 4, fill: .04 });
     // VPC endpoint service at the edge of the VPC: both L3 and P2 arrive here over PrivateLink
-    hop(420, AWS.privatelink, 'VPC endpoint<br>service', 'transparent');
-    group({ x1: 465, z1: 95, x2: 575, z2: 975, color: '#7AA116', icon: AWS.pubsubnet, title: 'Public', sub: 'subnet', hw: 108, hh: 36, width: 3, dash: '8 6' });
-    hop(520, AWS.nlb, 'NLB');
-    group({ x1: 590, z1: 95, x2: 1005, z2: 975, color: '#00A4A6', icon: AWS.subnet, title: 'Private subnet', hw: 180, hh: 36, width: 3, dash: '8 6' });
-    hop(640, AWS.alb, 'Internal ALB');
+    hop(300, AWS.privatelink, 'VPC endpoint<br>service', 'transparent');
+    group({ x1: 355, z1: 95, x2: 500, z2: 975, color: '#7AA116', icon: AWS.pubsubnet, title: 'Public', sub: 'subnet', hw: 108, hh: 36, width: 3, dash: '8 6' });
+    hop(428, AWS.nlb, 'NLB');
+    group({ x1: 515, z1: 95, x2: 1135, z2: 975, color: '#00A4A6', icon: AWS.subnet, title: 'Private subnet', hw: 180, hh: 36, width: 3, dash: '8 6' });
+    hop(578, AWS.alb, 'Internal ALB');
     // data stores in the private subnet: Aurora for the Kong control plane, ElastiCache for the sidecars' caches
-    box({ x: 622, y: -20, z: 760, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 622, y: -40, z: 760, icon: AWS.elasticache, size: 32, bg: 'transparent' });
-    box({ x: 622, y: -20, z: 880, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 622, y: -40, z: 880, icon: AWS.aurora, size: 32, bg: 'transparent' });
-    group({ x1: 690, z1: 140, x2: 995, z2: 940, color: '#ED7100', icon: AWS.eks, title: 'Amazon EKS', sub: 'cluster ingress-l4', hw: 250 });
-    // ingress-control at the back: Kong control plane and xDS / config / signals, right of the header
-    group({ x1: 705, z1: 190, x2: 985, z2: 330, color: '#94A3B8', title: 'ingress-control', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
-    pod(905, 290, '#1A2A05', false); iconTop({ x: 905, y: -44, z: 290, icon: AWS.kong, size: 28, bg: KONG_BG });
-    pod(960, 290, '#1F2937', false);
+    box({ x: 578, y: -20, z: 760, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 578, y: -40, z: 760, icon: AWS.elasticache, size: 32, bg: 'transparent' });
+    box({ x: 578, y: -20, z: 880, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 578, y: -40, z: 880, icon: AWS.aurora, size: 32, bg: 'transparent' });
+    group({ x1: 650, z1: 140, x2: 1120, z2: 940, color: '#ED7100', icon: AWS.eks, title: 'Amazon EKS', sub: 'cluster ingress-l4', hw: 250 });
+    // ingress-control at the back, right of its header: one pod per control service, each named on the floor beneath it
+    group({ x1: 670, z1: 190, x2: 1105, z2: 350, color: '#94A3B8', title: 'ingress-control', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
+    for (const [x, c, icon, bg, name] of [
+      [860, '#1A2A05', AWS.kong, KONG_BG, 'Kong<br>control plane'],
+      [930, '#3B1636', AWS.envoy, '#fff', 'Envoy<br>xDS control plane'],
+      [1000, '#334155', null, null, 'config<br>distributor'],
+      [1065, '#4A1530', null, null, 'signal<br>receiver']]) {
+      pod(x, 280, c, false);
+      if (icon) iconTop({ x, y: -44, z: 280, icon, size: 28, bg });
+      tag({ x, z: 326, text: name, w: 70, h: 34, size: 10 });
+    }
     // ingress-gateway: an Envoy group (web) and a Kong group (API), each pod with its session-validator sidecar
-    group({ x1: 705, z1: 345, x2: 985, z2: 925, color: '#A78BFA', title: 'ingress-gateway', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
-    group({ x1: 720, z1: 395, x2: 975, z2: 610, color: '#D163CE', icon: AWS.envoy, iconBg: '#fff', title: 'Envoy', sub: 'web gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
-    group({ x1: 720, z1: 630, x2: 975, z2: 905, color: '#CCFF00', icon: AWS.kong, iconBg: KONG_BG, title: 'Kong', sub: 'API gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
-    for (const x of [760, 835, 910]) { pod(x, 520, '#3B1636'); iconTop({ x, y: -44, z: 520, icon: AWS.envoy, size: 30 }); }
-    for (const x of [760, 835, 910]) { pod(x, 770, '#1A2A05'); iconTop({ x, y: -44, z: 770, icon: AWS.kong, size: 30, bg: KONG_BG }); }
+    group({ x1: 670, z1: 365, x2: 1105, z2: 925, color: '#A78BFA', title: 'ingress-gateway', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
+    group({ x1: 690, z1: 410, x2: 1090, z2: 610, color: '#D163CE', icon: AWS.envoy, iconBg: '#fff', title: 'Envoy', sub: 'web gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
+    group({ x1: 690, z1: 630, x2: 1090, z2: 905, color: '#CCFF00', icon: AWS.kong, iconBg: KONG_BG, title: 'Kong', sub: 'API gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
+    for (const x of [770, 880, 990]) { pod(x, 520, '#3B1636'); iconTop({ x, y: -44, z: 520, icon: AWS.envoy, size: 30 }); }
+    for (const x of [770, 880, 990]) { pod(x, 770, '#1A2A05'); iconTop({ x, y: -44, z: 770, icon: AWS.kong, size: 30, bg: KONG_BG }); }
     // flows, left to right
-    flow([80, -4, 450], [398, -4, 450], '#FBBF24');             // from L3 (the edge account's interface endpoint), replacing the L3 cable
+    flow([80, -4, 450], [273, -4, 450], '#FBBF24');             // from L3 (the edge account's interface endpoint), replacing the L3 cable
     // from P2: the partner's interface endpoint, replacing the PrivateLink cable. Right angles around the outside of the
     // VPC (down, along the bottom, up the left side, into the endpoint service) so it crosses nothing in the diagram
-    for (const [a, b] of [[[800, 1230], [800, 1030]], [[800, 1030], [365, 1030]], [[365, 1030], [365, 472]], [[365, 472], [397, 472]]])
+    for (const [a, b] of [[[800, 1230], [800, 1030]], [[800, 1030], [232, 1030]], [[232, 1030], [232, 472]], [[232, 472], [273, 472]]])
       flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
-    flow([442, -4, 450], [495, -4, 450], '#8C4FFF');            // endpoint service -> NLB
-    flow([545, -4, 450], [615, -4, 450], '#8C4FFF');            // NLB -> ALB
-    flow([665, -4, 440], [738, -4, 520], '#22D3EE');            // ALB -> Envoy (web)
-    flow([665, -4, 465], [738, -4, 770], '#22D3EE', 4);         // ALB -> Kong (API)
-    flow([940, -4, 528], [1000, -4, 470], '#22D3EE', 4);        // gateways -> L5 over mTLS
-    flow([940, -4, 778], [1000, -4, 480], '#22D3EE', 4);
-    flow([1000, -4, 475], [1330, -4, 450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
-    flow([690, -4, 760], [654, -4, 760], '#F87171', 4);         // EKS <-> ElastiCache (the sidecars' caches)
-    flow([690, -4, 880], [654, -4, 880], '#94A3B8', 4);         // EKS <-> Aurora (the Kong control plane)
-    flow([1015, -4, 290], [985, -4, 290], '#F472B6', 4);        // signals from L6 (via the broker)
+    flow([327, -4, 450], [401, -4, 450], '#8C4FFF');            // endpoint service -> NLB
+    flow([455, -4, 450], [551, -4, 450], '#8C4FFF');            // NLB -> ALB
+    flow([605, -4, 440], [745, -4, 520], '#22D3EE');            // ALB -> Envoy (web)
+    flow([605, -4, 465], [745, -4, 770], '#22D3EE', 4);         // ALB -> Kong (API)
+    flow([1022, -4, 528], [1150, -4, 470], '#22D3EE', 4);       // gateways -> L5 over mTLS
+    flow([1022, -4, 778], [1150, -4, 480], '#22D3EE', 4);
+    flow([1150, -4, 475], [1330, -4, 450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
+    flow([650, -4, 760], [610, -4, 760], '#F87171', 4);         // EKS <-> ElastiCache (the sidecars' caches)
+    flow([650, -4, 880], [610, -4, 880], '#94A3B8', 4);         // EKS <-> Aurora (the Kong control plane)
+    flow([1280, -4, 280], [1088, -4, 280], '#F472B6', 4);       // CAEP risk signals from L6, via the message broker, into the signal receiver
     // floor labels, printed next to what they name
-    tag({ x: 215, z: 495, text: ic('alb', 'waf', 'endpoint') + 'from L3', sub: 'edge account: ALB + AWS WAF → interface endpoint', w: 300, h: 50, size: 15, align: 'left' });
-    tag({ x: 590, z: 1056, text: 'from P2', sub: 'partner interface endpoints', w: 200, h: 40, size: 14 });
-    tag({ x: 795, z: 290, text: 'Kong control plane · xDS →', sub: 'config distributor · signal receiver', w: 170, h: 34, size: 12 });
-    tag({ x: 835, z: 578, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 250, h: 34, size: 12 });
-    tag({ x: 622, z: 805, text: 'ElastiCache for Redis', sub: 'token · revoke · policy caches', w: 120, h: 44, size: 12 });
-    tag({ x: 622, z: 925, text: 'Aurora PostgreSQL', sub: 'Kong control plane', w: 120, h: 44, size: 12 });
-    tag({ x: 1070, z: 500, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
-  }, { near: 1800, far: 2900, at: [700, 0, 500], hide: [D.pl], links: [L.wafT2, L.plIn, L.t2Cl, L.pvtAws], tags: SL.filter(o => o.layer === P && o.side === 'aws').map(o => o.bb),
-       title: 'L4 · Enforcement Tier (AWS)', shot: { x: 690, y: -60, z: 665, rx: -58, ry: 0, d: 1620 } });   // aimed towards the front so the bottom of the diagram (and the P2 run below it) is in view
+    tag({ x: 165, z: 525, text: ic('alb', 'waf', 'endpoint') + 'from L3', sub: 'edge account: ALB + AWS WAF<br>→ interface endpoint', w: 170, h: 60, size: 14 });
+    tag({ x: 520, z: 1056, text: 'from P2', sub: 'partner interface endpoints', w: 200, h: 40, size: 14 });
+    tag({ x: 1215, z: 245, text: 'CAEP risk signals', sub: 'from L6 via the broker', w: 150, h: 36, size: 12 });
+    tag({ x: 880, z: 578, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
+    tag({ x: 578, z: 805, text: 'ElastiCache for Redis', sub: 'token · revoke · policy caches', w: 120, h: 44, size: 12 });
+    tag({ x: 578, z: 925, text: 'Aurora PostgreSQL', sub: 'Kong control plane', w: 120, h: 44, size: 12 });
+    tag({ x: 1195, z: 500, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
+  }, { near: 2050, far: 3150, at: [700, 0, 500], hide: [D.pl], links: [L.wafT2, L.plIn, L.t2Cl, L.pvtAws],
+       tags: SL.filter(o => o.layer === P && o.side === 'aws').map(o => o.bb), walls: [W2, W3],
+       card: { from: [355, 30, 1045, 1000], to: [215, 12, 1185, 1008], lift: 45, color: LAYERS[4].color },   // the L4 AWS tile lifts out and grows
+       title: 'L4 · Enforcement Tier (AWS)', shot: { x: 700, y: -60, z: 665, rx: -58, ry: 0, d: 1880 } });   // aimed towards the front so the bottom of the diagram (and the P2 run below it) is in view
 
   const pk = new Packet(stage, W, { size: 34 });
   // L4 deployment view, modelled on ingress-poc: gateway-envoy's filter chain makes one ext_authz call to

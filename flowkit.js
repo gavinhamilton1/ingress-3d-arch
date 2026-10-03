@@ -811,19 +811,19 @@
   }
   class Wall {
     constructor(stage, parent, { x, z1, z2, h = 210, lanes = [], gap = 170, color = '#FBBF24', label = '' }) {
-      this.x = x; this.z1 = z1; this.z2 = z2; this.gates = {}; this.color = color;
+      this.x = x; this.z1 = z1; this.z2 = z2; this.gates = {}; this.color = color; this.parts = [];   // parts: its faces, for fading
       const rgba = this.rgba = rgbaOf(color);
       const bg = `repeating-linear-gradient(90deg, ${rgba(.26)} 0 2px, transparent 2px 26px), repeating-linear-gradient(0deg, ${rgba(.26)} 0 2px, transparent 2px 26px), ${rgba(.06)}`;
       const edges = [z1, ...lanes.flatMap(l => [l - gap / 2, l + gap / 2]), z2];
       for (let i = 0; i < edges.length; i += 2) {
         const a = edges[i], b = edges[i + 1]; if (b - a < 2) continue;
         const pl = plane(parent, { w: b - a, h, t: `translate3d(${x}px,${-h / 2}px,${(a + b) / 2}px) rotateY(90deg)`, bg, two: true });
-        pl.style.borderTop = `3px solid ${rgba(.8)}`;
+        pl.style.borderTop = `3px solid ${rgba(.8)}`; this.parts.push(pl);
       }
       for (const l of lanes) {
         const hinge = g(parent, x, 0, l - gap / 2), door = el('div', 'fk-n', hinge);
         const pl = plane(door, { w: gap, h: h * .8, t: `translate3d(0,${-h * .4}px,${gap / 2}px) rotateY(90deg)`, bg: rgba(.22), two: true });
-        pl.style.border = `2px solid ${rgba(.9)}`;
+        pl.style.border = `2px solid ${rgba(.9)}`; this.parts.push(pl);
         this.gates[l] = { door, pl };
       }
       if (label) this.labelBB = stage.billboard(null, `<div class="fk-label wall" style="border-color:${rgba(.6)};--led:${color}"><i></i>${label}</div>`, { screen: true, p: [x, -h - 20, z1 + 60] });
@@ -1123,12 +1123,25 @@
   // fully shown / starts to appear.
   const d0 = d => d.g.style.display !== 'none';
   class Detail {
-    constructor(stage, dev, build, { near = 1300, far = 2300, at, hide = [], links = [], tags = [], title = '', shot } = {}) {
+    constructor(stage, dev, build, { near = 1300, far = 2300, at, hide = [], links = [], tags = [], walls = [], card, title = '', shot } = {}) {
       // hide: other devices the detail replaces; links: cables whose job the detail's own flow lines take over
       // title, shot: how it is listed under "Deployment diagrams" in the player, and the camera that opens it
-      Object.assign(this, { stage, dev, near, far, hide, links, tags, title, f: 0, c: at || [dev.x, 0, dev.z], labels: [] });   // tags: overlay labels of what it replaces
+      Object.assign(this, { stage, dev, near, far, hide, links, tags, walls, title, f: 0, c: at || [dev.x, 0, dev.z], labels: [] });   // walls: firewalls the wider view spills across   // tags: overlay labels of what it replaces
       this.shot = shot || { x: this.c[0], y: -60, z: this.c[2], rx: -55, ry: 0, d: near * .95 };
       this.g = g(stage.world, 0, 0, 0); this.g.classList.add('fk-lod'); this.g.style.display = 'none';
+      // card: the layer tile lifts out of the floor and grows to the detail's footprint, the detail sitting on top of it.
+      //   { from: [x1, z1, x2, z2] the tile it starts as, to: [x1, z1, x2, z2] its full size, lift, color }
+      if (card) {
+        const [x1, z1, x2, z2] = card.to, w = x2 - x1, d = z2 - z1, t = 16, col = card.color || '#22D3EE', rgba = rgbaOf(col);
+        this.card = { ...card, lift: card.lift ?? 45, w, d };
+        this.cardShadow = el('div', 'fk-n fk-lod', stage.world); this.cardShadow.style.display = 'none';
+        plane(this.cardShadow, { w: w + 80, h: d + 80, t: 'translateY(-1px) rotateX(90deg)', bg: 'radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.25) 70%, transparent)' });
+        this.cardG = el('div', 'fk-n fk-lod', stage.world); this.cardG.style.display = 'none';
+        const slab = box(this.cardG, { y: t / 2, w, h: t, d, c: '#0B1626' });
+        slab.top.style.background = `linear-gradient(180deg, ${rgba(.10)}, ${rgba(.04)}), #0A1422`;
+        slab.top.style.boxShadow = `inset 0 0 0 3px ${rgba(.75)}, 0 0 40px ${rgba(.35)}`;
+        for (const k of ['front', 'back', 'left', 'right']) slab[k].style.boxShadow = `inset 0 3px 0 ${rgba(.6)}`;
+      }
       const G = this.g;
       build({
         g: G,
@@ -1159,9 +1172,18 @@
       const f = this.f;
       if (f === this._f) return; this._f = f;
       this.g.style.display = f > .01 ? '' : 'none';
-      const s = .7 + .3 * f;
-      this.g.style.transform = `translate3d(${cx}px,0,${cz}px) scale3d(${s},${s},${s}) translate3d(${-cx}px,0,${-cz}px)`;
+      const s = .7 + .3 * f, C = this.card, lift = C ? C.lift * f : 0;
+      this.g.style.transform = `translate3d(${cx}px,${-lift}px,${cz}px) scale3d(${s},${s},${s}) translate3d(${-cx}px,0,${-cz}px)`;
       this.g.style.setProperty('--lod', f.toFixed(3));
+      if (C) {
+        // grow from the layer tile to the full footprint while lifting; the shadow stays on the floor and spreads
+        const [a1, b1, a2, b2] = C.from, [c1, d1, c2, d2] = C.to, lerp = (p, q) => p + (q - p) * f;
+        const x1 = lerp(a1, c1), z1 = lerp(b1, d1), x2 = lerp(a2, c2), z2 = lerp(b2, d2), mx = (x1 + x2) / 2, mz = (z1 + z2) / 2, sx = (x2 - x1) / C.w, sz = (z2 - z1) / C.d;
+        for (const n of [this.cardG, this.cardShadow]) { n.style.display = f > .01 ? '' : 'none'; n.style.setProperty('--lod', Math.min(1, f * 3).toFixed(3)); }
+        this.cardG.style.transform = `translate3d(${mx}px,${-lift}px,${mz}px) scale3d(${sx.toFixed(4)},1,${sz.toFixed(4)})`;
+        this.cardShadow.style.transform = `translate3d(${mx}px,0,${mz}px) scale3d(${(sx * (1 + f * .04)).toFixed(4)},1,${(sz * (1 + f * .04)).toFixed(4)})`;
+        this.cardShadow.style.setProperty('--lod', (f * .9).toFixed(3));
+      }
       const k = clamp(1 - f * 1.4, 0, 1);   // the device has gone by the time the detail is two-thirds in
       for (const q of [d, ...this.hide]) {
         q.g.style.transform = `translate3d(${q.x}px,0,${q.z}px)` + (k < 1 ? ` scale3d(${k.toFixed(3)},${k.toFixed(3)},${k.toFixed(3)})` : '');
@@ -1169,6 +1191,10 @@
         q.labelBB.el.style.opacity = k < 1 ? k.toFixed(3) : '';
       }
       for (const b of this.tags) b.el.style.opacity = k < 1 ? k.toFixed(3) : '';
+      for (const w of this.walls) {
+        for (const pl of w.parts) { pl.style.opacity = k < 1 ? k.toFixed(3) : ''; pl.style.visibility = k < .02 ? 'hidden' : ''; }
+        if (w.labelBB) w.labelBB.el.style.opacity = k < 1 ? k.toFixed(3) : '';
+      }
       for (const l of this.links) for (const sg of l.segs) {
         sg.style.visibility = k < .02 ? 'hidden' : '';
         sg.querySelectorAll('.fk-f').forEach(fc => { fc.style.opacity = k < 1 ? k.toFixed(3) : ''; });
