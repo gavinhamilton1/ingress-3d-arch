@@ -238,12 +238,22 @@
       this.resetters.push(() => this.frame.classList.remove('fk-presenting')); this.spinners = []; this.layers = []; this.tracker = null;
       this.scale = 1;
       this.readTime = 900;
-      const fit = () => { this.scale = frame.clientWidth / 1280; this.scaler.style.transform = `scale(${this.scale})`; };
+      // Fit the 1280×720 stage into the frame: by width normally; letterboxed and centred when the frame is full screen
+      this.ox = 0; this.oy = 0;
+      const fit = () => {
+        const w = frame.clientWidth, h = frame.clientHeight, s = this.scale = Math.min(w / 1280, h / 720 || Infinity);
+        this.ox = (w - 1280 * s) / 2; this.oy = (h - 720 * s) / 2;
+        this.scaler.style.transform = `translate(${this.ox}px,${this.oy}px) scale(${s})`;
+      };
       new ResizeObserver(fit).observe(frame); fit();
       this.caption = new Caption(this);
-      this.freeEl = el('div', 'fk-free fk-hud-i', this.hud, `<span>Free camera</span><button data-a="reset">Reset view</button><button data-a="follow">Follow script</button>`);
-      this.freeEl.querySelector('[data-a=reset]').onclick = () => this.resetView();
-      this.freeEl.querySelector('[data-a=follow]').onclick = () => this.follow();
+      // Camera control card. Reset (always shown): in the scene it goes back to the script's camera, in a
+      // diagram to that diagram's own view. Top down (always): a flat plan view of the open diagram, or of the whole scene.
+      this.freeEl = el('div', 'fk-free fk-hud-i', this.hud, `<span>Camera control</span><button data-a="reset" title="Reset the camera (R)">Reset</button><button data-a="plan" title="Plan view from directly above">Top down</button>`);
+      this.freeEl.querySelector('[data-a=reset]').onclick = () => this.resetCamera();
+      this.freeEl.querySelector('[data-a=plan]').onclick = () => this.togglePlan();
+      this.pk = 1; this.plan = null;                              // perspective stretch (1 = normal); plan view: { d: the diagram, or null for the scene }
+      this.sceneBounds = null;                                    // [x1, z1, x2, z2] the scene's plan view frames (set by the scene)
       this._pointer();
       this.render = this.render.bind(this);
       requestAnimationFrame(this.render);
@@ -254,16 +264,17 @@
       x -= c.x; y -= c.y; z -= c.z;
       const b = c.ry * D2R; [x, z] = [x * Math.cos(b) + z * Math.sin(b), -x * Math.sin(b) + z * Math.cos(b)];
       const a = c.rx * D2R; [y, z] = [y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
-      z += this.P - c.d;
-      const s = this.P / (this.P - z);
+      const P = this.P * this.pk;                                 // plan view stretches P and d together: same size, flatter
+      z += P - c.d * this.pk;
+      const s = P / (P - z);
       return { x: 640 + x * s, y: 360 + y * s, s, z };
     }
     // Inverse of project() for a horizontal plane: the world point at height yPlane under stage pixel (sx, sy), or null
     unproject(sx, sy, yPlane = 0) {
-      const c = this.e, P = this.P, a = c.rx * D2R, b = c.ry * D2R, u = sx - 640, v = sy - 360;
+      const c = this.e, P = this.P * this.pk, cd = c.d * this.pk, a = c.rx * D2R, b = c.ry * D2R, u = sx - 640, v = sy - 360;
       const den = v * Math.cos(a) / P - Math.sin(a); if (Math.abs(den) < 1e-6) return null;
-      const w = (yPlane - c.y - c.d * Math.sin(a)) / den; if (!(w > 0)) return null;
-      const x2 = u * w / P, y3 = v * w / P, z3 = c.d - w, z2 = -y3 * Math.sin(a) + z3 * Math.cos(a);
+      const w = (yPlane - c.y - cd * Math.sin(a)) / den; if (!(w > 0)) return null;
+      const x2 = u * w / P, y3 = v * w / P, z3 = cd - w, z2 = -y3 * Math.sin(a) + z3 * Math.cos(a);
       return [c.x + x2 * Math.cos(b) - z2 * Math.sin(b), yPlane, c.z + x2 * Math.sin(b) + z2 * Math.cos(b)];
     }
     // A billboard always faces the camera. screen: true draws it in the 2D overlay (crisp, never occluded).
@@ -290,8 +301,10 @@
       }
       const e = this.e;
       e.x = b.x + v.px; e.y = b.y; e.z = b.z + v.pz;
-      e.rx = clamp(b.rx + v.rx, -89, 8); e.ry = b.ry + v.ry; e.d = b.d * v.zoom;
-      this.world.style.transform = `translateZ(${this.P - e.d}px) rotateX(${e.rx}deg) rotateY(${e.ry}deg) translate3d(${-e.x}px,${-e.y}px,${-e.z}px)`;
+      e.rx = clamp(b.rx + v.rx, -90, 8); e.ry = b.ry + v.ry; e.d = b.d * v.zoom;
+      const pk = this.plan ? 5 : 1; this.pk += (pk - this.pk) * .08; if (Math.abs(pk - this.pk) < .002) this.pk = pk;
+      if (this.pk !== this._pk) { this._pk = this.pk; this.stageEl.style.perspective = (this.P * this.pk).toFixed(0) + 'px'; }
+      this.world.style.transform = `translateZ(${((this.P - e.d) * this.pk).toFixed(1)}px) rotateX(${e.rx}deg) rotateY(${e.ry}deg) translate3d(${-e.x}px,${-e.y}px,${-e.z}px)`;
       for (const s of this.spinners) s.el.style.transform = `rotateY(${(now * s.speed) % 360}deg)`;
       for (const f of this.onFrame) f(this, dt, now);
       for (const bb of this.bbs) {
@@ -299,7 +312,8 @@
         const P = typeof bb.p === 'function' ? bb.p() : bb.p;
         if (bb.screen) {
           const q = this.project(P);
-          if (q.z > this.P - 40) { bb.el.style.visibility = 'hidden'; continue; }
+          // behind the camera, or projected off the 16:9 scene (it is letterboxed when filling the window): don't draw it
+          if (q.z > this.P * this.pk - 40 || q.x < -160 || q.x > 1440 || q.y < -80 || q.y > 800) { bb.el.style.visibility = 'hidden'; continue; }
           bb.el.style.visibility = '';
           const s = bb.scale ? Math.max(.55, Math.min(1.4, q.s)) : 1;
           bb.el.style.transform = `translate(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px) scale(${s.toFixed(3)})`;
@@ -310,14 +324,17 @@
       this._trackLayer();
       const free = !!this.explore || Math.abs(T.rx) > .5 || Math.abs(T.ry) > .5 || Math.abs(T.zoom - 1) > .01 || Math.abs(T.px) > 1 || Math.abs(T.pz) > 1;
       if (free !== this._free) { this._free = free; this.freeEl.classList.toggle('on', free); }
-      // One detail at a time: the one whose layer tile is under the cursor, or the one pinned by the player. With the
-      // cursor off the stage the current one stays.
-      if (this.mouse) {
-        const p = this.unproject(this.mouse.x, this.mouse.y), hit = p && this.details.find(d => d.contains(p));
-        if (hit && this.pinned && hit !== this.pinned) this.pinned = null;
-        this.activeDetail = hit || this.pinned || null;
-      } else if (this.pinned) this.activeDetail = this.pinned;
+      // One detail at a time, and only by intent: the latched one (this.pinned), set by a wheel over a layer tile, a click
+      // on another tile while a diagram is open, or the player's Deployment diagrams buttons. Hovering never switches it.
+      this.activeDetail = this.pinned || null;
       for (const d of this.details) d.update(e, free && d === this.activeDetail);
+      const det = free && this.activeDetail && this.activeDetail.f > .3 ? this.activeDetail : null;
+      if (this.plan && this.plan.d && det !== this.plan.d) this.plan = null;   // a diagram's plan view ends when it closes or switches
+      const ctl = (det ? 1 : 0) + (this.plan ? 2 : 0);
+      if (ctl !== this._ctl) {
+        this._ctl = ctl; const q = s => this.freeEl.querySelector(s);
+        q('[data-a=plan]').textContent = this.plan ? '3D view' : 'Top down'; q('[data-a=plan]').classList.toggle('on', !!this.plan);
+      }
       // As a detail view comes in, fade the HUD (legend, caption, trace, latency budget) with it so the whole view shows
       const lod = this.details.reduce((m, d) => Math.max(m, d.f), 0), hud = clamp(1 - (lod - .15) / .6, 0, 1);
       if (hud !== this._hud) {
@@ -370,15 +387,15 @@
       const f = this.frame; let drag = null;
       f.addEventListener('pointerdown', e => {
         if (e.target.closest('.fk-hud-i')) return;
-        drag = { x: e.clientX, y: e.clientY, moved: false, pan: e.button === 2 || e.shiftKey, target: e.target };
+        drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false, pan: e.button === 2 || e.shiftKey, target: e.target };
         f.setPointerCapture(e.pointerId);
       });
       f.addEventListener('pointermove', e => {
-        const fr = f.getBoundingClientRect(); this.mouse = { x: (e.clientX - fr.left) / this.scale, y: (e.clientY - fr.top) / this.scale };   // stage pixels, for choosing the detail
         if (!drag) return;
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         if (!drag.moved && Math.hypot(dx, dy) < 4) return;
-        drag.moved = true; f.classList.add('dragging'); drag.x = e.clientX; drag.y = e.clientY; this.pinned = null;   // steering by hand: the cursor decides the detail again
+        drag.moved = true; f.classList.add('dragging'); drag.x = e.clientX; drag.y = e.clientY;   // steering keeps the open diagram
+        if (this.plan && !drag.pan) { this.plan = null; }   // orbiting leaves the plan view; panning keeps it   // steering by hand: the cursor decides the detail again
         const sc = 1 / this.scale, T = this.viewT;
         if (drag.pan) {
           const k = this.e.d / this.P * sc, b = this.e.ry * D2R;
@@ -390,32 +407,62 @@
       });
       const up = () => {
         if (!drag) return;
-        if (!drag.moved) { const d = this.deviceAt(drag.target); this.select(d); }
+        if (!drag.moved) {
+          const d = this.deviceAt(drag.target); this.select(d);
+          // in diagram mode, a click on another layer's tile switches to its diagram
+          if (!d && this.pinned && this.pinned.f > .3) { const hit = this._pick(drag.x0, drag.y0); if (hit) this.pinned = hit; }
+        }
         drag = null; f.classList.remove('dragging');
       };
       f.addEventListener('pointerup', up); f.addEventListener('pointercancel', up);
-      f.addEventListener('dblclick', e => { if (!e.target.closest('.fk-hud-i')) this.resetView(); });
+      f.addEventListener('dblclick', e => { if (!e.target.closest('.fk-hud-i')) this.resetCamera(); });
       f.addEventListener('wheel', e => {
         if (e.target.closest('.fk-hud-i')) return;
         e.preventDefault();
-        // Zoom towards the floor point under the cursor, so you can wheel straight into a part of the scene
-        this.pinned = null;   // zooming by hand: the cursor decides the detail again
+        // Zoom towards the floor point under the cursor, so you can wheel straight into a part of the scene. The wheel also
+        // picks the diagram: wheeling in, the tile under the cursor latches (or switches to) its diagram; over no tile, or
+        // wheeling out, the open one stays (and closes by itself as the camera backs off).
+        const hit = e.deltaY < 0 ? this._pick(e.clientX, e.clientY) : null;
+        if (hit) this.pinned = hit; else if (!(this.pinned && this.pinned.f > .3)) this.pinned = null;
         const T = this.viewT, r = f.getBoundingClientRect(), z0 = T.zoom, z1 = clamp(z0 * Math.exp(e.deltaY * .0015), .2, 3), k = z1 / z0;
-        const p = this.unproject((e.clientX - r.left) / this.scale, (e.clientY - r.top) / this.scale);
+        const p = this.unproject((e.clientX - r.left - this.ox) / this.scale, (e.clientY - r.top - this.oy) / this.scale);
         T.zoom = z1;
         if (p) { T.px += (p[0] - this.e.x) * (1 - k); T.pz += (p[2] - this.e.z) * (1 - k); }
-        this.mouse = { x: (e.clientX - r.left) / this.scale, y: (e.clientY - r.top) / this.scale };
       }, { passive: false });
       f.addEventListener('contextmenu', e => e.preventDefault());
-      f.addEventListener('pointerleave', () => { if (!drag) this.mouse = null; });   // off the stage: keep the current detail
     }
     deviceAt(t) {
       const n = t && t.closest && (t.closest('.fk-label.dev') || t.closest('.fk-dev'));
       return n ? this.devices[+n.dataset.dev] || null : null;
     }
-    resetView() { Object.assign(this.viewT, { rx: 0, ry: 0, zoom: 1, px: 0, pz: 0 }); this.pinned = null; }
+    // The detail whose tile is under client point (cx, cy): the open one while the point is on its card, else any other
+    _pick(cx, cy) {
+      const r = this.frame.getBoundingClientRect(), p = this.unproject((cx - r.left - this.ox) / this.scale, (cy - r.top - this.oy) / this.scale);
+      if (!p) return null;
+      if (this.pinned && this.pinned.f > .3 && this.pinned.contains(p)) return this.pinned;
+      return this.details.find(d => d !== this.pinned && d.contains(p)) || null;
+    }
+    resetView() { Object.assign(this.viewT, { rx: 0, ry: 0, zoom: 1, px: 0, pz: 0 }); this.pinned = null; this.plan = null; }
     goTo(shot) { this.explore = { ...this.cam, ...shot }; this.onExplore && this.onExplore(); }
     follow() { this.explore = null; this.resetView(); }
+    // Reset the camera. In diagram mode this stays in the diagram and returns to its own 3D shot (out of plan view);
+    // otherwise it clears the orbit, pan and zoom.
+    resetCamera() {
+      const d = this.pinned && this.pinned.f > .3 ? this.pinned : null;
+      if (!d) { this.follow(); return; }                          // in the scene, reset is following the script again
+      this.resetView(); this.goTo(d.shot); this.pinned = d;
+    }
+    // Top down: a true plan view straight down on the open deployment diagram, framed to its card, with the perspective
+    // stretched (P and d scaled together) so it reads like a flat diagram. Again: back to the diagram's 3D shot.
+    togglePlan() {
+      const d = this.activeDetail && this.activeDetail.f > .3 ? this.activeDetail : null;
+      Object.assign(this.viewT, { rx: 0, ry: 0, zoom: 1, px: 0, pz: 0 });
+      if (this.plan) { this.plan = null; if (d) { this.goTo(d.shot); this.pinned = d; } else this.follow(); return; }
+      const b = d ? (d.card ? d.card.to : d.zone) : this.sceneBounds; if (!b) return;
+      const [x1, z1, x2, z2] = b, lift = d && d.card ? d.card.lift : 0;
+      const dist = this.P * Math.max((x2 - x1) / 1180, (z2 - z1) / 640);
+      this.goTo({ x: (x1 + x2) / 2, y: -lift, z: (z1 + z2) / 2, rx: -90, ry: 0, d: dist }); this.plan = { d }; this.pinned = d;
+    }
 
     /* --- layers: legend, focus/dim, "you are here" --- */
     setLayers(layers) {
@@ -1185,7 +1232,7 @@
     }
     update(cam, free) {
       const d = this.dev, [cx, , cz] = this.c, reach = cam.d + Math.hypot(cam.x - cx, cam.z - cz);
-      const goal = free && d0(this.dev) ? clamp((this.far - reach) / (this.far - this.near), 0, 1) : 0;   // only for a device that is on stage
+      const goal = free && d0(this.dev) ? (this.stage.plan && this.stage.plan.d === this ? 1 : clamp((this.far - reach) / (this.far - this.near), 0, 1)) : 0;   // only for a device that is on stage; fully open in plan view
       this.f += (goal - this.f) * .06; if (Math.abs(goal - this.f) < .003) this.f = goal;   // eased: things change slowly as you move in
       const f = this.f;
       if (f === this._f) return; this._f = f;
@@ -1234,9 +1281,11 @@
     fwd: '<path d="M9 6l7 6-7 6"/>',
     nextStep: '<path d="M3 5l8 7-8 7zM13 5l8 7-8 7z"/>',
     end: '<path d="M18 5v14M5 5l10 7-10 7z"/>',
-    loop: '<path d="M4 12a6 6 0 0 1 6-6h8M15 3l3 3-3 3M20 12a6 6 0 0 1-6 6H6M9 21l-3-3 3-3" fill="none"/>'
+    loop: '<path d="M4 12a6 6 0 0 1 6-6h8M15 3l3 3-3 3M20 12a6 6 0 0 1-6 6H6M9 21l-3-3 3-3" fill="none"/>',
+    fs: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none"/>',
+    fsx: '<path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5" fill="none"/>'
   };
-  const svg = k => `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="${k === 'back' || k === 'fwd' || k === 'loop' ? 2.2 : 0}" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+  const svg = k => `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="${k === 'back' || k === 'fwd' || k === 'loop' || k === 'fs' || k === 'fsx' ? 2.2 : 0}" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
   const fmt = ms => { ms = Math.max(0, Math.round(ms)); const m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60; return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`; };
   const SPEEDS = [.1, .25, .5, 1, 2, 4];
 
@@ -1259,8 +1308,6 @@
         </div>
         <div class="fk-transport fk-bar">
           <div class="side l">
-            <button data-t="overlays" class="tg" title="Hide the layer key, caption, latency card, trace and labels (H)">Hide overlays</button>
-            <button data-a="reset" title="Reset camera (R)">Reset view</button>
           </div>
           <div class="mid">
             <div class="grp">
@@ -1276,19 +1323,19 @@
           </div>
           <div class="side r">
             <div class="grp speed" title="Playback speed (J / K / L shuttle)">${SPEEDS.map(s => `<button data-s="${s}">${s}×</button>`).join('')}</div>
-            <button data-a="loop" class="tg" title="Loop this scene">${svg('loop')}</button>
+            <button data-a="loop" class="tg" title="Loop this flow">${svg('loop')}</button>
           </div>
         </div>
         <div class="fk-time"><span class="cur">00:00.000</span><span class="dur">/ 00:00.000</span></div>
         <hr class="fk-div">
         <div class="fk-chapters">
-          <div class="fk-chhead"><b>Scenes</b><span>Select a scene to play it</span><div class="sp"></div>
-            <button data-a="all" class="tg" title="Play every scene in order">Play all scenes</button>
+          <div class="fk-chhead"><b>Flows</b><span>Select a flow to play it</span><div class="sp"></div>
+            <button data-a="all" class="tg" title="Play every flow in order">Play all flows</button>
             <button data-a="link" title="Copy a link to this exact moment">Copy link</button>
             <button data-a="help" title="Keyboard shortcuts (?)">?</button></div>
         </div>
         <div class="fk-chapters fk-deploy" hidden>
-          <div class="fk-chhead"><b>Deployment diagrams</b><span>Select one to zoom into a layer's deployment architecture · Reset view to come back</span></div>
+          <div class="fk-chhead"><b>Diagrams</b><span>Select one to zoom into a layer's deployment architecture · Esc to come back</span></div>
           <div class="fk-chrow"></div>
         </div>
         <div class="fk-help" hidden>
@@ -1297,7 +1344,7 @@
           <b>Timeline</b><span>Drag to scrub · hold Shift while dragging for 10× finer control · wheel over the timeline steps frame by frame · click a step to jump to it</span>
           <b>Camera</b><span>Drag the scene to orbit · right-drag or Shift-drag to pan · wheel to zoom · double-click or R to reset · F to follow the script</span>
           <b>Explore</b><span>Click any device for details · hover a layer in the legend to isolate it · click a layer to fly there</span>
-          <b>Scenes</b><span>1–9 pick from the first row · Shift+1–9 from the second · H hide or show overlays · Esc close panels</span>
+          <b>Flows</b><span>1–9 pick from the first row · Shift+1–9 from the second · H hide or show overlays · V fill the window · Esc close panels</span>
         </div>`;
       const q = s => host.querySelector(s);
       this.ui = {
@@ -1333,6 +1380,13 @@
           });
         });
       }
+      // The Camera control card (on the stage, never hidden by Hide overlays) also carries Hide overlays and full window
+      const card = this.stage.freeEl;
+      card.insertBefore(el('button', 'tg', null, 'Hide overlays'), card.querySelector('[data-a=plan]')).dataset.t = 'overlays';   // Reset · overlays · Top down · fill window
+      card.querySelector('[data-t=overlays]').title = 'Hide the layer key, caption, latency card, trace and labels (H)';
+      card.querySelector('[data-t=overlays]').onclick = () => this.toggleView('overlays');
+      const fsb = this.fsBtn = el('button', 'fk-ic', card, svg('fs')); fsb.dataset.a = 'max'; fsb.title = 'Full screen (V)'; fsb.onclick = () => this.fullscreen();
+      const hb = el('button', 'fk-ic fk-q', card, '?'); hb.title = 'How to use this (the start screen)'; hb.onclick = () => { this.pause(); this.showIntro(); };
       host.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
         if (b.dataset.s) { this.setRate(+b.dataset.s); return; }
@@ -1348,6 +1402,12 @@
       });
       this._scrubber();
       this._paintButtons();
+    }
+    // Fill the window: the scene display area covers the browser window (not the OS full screen), letterboxed to 16:9.
+    // The button again, V or Esc goes back.
+    fullscreen(on = !this.stage.frame.classList.contains('fk-max')) {
+      this.stage.frame.classList.toggle('fk-max', on); document.documentElement.classList.toggle('fk-maxed', on);
+      this.fsBtn.innerHTML = svg(on ? 'fsx' : 'fs'); this.fsBtn.title = on ? 'Exit full screen (V or Esc)' : 'Full screen (V)';
     }
     get duration() { return this.tl ? this.tl.duration : 0; }
     // Fly the free camera into a detail view. If its device isn't on stage right now, show the end of the first scene,
@@ -1372,12 +1432,63 @@
     }
     play(dir = 1) {
       if (!this.tl) return;
+      this.hideIntro();
       this.dir = dir;
       if (dir > 0 && this.time >= this.duration) this.time = 0;
       if (dir < 0 && this.time <= 0) this.time = this.duration;
       this.playing = true; this.stage.explore = null; this._paintButtons();
     }
     pause() { this.playing = false; this._paintButtons(); }
+    // Start screen: a translucent sheet over the scene with a play button, how the mouse drives the camera (left) and what
+    // the controls below the scene do (right). Playing anything (the button, Space, a flow) dismisses it.
+    showIntro() {
+      if (this.intro) return;
+      const mouse = `<svg class="ms" viewBox="0 0 400 300" width="400" height="300">
+        <defs><marker id="fk-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#94A3B8"/></marker></defs>
+        <rect x="150" y="70" width="100" height="180" rx="50" fill="#0F1A2E" stroke="#94A3B8" stroke-width="3"/>
+        <path d="M198 72V140H152V120A48 48 0 0 1 198 72Z" fill="rgba(34,211,238,.35)" stroke="#22D3EE" stroke-width="2"/>
+        <path d="M202 72A48 48 0 0 1 248 120V140H202Z" fill="rgba(167,139,250,.35)" stroke="#A78BFA" stroke-width="2"/>
+        <rect x="192" y="88" width="16" height="36" rx="8" fill="#FBBF24"/>
+        <path d="M118 108H170" stroke="#94A3B8" stroke-width="2" marker-end="url(#fk-ar)"/>
+        <path d="M200 46V82" stroke="#94A3B8" stroke-width="2" marker-end="url(#fk-ar)"/>
+        <path d="M282 108H230" stroke="#94A3B8" stroke-width="2" marker-end="url(#fk-ar)"/>
+        <text x="112" y="104" text-anchor="end" class="t" fill="#22D3EE">Rotate</text><text x="112" y="124" text-anchor="end" class="s">left-drag</text>
+        <text x="200" y="20" text-anchor="middle" class="t" fill="#FBBF24">Zoom</text><text x="200" y="38" text-anchor="middle" class="s">wheel · into a layer opens its diagram</text>
+        <text x="288" y="104" class="t" fill="#A78BFA">Pan</text><text x="288" y="124" class="s">right-drag</text><text x="288" y="141" class="s">or Shift-drag</text>
+        <text x="200" y="285" text-anchor="middle" class="s">click a device for details · double-click to reset</text></svg>`;
+      const o = this.intro = el('div', 'fk-intro fk-hud-i', this.stage.hud, `
+        <div class="l">${mouse}</div>
+        <button class="x" title="Close (Esc)">&#10005;</button>
+        <div class="m"><button class="go" title="Play (Space)"><svg viewBox="0 0 24 24" width="66" height="66"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></button><span>Start the tour</span></div>
+        <div class="r">${this._introMocks()}</div>`);
+      o.querySelector('.go').onclick = () => this.play();
+      o.querySelector('.x').onclick = () => this.hideIntro();
+      this.stage.frame.classList.add('fk-intro-on');
+    }
+    // Miniature, non-interactive copies of the controls below the scene, for the start screen
+    _introMocks() {
+      const ic = k => `<i class="ib">${svg(k)}</i>`;
+      const steps = [...new Set((this.tl ? this.tl.markers : []).map(x => x.step))].slice(1, 5).map((st, i) => `<i${i === 1 ? ' class="on"' : ''}>${st}</i>`).join('') ||
+        '<i>Step 1</i><i class="on">Step 2</i><i>Step 3</i><i>Step 4</i>';
+      const flows = this.chapters.slice(0, 3).map((c, i) => `<span class="b${i ? '' : ' on'}"><em>${i + 1}</em>${c.title}</span>`).join('');
+      const dets = this.stage.details.filter(d => d.title), xs = [...new Set(dets.map(d => Math.round(d.c[0])))].sort((a, b) => a - b);
+      const names = this.stage.detailRows || [];
+      const rows = [0, 1].map(r => (names.length ? `<span class="rl">${names[r] || ''}</span>` : '') + xs.map(x => { const d = dets.find(d => (d.c[2] < 0 ? 0 : 1) === r && Math.round(d.c[0]) === x); return d ? `<span class="b">${d.title.split(' · ')[0]}</span>` : '<span></span>'; }).join('')).join('');
+      return `
+        <h4>Playback</h4>
+        <div class="mk scr"><div class="st">${steps}</div><div class="tk"><b></b><u></u></div></div>
+        <div class="mk tr">${['start', 'prevStep', 'back', 'rev'].map(ic).join('')}<i class="ib big">${svg('play')}</i>${['fwd', 'nextStep', 'end'].map(ic).join('')}<span class="sp"><i>0.5×</i><i class="on">1×</i><i>2×</i></span></div>
+        <p>Drag the timeline or click a step to jump; play, step, reverse and set the speed.</p>
+        <h4>Flows</h4>
+        <div class="mk cd">${flows}</div>
+        <p>Animated walkthroughs of the layers and the request journeys.</p>
+        ${xs.length ? `<h4>Diagrams</h4><div class="mk cd gr" style="grid-template-columns:${names.length ? 'auto ' : ''}repeat(${xs.length},auto)">${rows}</div><p>Each layer's deployment architecture, laid out like the scene. Or wheel in over a layer.</p>` : ''}
+        <h4>Camera control</h4>
+        <div class="mk cc"><span>Camera control</span><i>Reset</i><i>Hide overlays</i><i>Top down</i><i class="ib">${svg('fs')}</i><i class="ib">?</i></div>
+        <p>Bottom left of the scene.</p>
+        <div class="dn"><svg viewBox="0 0 24 64" width="18" height="48"><path d="M12 2V58M4 50l8 10 8-10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Playback, Flows and Diagrams are below the scene</div>`;
+    }
+    hideIntro() { if (!this.intro) return; this.intro.remove(); this.intro = null; this.stage.frame.classList.remove('fk-intro-on'); }
     toggle(dir = 1) { if (this.playing && this.dir === dir) this.pause(); else this.play(dir); }
     setRate(r) { this.rate = r; this._paintButtons(); }
     seek(ms) { if (!this.tl) return; this.time = clamp(ms, 0, this.duration); this._render(); }
@@ -1489,7 +1600,7 @@
     toggleView(k) {
       const f = this.stage.frame, cls = { overlays: 'no-overlays', trace: 'no-trace', labels: 'no-labels', legend: 'no-legend' }[k];
       const off = f.classList.toggle(cls);
-      const b = this.host.querySelector(`[data-t=${k}]`); if (!b) return;
+      const b = this.host.querySelector(`[data-t=${k}]`) || this.stage.freeEl.querySelector(`[data-t=${k}]`); if (!b) return;
       if (k === 'overlays') { b.classList.toggle('on', off); b.textContent = off ? 'Show overlays' : 'Hide overlays'; }   // lit while hidden
       else b.classList.toggle('on', !off);
     }
@@ -1512,10 +1623,16 @@
           Home: () => this.seek(0), End: () => this.seek(this.duration),
           k: () => this.pause(), K: () => this.pause(),
           l: () => this.shuttle(1), L: () => this.shuttle(1), j: () => this.shuttle(-1), J: () => this.shuttle(-1),
-          f: () => this.stage.follow(), F: () => this.stage.follow(), r: () => this.stage.resetView(), R: () => this.stage.resetView(),
-          h: () => this.toggleView('overlays'), H: () => this.toggleView('overlays'),
+          f: () => this.stage.follow(), F: () => this.stage.follow(), r: () => this.stage.resetCamera(), R: () => this.stage.resetCamera(),
+          h: () => this.toggleView('overlays'), H: () => this.toggleView('overlays'), v: () => this.fullscreen(), V: () => this.fullscreen(),
           '?': () => { this.ui.help.hidden = !this.ui.help.hidden; },
-          Escape: () => { this.ui.help.hidden = true; this.stage.select(null); }
+          Escape: () => {
+            this.ui.help.hidden = true;
+            if (this.intro) this.hideIntro();
+            else if (this.stage.selected) this.stage.select(null);
+            else if (this.stage.pinned) this.stage.follow();      // Esc leaves diagram mode for the scene
+            else if (this.stage.frame.classList.contains('fk-max')) this.fullscreen(false);
+          }   // Esc leaves diagram mode for the scene
         };
         const dm = /^Digit([1-9])$/.exec(e.code || '');
         if (dm) {

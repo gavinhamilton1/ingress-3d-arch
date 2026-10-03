@@ -165,11 +165,12 @@
   zone(stage, W, { x1: X[1] - IW, x2: X[1] + IW, z1: ZB[0], z2: ZB[1], color: '#64748B', alpha: .04 });
   zone(stage, W, { x1: X[2] - 345, x2: X[2] + 345, z1: ZB[0], z2: ZB[1], color: LAYERS[2].color, label: 'L2', sub: LAYERS[2].name });
   // SESF is an on-prem zone, so the AWS L4 tile is just Tier 2
-  const SUB = { 3: ['Perimeter', 'Perimeter'], 4: ['SESF · Tier 2', 'Tier 2'], 5: ['IFA zone', 'IFA zone'] };
+  // L5 tiles read "IFA Zone (On-prem)" and plain "AWS"
+  const SUB = { 3: ['Perimeter · on-prem', 'Perimeter · AWS'], 4: ['SESF · Tier 2 · on-prem', 'Tier 2 · AWS'], 5: ['IFA Zone (On-prem)', 'AWS'] };
   for (const i of [3, 4, 5]) {
     const L = LAYERS[i], x1 = X[i] - 345, x2 = X[i] + 345;
-    zone(stage, W, { x1, x2, z1: ZB[0], z2: -SPLIT, color: L.color, label: 'L' + i, sub: SUB[i][0] + ' · on-prem' });
-    zone(stage, W, { x1, x2, z1: SPLIT, z2: ZB[1], color: L.color, label: 'L' + i, sub: SUB[i][1] + ' · AWS' });
+    zone(stage, W, { x1, x2, z1: ZB[0], z2: -SPLIT, color: L.color, label: 'L' + i, sub: SUB[i][0] });
+    zone(stage, W, { x1, x2, z1: SPLIT, z2: ZB[1], color: L.color, label: 'L' + i, sub: SUB[i][1] });
   }
   zone(stage, W, { x1: X[6] - 345, x2: X[6] + 345, z1: ZB[0], z2: ZB[1], color: LAYERS[6].color, label: 'L6', sub: LAYERS[6].name });
   // Back corridor: P1 (institutional client to BP PSaaS)
@@ -319,6 +320,7 @@
   };
 
   /* ---------- Detail views: zoom in on a device with the free camera to see its architecture ---------- */
+  stage.sceneBounds = [DNSB.x1 - 40, PZ.on - 170, X[6] + 380, PZ.aws + 230];   // what Top down frames in the scene: L0 to L6, back corridor to partner VPC
   stage.detailRows = ['On-prem', 'AWS'];   // rows of the player's Deployment diagrams grid: the back lane (Akamai, on-prem), the front lane (Cloudflare, AWS)
   // L4 on AWS (Ingress VPC, us-east-1, AZs a and b). Traffic arrives over PrivateLink: from L3 (the CTC edge account's
   // internet gateway, internet-facing ALB with AWS WAF, and interface VPC endpoint) and from P2 partners' own interface
@@ -1704,5 +1706,6 @@
   const q = new URLSearchParams(location.search);
   const ch = Math.max(1, Math.min(chapters.length, +q.get('ch') || 1));
   player.load(ch - 1);
-  if (q.has('t')) player.seek(+q.get('t')); else player.play();
+  // with a link to a moment (?t=) go straight there; otherwise the start screen over the finished first flow, ready to play
+  if (q.has('t')) player.seek(+q.get('t')); else { player.seek(player.duration); player.showIntro(); }
 })();
