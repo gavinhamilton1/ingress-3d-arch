@@ -1123,10 +1123,10 @@
   // fully shown / starts to appear.
   const d0 = d => d.g.style.display !== 'none';
   class Detail {
-    constructor(stage, dev, build, { near = 1300, far = 2300, at, hide = [], links = [], title = '', shot } = {}) {
+    constructor(stage, dev, build, { near = 1300, far = 2300, at, hide = [], links = [], tags = [], title = '', shot } = {}) {
       // hide: other devices the detail replaces; links: cables whose job the detail's own flow lines take over
       // title, shot: how it is listed under "Deployment diagrams" in the player, and the camera that opens it
-      Object.assign(this, { stage, dev, near, far, hide, links, title, f: 0, c: at || [dev.x, 0, dev.z], labels: [] });
+      Object.assign(this, { stage, dev, near, far, hide, links, tags, title, f: 0, c: at || [dev.x, 0, dev.z], labels: [] });   // tags: overlay labels of what it replaces
       this.shot = shot || { x: this.c[0], y: -60, z: this.c[2], rx: -55, ry: 0, d: near * .95 };
       this.g = g(stage.world, 0, 0, 0); this.g.classList.add('fk-lod'); this.g.style.display = 'none';
       const G = this.g;
@@ -1168,6 +1168,7 @@
         q.g.style.visibility = k < .02 ? 'hidden' : '';
         q.labelBB.el.style.opacity = k < 1 ? k.toFixed(3) : '';
       }
+      for (const b of this.tags) b.el.style.opacity = k < 1 ? k.toFixed(3) : '';
       for (const l of this.links) for (const sg of l.segs) {
         sg.style.visibility = k < .02 ? 'hidden' : '';
         sg.querySelectorAll('.fk-f').forEach(fc => { fc.style.opacity = k < 1 ? k.toFixed(3) : ''; });
@@ -1213,11 +1214,7 @@
         </div>
         <div class="fk-transport fk-bar">
           <div class="side l">
-            <div class="grp views">
-              <button data-t="trace" class="tg on" title="Trace panel (T)">Trace</button>
-              <button data-t="labels" class="tg on" title="Device labels (N)">Labels</button>
-              <button data-t="legend" class="tg on" title="Layer legend (Y)">Layers</button>
-            </div>
+            <button data-t="overlays" class="tg" title="Hide the layer key, caption, latency card, trace and labels (H)">Hide overlays</button>
             <button data-a="reset" title="Reset camera (R)">Reset view</button>
           </div>
           <div class="mid">
@@ -1255,7 +1252,7 @@
           <b>Timeline</b><span>Drag to scrub · hold Shift while dragging for 10× finer control · wheel over the timeline steps frame by frame · click a step to jump to it</span>
           <b>Camera</b><span>Drag the scene to orbit · right-drag or Shift-drag to pan · wheel to zoom · double-click or R to reset · F to follow the script</span>
           <b>Explore</b><span>Click any device for details · hover a layer in the legend to isolate it · click a layer to fly there</span>
-          <b>Scenes</b><span>1–9 pick from the first row · Shift+1–9 from the second · T trace · N labels · Y layers · Esc close panels</span>
+          <b>Scenes</b><span>1–9 pick from the first row · Shift+1–9 from the second · H hide or show overlays · Esc close panels</span>
         </div>`;
       const q = s => host.querySelector(s);
       this.ui = {
@@ -1432,9 +1429,11 @@
       steps.addEventListener('dblclick', e => e.preventDefault());
     }
     toggleView(k) {
-      const f = this.stage.frame, cls = { trace: 'no-trace', labels: 'no-labels', legend: 'no-legend' }[k];
+      const f = this.stage.frame, cls = { overlays: 'no-overlays', trace: 'no-trace', labels: 'no-labels', legend: 'no-legend' }[k];
       const off = f.classList.toggle(cls);
-      const b = this.host.querySelector(`[data-t=${k}]`); if (b) b.classList.toggle('on', !off);
+      const b = this.host.querySelector(`[data-t=${k}]`); if (!b) return;
+      if (k === 'overlays') { b.classList.toggle('on', off); b.textContent = off ? 'Show overlays' : 'Hide overlays'; }   // lit while hidden
+      else b.classList.toggle('on', !off);
     }
     copyLink(btn) {
       const u = new URL(location.href); u.searchParams.set('ch', this.idx + 1); u.searchParams.set('t', Math.round(this.time));
@@ -1456,8 +1455,7 @@
           k: () => this.pause(), K: () => this.pause(),
           l: () => this.shuttle(1), L: () => this.shuttle(1), j: () => this.shuttle(-1), J: () => this.shuttle(-1),
           f: () => this.stage.follow(), F: () => this.stage.follow(), r: () => this.stage.resetView(), R: () => this.stage.resetView(),
-          t: () => this.toggleView('trace'), T: () => this.toggleView('trace'), n: () => this.toggleView('labels'), N: () => this.toggleView('labels'),
-          y: () => this.toggleView('legend'), Y: () => this.toggleView('legend'),
+          h: () => this.toggleView('overlays'), H: () => this.toggleView('overlays'),
           '?': () => { this.ui.help.hidden = !this.ui.help.hidden; },
           Escape: () => { this.ui.help.hidden = true; this.stage.select(null); }
         };

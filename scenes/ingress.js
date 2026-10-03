@@ -346,8 +346,8 @@
     group({ x1: 590, z1: 95, x2: 1005, z2: 975, color: '#00A4A6', icon: AWS.subnet, title: 'Private subnet', hw: 180, hh: 36, width: 3, dash: '8 6' });
     hop(640, AWS.alb, 'Internal ALB');
     // data stores in the private subnet: Aurora for the Kong control plane, ElastiCache for the sidecars' caches
-    box({ x: 640, y: -20, z: 760, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 640, y: -40, z: 760, icon: AWS.elasticache, size: 32, bg: 'transparent' });
-    box({ x: 640, y: -20, z: 880, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 640, y: -40, z: 880, icon: AWS.aurora, size: 32, bg: 'transparent' });
+    box({ x: 622, y: -20, z: 760, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 622, y: -40, z: 760, icon: AWS.elasticache, size: 32, bg: 'transparent' });
+    box({ x: 622, y: -20, z: 880, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 622, y: -40, z: 880, icon: AWS.aurora, size: 32, bg: 'transparent' });
     group({ x1: 690, z1: 140, x2: 995, z2: 940, color: '#ED7100', icon: AWS.eks, title: 'Amazon EKS', sub: 'cluster ingress-l4', hw: 250 });
     // ingress-control at the back: Kong control plane and xDS / config / signals, right of the header
     group({ x1: 705, z1: 190, x2: 985, z2: 330, color: '#94A3B8', title: 'ingress-control', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
@@ -361,8 +361,10 @@
     for (const x of [760, 835, 910]) { pod(x, 770, '#1A2A05'); iconTop({ x, y: -44, z: 770, icon: AWS.kong, size: 30, bg: KONG_BG }); }
     // flows, left to right
     flow([80, -4, 450], [398, -4, 450], '#FBBF24');             // from L3 (the edge account's interface endpoint), replacing the L3 cable
-    flow([800, -4, 1230], [800, -4, 985], '#2DD4BF', 4);        // from P2: the partner's interface endpoint, replacing the PrivateLink cable
-    flow([800, -4, 985], [432, -4, 480], '#2DD4BF', 4);         // -> our VPC endpoint service
+    // from P2: the partner's interface endpoint, replacing the PrivateLink cable. Right angles around the outside of the
+    // VPC (down, along the bottom, up the left side, into the endpoint service) so it crosses nothing in the diagram
+    for (const [a, b] of [[[800, 1230], [800, 1030]], [[800, 1030], [365, 1030]], [[365, 1030], [365, 472]], [[365, 472], [397, 472]]])
+      flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
     flow([442, -4, 450], [495, -4, 450], '#8C4FFF');            // endpoint service -> NLB
     flow([545, -4, 450], [615, -4, 450], '#8C4FFF');            // NLB -> ALB
     flow([665, -4, 440], [738, -4, 520], '#22D3EE');            // ALB -> Envoy (web)
@@ -370,18 +372,19 @@
     flow([940, -4, 528], [1000, -4, 470], '#22D3EE', 4);        // gateways -> L5 over mTLS
     flow([940, -4, 778], [1000, -4, 480], '#22D3EE', 4);
     flow([1000, -4, 475], [1330, -4, 450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
-    flow([790, -4, 540], [668, -4, 750], '#F87171', 4);         // sidecars <-> ElastiCache
+    flow([690, -4, 760], [654, -4, 760], '#F87171', 4);         // EKS <-> ElastiCache (the sidecars' caches)
+    flow([690, -4, 880], [654, -4, 880], '#94A3B8', 4);         // EKS <-> Aurora (the Kong control plane)
     flow([1015, -4, 290], [985, -4, 290], '#F472B6', 4);        // signals from L6 (via the broker)
     // floor labels, printed next to what they name
     tag({ x: 215, z: 495, text: ic('alb', 'waf', 'endpoint') + 'from L3', sub: 'edge account: ALB + AWS WAF → interface endpoint', w: 300, h: 50, size: 15, align: 'left' });
-    tag({ x: 800, z: 955, text: 'from P2', sub: 'partner interface endpoints', w: 200, h: 40, size: 14 });
+    tag({ x: 590, z: 1056, text: 'from P2', sub: 'partner interface endpoints', w: 200, h: 40, size: 14 });
     tag({ x: 795, z: 290, text: 'Kong control plane · xDS →', sub: 'config distributor · signal receiver', w: 170, h: 34, size: 12 });
     tag({ x: 835, z: 578, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 250, h: 34, size: 12 });
-    tag({ x: 640, z: 805, text: 'ElastiCache for Redis', sub: 'token · revoke · policy caches', w: 120, h: 44, size: 12 });
-    tag({ x: 640, z: 925, text: 'Aurora PostgreSQL', sub: 'Kong control plane', w: 120, h: 44, size: 12 });
+    tag({ x: 622, z: 805, text: 'ElastiCache for Redis', sub: 'token · revoke · policy caches', w: 120, h: 44, size: 12 });
+    tag({ x: 622, z: 925, text: 'Aurora PostgreSQL', sub: 'Kong control plane', w: 120, h: 44, size: 12 });
     tag({ x: 1070, z: 500, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
-  }, { near: 1700, far: 2800, at: [700, 0, 500], hide: [D.pl], links: [L.wafT2, L.plIn, L.t2Cl, L.pvtAws],
-       title: 'L4 · Enforcement Tier (AWS)', shot: { x: 680, y: -60, z: 540, rx: -58, ry: 0, d: 1550 } });
+  }, { near: 1800, far: 2900, at: [700, 0, 500], hide: [D.pl], links: [L.wafT2, L.plIn, L.t2Cl, L.pvtAws], tags: SL.filter(o => o.layer === P && o.side === 'aws').map(o => o.bb),
+       title: 'L4 · Enforcement Tier (AWS)', shot: { x: 690, y: -60, z: 665, rx: -58, ry: 0, d: 1620 } });   // aimed towards the front so the bottom of the diagram (and the P2 run below it) is in view
 
   const pk = new Packet(stage, W, { size: 34 });
   // L4 deployment view, modelled on ingress-poc: gateway-envoy's filter chain makes one ext_authz call to

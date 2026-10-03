@@ -365,3 +365,5 @@
 .fk-ftag .ic { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; padding: 2px; box-sizing: border-box; background: #fff; border-radius: 3px; }
 .fk-ftag .ic svg { width: 100%; height: 100%; display: block; }
 .fk-deploy[hidden] { display: none; }
+/* Hide overlays: the layer key, caption, latency card, trace and every floating label (checklists and floor text stay) */
+.no-overlays .fk-legend, .no-overlays .fk-caption, .no-overlays .fk-budget, .no-overlays .fk-trace, .no-overlays .fk-label { display: none !important; }

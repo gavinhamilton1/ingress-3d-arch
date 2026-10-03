@@ -59,7 +59,7 @@ Latency budget: 50 ms p95 from L1 to L5, warm connections, a well-placed NA user
 | Loop, play all | buttons | |
 | Chapters | buttons | 1 to 9 |
 
-Camera: drag to orbit, right-drag or Shift-drag to pan, wheel to zoom (towards the cursor), double-click or R to reset, F to follow the script again. Click a device (or its label) for an info card with its layer, role, regional footprint and controls. Hover a layer in the legend to isolate it; click a layer to fly there. T, N and Y toggle the trace, labels and legend.
+Camera: drag to orbit, right-drag or Shift-drag to pan, wheel to zoom (towards the cursor), double-click or R to reset, F to follow the script again. Click a device (or its label) for an info card with its layer, role, regional footprint and controls. Hover a layer in the legend to isolate it; click a layer to fly there. Hide overlays (H) hides the layer key, caption, latency card, trace and labels.
 
 ## Time model
 
