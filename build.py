@@ -12,7 +12,7 @@ def inline(tag):
     global html
     m = re.search(rf'<!--{tag}--><script src="([^"]+)"></script><!--/{tag}-->', html)
     html = html.replace(m.group(0), '<script>\n' + read(m.group(1)) + '\n</script>')
-inline('KIT'); inline('CAPTIONS'); inline('SCENE')
+inline('KIT'); inline('CAPTIONS'); inline('ICONS'); inline('SCENE')
 pathlib.Path(out).parent.mkdir(parents=True, exist_ok=True)
 pathlib.Path(out).write_text(html)
 print(out, len(html) // 1024, 'KB')

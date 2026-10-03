@@ -104,9 +104,9 @@
     cdnA: 'Edge TLS termination, caching, DDoS absorption, WAF and bot management. Forwards to either regional perimeter.',
     cdnC: 'Edge TLS termination, caching, DDoS absorption, API protection and bot management. Forwards to either regional perimeter.',
     psaas: 'Entry point to the on-prem network. PSaaS+ rulesets with Akamai SiteShield source lists admit only CDN traffic into SESF (L4). No platform components of our own.',
-    waf: 'Entry point to AWS. AWS WAF web ACLs on the load balancers admit only CDN traffic and forward to the L4 enforcement gateway on EKS.',
+    waf: 'Entry point to AWS, in the CTC edge account: internet gateway, internet-facing ALB with AWS WAF web ACLs admitting only CDN traffic, and an interface VPC endpoint that carries it over PrivateLink to the L4 endpoint service.',
     t2: 'The enforcement tier (Tier 2) on-prem, inside SESF: Envoy and Kong data planes with their xDS and admin control planes, the session validator sidecar, the policy engine (global and route policies), token exchange and cache, revoke and policy caches, the signal receiver and the config distributor. Fails closed.',
-    t2c: 'The enforcement tier (Tier 2) in AWS: the same DMZ gateway on EKS, with the same components and policies as on-prem. Also fronted by the PrivateLink endpoint service (P2).',
+    t2c: 'The enforcement tier (Tier 2) in AWS, in the Spoke VPC: VPC endpoint service (PrivateLink, for L3 and P2) → NLB → internal ALB → EKS, where the Envoy and Kong gateway pods each run a session-validator sidecar. Zoom in for the detail view.',
     bpOn: 'An institutional client on a VAN, private circuit or leased line. The circuit establishes the network path; the client is still L1 and still carries a credential.',
     bpAws: 'A trusted 3rd party\'s service running in its own AWS account and VPC. It calls our API through an interface endpoint and never leaves the AWS network.',
     eni: 'Network interfaces with private IPs in the partner\'s VPC that front our endpoint service. Created and owned by the partner; its DNS name resolves to these private IPs.',
@@ -130,7 +130,7 @@
     cdnA: { title: 'Akamai Edge (WAF/CDN)', items: ['TLS 1.3 terminated at the edge', 'DDoS: absorbed at the edge', 'WAF rules: clean', 'Bot management: human', 'Cache miss: forward to origin'], result: 'Forward to origin · re-encrypted' },
     cdnC: { title: 'Cloudflare Edge (WAF/CDN)', items: ['TLS 1.3 terminated at the edge', 'DDoS: absorbed at the edge', 'API protection: schema and token present', 'Bot score: verified API client', 'Rate limit: within quota'], result: 'Forward to origin · re-encrypted' },
     psaas: { title: 'PSaaS+ · regional perimeter', items: ['Source in CDN ranges (SiteShield)', 'Second WAF pass: clean', 'Perimeter traffic policy: pass', 'Admit into SESF (L4)'], result: 'ADMIT' },
-    waf: { title: 'AWS WAF · regional perimeter', items: ['Source in CDN IP set', 'Web ACL managed rules: clean', 'Rate-based rule: under limit', 'Forward to the L4 gateway'], result: 'ALLOW' },
+    waf: { title: 'AWS WAF · regional perimeter', items: ['Source in CDN IP set', 'Web ACL managed rules: clean', 'Rate-based rule: under limit', 'PrivateLink to the L4 endpoint service'], result: 'ALLOW' },
     t2: { title: 'T2 gateway · enforcement tier', items: ['TLS broken and inspected', 'Session resolved to live state', 'Global then route policy', 'Scopes, mandate and lifetime', 'Inject identity · mTLS to L5'], result: 'Forward to L5 · mTLS' },
     t2c: { title: 'T2 gateway · EKS', items: ['TLS broken and inspected', 'DPoP-bound token · live grant', 'Token exchange · scope accounts:read', 'Global then route policy', 'Inject user + client identity'], result: 'Forward to L5 · mTLS' },
     bpp: { title: 'BP PSaaS · P1 entry at L3', items: ['Circuit: VAN / leased line, client Acme', 'Source in the client allow-list', 'Route mapping: payments API', 'Admit into SESF (L4)'], result: 'ADMIT' },
@@ -318,54 +318,70 @@
   };
 
   /* ---------- Detail views: zoom in on a device with the free camera to see its architecture ---------- */
-  // L4 on AWS: our VPC's private subnets (3 AZs) hold the enforcement tier. Two ways in: from L3, the internet-facing
-  // ALB with AWS WAF targets the gateway pods directly (IP target group); from P2, the VPC endpoint service fronts an
-  // internal NLB that targets the same pods. EKS cluster ingress-l4: namespace ingress-gateway runs the Envoy and Kong
-  // data planes, each pod with a session-validator sidecar, plus auth-service (ext_authz with OPA: global and route
-  // policies) and token exchange; namespace ingress-control runs the xDS and Kong control planes, the config
-  // distributor and the signal receiver. Token, revoke and policy caches are in ElastiCache. Onward to L5 is mTLS.
-  new FK.Detail(stage, D.t2c, ({ box, outline, label, flow }) => {
+  // L4 on AWS (Spoke VPC, us-east-1, AZs a and b). Traffic arrives over PrivateLink: from L3 (the CTC edge account's
+  // internet gateway, internet-facing ALB with AWS WAF, and interface VPC endpoint) and from P2 partners' own interface
+  // endpoints, into our VPC endpoint service, then the NLB (public subnet), then the internal ALB (private subnet), then
+  // the EKS cluster: namespace ingress-gateway runs the Envoy (web) and Kong (API) gateway pods, each with a
+  // session-validator sidecar that also does the session check, token exchange and ext_authz policy evaluation;
+  // namespace ingress-control runs the Kong control plane (proxy hub, analytics, config manager, backed by Aurora
+  // PostgreSQL), the xDS control plane, the config distributor and the signal receiver. ElastiCache for Redis holds the
+  // token, revoke and policy caches. Onward to L5 is mTLS.
+  // Official AWS Architecture Icons (scenes/aws-icons.js), each on a white tile so the glyphs read on the dark scene
+  const AWS = window.FK_AWS || {}, ic = (...k) => `<span class="ics">${k.map(n => AWS[n] ? `<span class="ic" title="${n}">${AWS[n]}</span>` : '').join('')}</span>`;
+  new FK.Detail(stage, D.t2c, ({ box, flow, group, iconTop, tag }) => {
+    // Left to right like the main diagram: endpoint service → NLB → ALB → EKS → Envoy / Kong → out to L5.
+    // Group boxes carry their icon and title in the top-left corner, as in AWS deployment diagrams.
     const pod = (x, z, c, side = true) => {
       box({ x, y: -22, z, w: 44, h: 44, d: 44, c });
       if (side) box({ x: x + 30, y: -13, z: z + 8, w: 18, h: 26, d: 18, c: '#166534' });   // session-validator sidecar
     };
-    const r = (x1, z1, x2, z2) => [[x1, z1], [x2, z1], [x2, z2], [x1, z2]];
-    outline({ pts: r(380, 110, 1020, 780), color: '#FF9900', width: 4, dash: '12 8', fill: .04 });     // private subnets
-    outline({ pts: r(405, 135, 995, 590), color: '#22D3EE', width: 4, dash: '10 8', fill: .03 });     // EKS cluster
-    outline({ pts: r(425, 140, 975, 215), color: '#94A3B8', width: 3, dash: '6 6', fill: .03 });      // ns ingress-control
-    outline({ pts: r(425, 255, 975, 560), color: '#A78BFA', width: 3, dash: '6 6', fill: .03 });      // ns ingress-gateway
-    // ingress-control
-    for (const [x, c] of [[480, '#1F2937'], [560, '#1F2937'], [800, '#334155'], [890, '#4A1530']]) pod(x, 178, c, false);
-    // ingress-gateway: auth-service and token exchange, then the gateway pods on the line traffic arrives on
-    for (const x of [490, 565]) pod(x, 320, '#1E3A5F', false);
-    for (const x of [690, 765]) pod(x, 320, '#3B2A10', false);
-    for (const x of [460, 535, 610]) pod(x, 450, '#0E4A5C');
-    for (const x of [770, 845, 920]) pod(x, 450, '#3B1F5C');
-    // internal NLB behind the endpoint service, and the caches
-    box({ x: 700, y: -11, z: 690, w: 320, h: 22, d: 46, c: '#7C4A03' });
-    box({ x: 930, y: -20, z: 690, w: 70, h: 40, d: 50, c: '#4A1D1D' });
-    // flows
-    flow([680, -4, 668], [550, -4, 478], '#FF9900');            // NLB -> Envoy
-    flow([720, -4, 668], [840, -4, 478], '#FF9900');            // NLB -> Kong
-    flow([535, -4, 425], [520, -4, 345], '#A78BFA');            // Envoy -> auth-service (ext_authz)
-    flow([600, -4, 425], [700, -4, 345], '#A78BFA');            // -> token exchange
-    flow([775, -4, 345], [925, -4, 665], '#F87171', 4);         // token exchange <-> caches
-    flow([1015, -4, 178], [915, -4, 178], '#F472B6', 4);        // signals arrive from L6 (via the broker)
-    flow([800, -4, 200], [620, -4, 425], '#94A3B8', 4);         // config distributor -> gateways
-    // labels
-    label([420, -10, 770], 'Our VPC · private subnets<small>AZ a · b · c</small>');
-    label([430, -10, 590], 'EKS cluster<small>ingress-l4 · managed node groups</small>');
-    label([470, -60, 150], 'ingress-control<small>xDS + Kong control planes</small>');
-    label([880, -60, 150], 'config distributor · signal receiver<small>signals from L6 via the broker</small>');
-    label([527, -70, 320], 'auth-service<small>ext_authz · OPA global + route policy</small>');
-    label([727, -70, 320], 'token exchange<small>internal token · scopes · mandate</small>');
-    label([535, -85, 450], 'Envoy gateway ×3<small>+ session-validator sidecar</small>');
-    label([845, -85, 450], 'Kong gateway ×3<small>+ session-validator sidecar</small>');
-    label([700, -45, 700], 'Internal NLB<small>from the VPC endpoint service (P2)</small>');
-    label([940, -55, 700], 'ElastiCache<small>token · revoke · policy</small>');
-    label([395, -70, 395], 'from L3<small>ALB + AWS WAF → IP targets</small>');
-    label([1010, -70, 400], 'to L5<small>mTLS</small>');
-  }, { near: 1700, far: 2700, at: [700, 0, 450] });
+    // the three hops into the cluster: identical boxes, logo on top, name printed on the floor beneath (as in a flat diagram)
+    const hop = (x, icon, text, bg = '#fff') => { box({ x, y: -15, z: 450, w: 50, h: 30, d: 70, c: '#3B1F66' }); iconTop({ x, y: -30, z: 450, icon, size: 38, bg }); tag({ x, z: 512, text, w: 96, h: 44, size: 14 }); };
+    const KONG_BG = '#001408';
+    group({ x1: 380, z1: 40, x2: 1020, z2: 990, color: '#8C4FFF', icon: AWS.vpc, title: 'Spoke VPC', sub: 'us-east-1 · AZ a · b', hw: 300, width: 4, fill: .04 });
+    // VPC endpoint service at the edge of the VPC: both L3 and P2 arrive here over PrivateLink
+    hop(420, AWS.privatelink, 'VPC endpoint<br>service', 'transparent');
+    group({ x1: 465, z1: 95, x2: 575, z2: 975, color: '#7AA116', icon: AWS.pubsubnet, title: 'Public', sub: 'subnet', hw: 108, hh: 36, width: 3, dash: '8 6' });
+    hop(520, AWS.nlb, 'NLB');
+    group({ x1: 590, z1: 95, x2: 1005, z2: 975, color: '#00A4A6', icon: AWS.subnet, title: 'Private subnet', hw: 180, hh: 36, width: 3, dash: '8 6' });
+    hop(640, AWS.alb, 'Internal ALB');
+    // data stores in the private subnet: Aurora for the Kong control plane, ElastiCache for the sidecars' caches
+    box({ x: 640, y: -20, z: 760, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 640, y: -40, z: 760, icon: AWS.elasticache, size: 32, bg: 'transparent' });
+    box({ x: 640, y: -20, z: 880, w: 60, h: 40, d: 50, c: '#1E2A44' }); iconTop({ x: 640, y: -40, z: 880, icon: AWS.aurora, size: 32, bg: 'transparent' });
+    group({ x1: 690, z1: 140, x2: 995, z2: 940, color: '#ED7100', icon: AWS.eks, title: 'Amazon EKS', sub: 'cluster ingress-l4', hw: 250 });
+    // ingress-control at the back: Kong control plane and xDS / config / signals, right of the header
+    group({ x1: 705, z1: 190, x2: 985, z2: 330, color: '#94A3B8', title: 'ingress-control', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
+    pod(905, 290, '#1A2A05', false); iconTop({ x: 905, y: -44, z: 290, icon: AWS.kong, size: 28, bg: KONG_BG });
+    pod(960, 290, '#1F2937', false);
+    // ingress-gateway: an Envoy group (web) and a Kong group (API), each pod with its session-validator sidecar
+    group({ x1: 705, z1: 345, x2: 985, z2: 925, color: '#A78BFA', title: 'ingress-gateway', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
+    group({ x1: 720, z1: 395, x2: 975, z2: 610, color: '#D163CE', icon: AWS.envoy, iconBg: '#fff', title: 'Envoy', sub: 'web gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
+    group({ x1: 720, z1: 630, x2: 975, z2: 905, color: '#CCFF00', icon: AWS.kong, iconBg: KONG_BG, title: 'Kong', sub: 'API gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
+    for (const x of [760, 835, 910]) { pod(x, 520, '#3B1636'); iconTop({ x, y: -44, z: 520, icon: AWS.envoy, size: 30 }); }
+    for (const x of [760, 835, 910]) { pod(x, 770, '#1A2A05'); iconTop({ x, y: -44, z: 770, icon: AWS.kong, size: 30, bg: KONG_BG }); }
+    // flows, left to right
+    flow([80, -4, 450], [398, -4, 450], '#FBBF24');             // from L3 (the edge account's interface endpoint), replacing the L3 cable
+    flow([800, -4, 1230], [800, -4, 985], '#2DD4BF', 4);        // from P2: the partner's interface endpoint, replacing the PrivateLink cable
+    flow([800, -4, 985], [432, -4, 480], '#2DD4BF', 4);         // -> our VPC endpoint service
+    flow([442, -4, 450], [495, -4, 450], '#8C4FFF');            // endpoint service -> NLB
+    flow([545, -4, 450], [615, -4, 450], '#8C4FFF');            // NLB -> ALB
+    flow([665, -4, 440], [738, -4, 520], '#22D3EE');            // ALB -> Envoy (web)
+    flow([665, -4, 465], [738, -4, 770], '#22D3EE', 4);         // ALB -> Kong (API)
+    flow([940, -4, 528], [1000, -4, 470], '#22D3EE', 4);        // gateways -> L5 over mTLS
+    flow([940, -4, 778], [1000, -4, 480], '#22D3EE', 4);
+    flow([1000, -4, 475], [1330, -4, 450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
+    flow([790, -4, 540], [668, -4, 750], '#F87171', 4);         // sidecars <-> ElastiCache
+    flow([1015, -4, 290], [985, -4, 290], '#F472B6', 4);        // signals from L6 (via the broker)
+    // floor labels, printed next to what they name
+    tag({ x: 215, z: 495, text: ic('alb', 'waf', 'endpoint') + 'from L3', sub: 'edge account: ALB + AWS WAF → interface endpoint', w: 300, h: 50, size: 15, align: 'left' });
+    tag({ x: 800, z: 955, text: 'from P2', sub: 'partner interface endpoints', w: 200, h: 40, size: 14 });
+    tag({ x: 795, z: 290, text: 'Kong control plane · xDS →', sub: 'config distributor · signal receiver', w: 170, h: 34, size: 12 });
+    tag({ x: 835, z: 578, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 250, h: 34, size: 12 });
+    tag({ x: 640, z: 805, text: 'ElastiCache for Redis', sub: 'token · revoke · policy caches', w: 120, h: 44, size: 12 });
+    tag({ x: 640, z: 925, text: 'Aurora PostgreSQL', sub: 'Kong control plane', w: 120, h: 44, size: 12 });
+    tag({ x: 1070, z: 500, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
+  }, { near: 1700, far: 2800, at: [700, 0, 500], hide: [D.pl], links: [L.wafT2, L.plIn, L.t2Cl, L.pvtAws],
+       title: 'L4 · Enforcement Tier (AWS)', shot: { x: 680, y: -60, z: 540, rx: -58, ry: 0, d: 1550 } });
 
   const pk = new Packet(stage, W, { size: 34 });
   // L4 deployment view, modelled on ingress-poc: gateway-envoy's filter chain makes one ext_authz call to

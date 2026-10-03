@@ -311,6 +311,12 @@
       const free = !!this.explore || Math.abs(T.rx) > .5 || Math.abs(T.ry) > .5 || Math.abs(T.zoom - 1) > .01 || Math.abs(T.px) > 1 || Math.abs(T.pz) > 1;
       if (free !== this._free) { this._free = free; this.freeEl.classList.toggle('on', free); }
       for (const d of this.details) d.update(e, free);
+      // As a detail view comes in, fade the HUD (legend, caption, trace, latency budget) with it so the whole view shows
+      const lod = this.details.reduce((m, d) => Math.max(m, d.f), 0), hud = clamp(1 - (lod - .15) / .6, 0, 1);
+      if (hud !== this._hud) {
+        this._hud = hud; this.frame.style.setProperty('--hud', hud.toFixed(3));
+        this.frame.classList.toggle('fk-detailing', hud < .3);   // stop the faded panels catching clicks
+      }
       requestAnimationFrame(this.render);
     }
     setCam(s) { Object.assign(this.cam, s); }
@@ -1117,8 +1123,11 @@
   // fully shown / starts to appear.
   const d0 = d => d.g.style.display !== 'none';
   class Detail {
-    constructor(stage, dev, build, { near = 1300, far = 2300, at } = {}) {
-      Object.assign(this, { stage, dev, near, far, f: 0, c: at || [dev.x, 0, dev.z], labels: [] });
+    constructor(stage, dev, build, { near = 1300, far = 2300, at, hide = [], links = [], title = '', shot } = {}) {
+      // hide: other devices the detail replaces; links: cables whose job the detail's own flow lines take over
+      // title, shot: how it is listed under "Deployment diagrams" in the player, and the camera that opens it
+      Object.assign(this, { stage, dev, near, far, hide, links, title, f: 0, c: at || [dev.x, 0, dev.z], labels: [] });
+      this.shot = shot || { x: this.c[0], y: -60, z: this.c[2], rx: -55, ry: 0, d: near * .95 };
       this.g = g(stage.world, 0, 0, 0); this.g.classList.add('fk-lod'); this.g.style.display = 'none';
       const G = this.g;
       build({
@@ -1127,7 +1136,19 @@
         outline: o => outline(stage, G, o),
         label: (p, html, cls = '') => { const b = stage.billboard(null, `<div class="fk-label lod ${cls}">${html}</div>`, { screen: true, p }); b.el.style.display = 'none'; this.labels.push(b); return b; },
         // an animated flow line along the floor (or at height y) from a to b
-        flow: (a, b, color = '#22D3EE', w = 6) => { const n = el('div', 'fk-n fk-lodflow', G); n.style.transform = orient(a, b); n.style.setProperty('--pc', color); plane(n, { w, h: 100, t: 'rotateX(90deg)', two: true, bg: '' }); return n; }
+        flow: (a, b, color = '#22D3EE', w = 6) => { const n = el('div', 'fk-n fk-lodflow', G); n.style.transform = orient(a, b); n.style.setProperty('--pc', color); plane(n, { w, h: 100, t: 'rotateX(90deg)', two: true, bg: '' }); return n; },
+        // a dashed group box with its header (icon square + title) lying on the floor in the top-left (back-left)
+        // corner, the usual convention for AWS deployment diagrams. icon: SVG markup; iconBg: tile colour behind it
+        group: ({ x1, z1, x2, z2, color, icon, iconBg = 'transparent', title = '', sub = '', hw = 260, hh = 44, width = 4, dash = '12 8', fill = .03 }) => {
+          outline(stage, G, { pts: [[x1, z1], [x2, z1], [x2, z2], [x1, z2]], color, width, dash, fill });
+          plane(G, { w: hw, h: hh, t: `translate3d(${x1 + hw / 2}px,-3px,${z1 + hh / 2}px) rotateX(90deg)`,
+            html: `<div class="fk-ghead" style="--gc:${color};--gb:${iconBg}">${icon ? `<span class="gi">${icon}</span>` : ''}<span class="gt"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span></div>` });
+        },
+        // a flat label printed on the floor, centred on (x, z), like the text under an icon in a 2D diagram
+        tag: ({ x, z, text, sub = '', w = 160, h = 40, size = 15, align = 'center' }) => plane(G, { w, h, t: `translate3d(${x}px,-2px,${z}px) rotateX(90deg)`,
+          html: `<div class="fk-ftag" style="font-size:${size}px;text-align:${align};justify-content:${align === 'left' ? 'flex-start' : 'center'}"><div>${text}${sub ? `<small>${sub}</small>` : ''}</div></div>` }),
+        // a logo tile lying on top of a 3D box (y: height of the box top, negative up)
+        iconTop: ({ x, y, z, icon, size = 34, bg = '#fff' }) => plane(G, { w: size, h: size, t: `translate3d(${x}px,${y - 1}px,${z}px) rotateX(90deg)`, html: `<div class="fk-itop" style="background:${bg}">${icon}</div>` })
       });
       stage.details.push(this);
     }
@@ -1142,9 +1163,15 @@
       this.g.style.transform = `translate3d(${cx}px,0,${cz}px) scale3d(${s},${s},${s}) translate3d(${-cx}px,0,${-cz}px)`;
       this.g.style.setProperty('--lod', f.toFixed(3));
       const k = clamp(1 - f * 1.4, 0, 1);   // the device has gone by the time the detail is two-thirds in
-      d.g.style.transform = `translate3d(${d.x}px,0,${d.z}px)` + (k < 1 ? ` scale3d(${k.toFixed(3)},${k.toFixed(3)},${k.toFixed(3)})` : '');
-      d.g.style.visibility = k < .02 ? 'hidden' : '';
-      d.labelBB.el.style.opacity = k < 1 ? k.toFixed(3) : '';
+      for (const q of [d, ...this.hide]) {
+        q.g.style.transform = `translate3d(${q.x}px,0,${q.z}px)` + (k < 1 ? ` scale3d(${k.toFixed(3)},${k.toFixed(3)},${k.toFixed(3)})` : '');
+        q.g.style.visibility = k < .02 ? 'hidden' : '';
+        q.labelBB.el.style.opacity = k < 1 ? k.toFixed(3) : '';
+      }
+      for (const l of this.links) for (const sg of l.segs) {
+        sg.style.visibility = k < .02 ? 'hidden' : '';
+        sg.querySelectorAll('.fk-f').forEach(fc => { fc.style.opacity = k < 1 ? k.toFixed(3) : ''; });
+      }
       const lo = clamp((f - .4) / .6, 0, 1);
       for (const b of this.labels) { b.el.style.display = lo > 0 ? '' : 'none'; b.el.style.opacity = lo.toFixed(3); }
     }
@@ -1218,6 +1245,10 @@
             <button data-a="link" title="Copy a link to this exact moment">Copy link</button>
             <button data-a="help" title="Keyboard shortcuts (?)">?</button></div>
         </div>
+        <div class="fk-chapters fk-deploy" hidden>
+          <div class="fk-chhead"><b>Deployment diagrams</b><span>Select one to zoom into a layer's deployment architecture · Reset view to come back</span></div>
+          <div class="fk-chrow"></div>
+        </div>
         <div class="fk-help" hidden>
           <b>Playback</b><span>Space play / pause · J reverse · K pause · L forward (press again to speed up)</span>
           <b>Scrub</b><span>← → one frame · Shift+← → one second · Alt+← → 100 ms · , . one frame · [ ] previous / next step · Home / End</span>
@@ -1241,6 +1272,12 @@
         c._key = gi === 0 ? String(n) : gi === 1 ? '⇧' + n : '';
         const b = el('button', '', rows[gi], `<em>${c._key}</em>${c.title}`); b.onclick = () => { this.load(i); this.play(); }; return b;
       });
+      // Deployment diagrams: one button per detail view the scene defines
+      const dep = host.querySelector('.fk-deploy'), dets = this.stage.details.filter(d => d.title);
+      if (dets.length) {
+        dep.hidden = false;
+        dets.forEach(d => { const b = el('button', '', dep.querySelector('.fk-chrow'), d.title); b.onclick = () => this.openDetail(d); });
+      }
       host.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
         if (b.dataset.s) { this.setRate(+b.dataset.s); return; }
@@ -1258,6 +1295,12 @@
       this._paintButtons();
     }
     get duration() { return this.tl ? this.tl.duration : 0; }
+    // Fly the free camera into a detail view. If its device isn't on stage right now, show the end of the first scene,
+    // where everything has been introduced, first.
+    openDetail(d) {
+      if (d.dev.g.style.display === 'none') { this.load(0); this.seek(this.duration); }
+      this.pause(); this.stage.resetView(); this.stage.goTo(d.shot);
+    }
     load(i) {
       if (this.tl) this.tl.dispose();
       this.stage.reset(); this.stage.explore = null;

@@ -345,3 +345,23 @@
 .fk-label.lod { font-size: 11px; padding: 3px 8px; }
 .fk-label.lod small { display: block; font-size: 10px; color: #94A3B8; font-weight: 400; }
 .fk-label.lod.head { font-size: 12px; letter-spacing: .06em; border-color: rgba(255, 153, 0, .6); color: #FED7AA; }
+.fk-label.lod .ic { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 2px; box-sizing: border-box; background: #fff; border-radius: 4px; flex: none; }
+.fk-label.lod .ic svg { width: 100%; height: 100%; display: block; }
+.fk-label.lod:has(.ics) { display: inline-grid; grid-template-columns: auto auto; column-gap: 7px; align-items: center; }
+.fk-label.lod .ics { grid-row: span 2; display: flex; gap: 3px; }
+/* Detail-view group headers (floor-lying, top-left of a group box) and logo tiles on top of boxes */
+.fk-ghead { display: flex; align-items: center; gap: 8px; width: 100%; height: 100%; font: 700 19px/1.1 system-ui, sans-serif; color: #E2E8F0; white-space: nowrap; }
+.fk-ghead .gi { flex: none; height: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--gb); box-sizing: border-box; padding: 2px; border-radius: 3px; }
+.fk-ghead .gi svg { width: 100%; height: 100%; display: block; }
+.fk-ghead .gt small { display: block; font: 400 13px system-ui, sans-serif; color: #94A3B8; margin-top: 2px; }
+.fk-itop { width: 100%; height: 100%; box-sizing: border-box; padding: 3px; border-radius: 3px; display: grid; place-items: center; }
+.fk-itop svg { width: 100%; height: 100%; display: block; }
+/* Detail views: the HUD panels fade with the zoom (--hud, set per frame; a filter so it composes with the caption's own timeline opacity) */
+.fk-legend, .fk-caption, .fk-trace, .fk-budget { filter: opacity(var(--hud, 1)); }
+.fk-detailing .fk-legend, .fk-detailing .fk-caption, .fk-detailing .fk-trace, .fk-detailing .fk-budget { pointer-events: none; }
+.fk-ftag { width: 100%; height: 100%; display: flex; align-items: flex-start; font-weight: 700; line-height: 1.15; color: #E2E8F0; }
+.fk-ftag small { display: block; font-size: .78em; font-weight: 400; color: #94A3B8; margin-top: 2px; }
+.fk-ftag .ics { display: inline-flex; gap: 3px; vertical-align: middle; margin-right: 6px; }
+.fk-ftag .ic { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; padding: 2px; box-sizing: border-box; background: #fff; border-radius: 3px; }
+.fk-ftag .ic svg { width: 100%; height: 100%; display: block; }
+.fk-deploy[hidden] { display: none; }
