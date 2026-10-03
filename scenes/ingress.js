@@ -399,6 +399,51 @@
        card: { from: [355, 30, 1045, 1000], to: [215, 12, 1185, 1008], lift: 45, color: LAYERS[4].color },   // the L4 AWS tile lifts out and grows
        title: 'L4 · Enforcement Tier (AWS)', shot: { x: 700, y: -60, z: 665, rx: -58, ry: 0, d: 1880 } });   // aimed towards the front so the bottom of the diagram (and the P2 run below it) is in view
 
+  // L2: one deployment diagram per CDN, each lifting its half of the L2 column (Akamai at the back, Cloudflare at the
+  // front). Left to right: traffic from L1, the security stages (attacks stopped where they are caught, in red), the
+  // CDN edge, then out to both L3 perimeters with origin lockdown. Vendor-hosted, so no logos or AWS icons here.
+  const cdnDetail = ({ dev, zc, title, sub, sec, edge, out, attacks, hub, exits, name, shotTitle }) => new FK.Detail(stage, dev, ({ box, flow, group, tag }) => {
+    const stg = (x, z, c, text, s2, w = 112) => { box({ x, y: -18, z, w: 52, h: 36, d: 52, c }); tag({ x, z: z + 46, text, sub: s2, w, h: 44, size: 12 }); };
+    group({ x1: -1068, z1: zc - 465, x2: -332, z2: zc + 465, color: '#F97316', title, sub, hw: 300, width: 4, fill: .04 });
+    group({ x1: -1045, z1: zc - 400, x2: -790, z2: zc + 400, color: '#F43F5E', title: sec.title, sub: sec.sub, hw: 230, hh: 36, width: 3, dash: '8 6' });
+    sec.stages.forEach(([x, dz, text, s2, c]) => stg(x, zc + dz, c || '#4A1010', text, s2));
+    group({ x1: -770, z1: zc - 400, x2: -560, z2: zc + 400, color: '#38BDF8', title: edge.title, sub: edge.sub, hw: 200, hh: 36, width: 3, dash: '8 6' });
+    edge.stages.forEach(([x, dz, text, s2, c]) => stg(x, zc + dz, c || '#0C2A44', text, s2, 130));
+    // valid traffic: from the internet hub in L1, through the stages, out to both perimeters
+    flow([X[1], -4, 0], [X[1] + 130, -4, zc], '#22C55E', 5); flow([X[1] + 130, -4, zc], [-1045, -4, zc], '#22C55E', 5);
+    flow([-1045, -4, zc], [-560, -4, zc], '#22C55E', 5);
+    for (const zx of exits) flow([-560, -4, zc], [-82, -4, zx], '#22C55E', 4);   // on to PSaaS+ (on-prem) and AWS WAF, replacing the cables into L3
+    tag({ x: -470, z: zc + (zc < 0 ? 60 : -60), text: out.title, sub: out.sub, w: 170, h: 40, size: 12 });
+    // attacks, stopped at the stage that catches them
+    // the first stops at the network layer; the second passes it and stops at the application layer
+    attacks.forEach(([dz, x2, text, tz]) => { flow([-1180, -4, zc + dz], [x2, -4, zc + dz], '#F43F5E', 4); tag({ x: -1150, z: zc + tz, text: `<span style="color:#FB7185">${text}</span>`, w: 150, h: 30, size: 11 }); });
+  }, { near: 1800, far: 2900, at: [-700, 0, zc], links: [hub, ...out.links, L.inA, L.inC], walls: [W1],
+       card: { from: [-1045, zc < 0 ? -950 : 15, -355, zc < 0 ? -15 : 1000], to: [-1080, zc - 480, -320, zc + 480], lift: 45, color: LAYERS[2].color },
+       title: name, shot: { x: -700, y: -60, z: zc + 60, rx: -58, ry: 0, d: 1600 } });
+  cdnDetail({ dev: D.cdnA, zc: -450, name: 'L2 · Akamai Edge', title: 'Akamai edge', sub: 'vendor hosted · 4,100+ PoPs',
+    sec: { title: 'Kona (WAF)', sub: 'inline before the ION edge servers', stages: [
+      [-985, -150, 'Network layer', 'L3/4 · firewall · network DDoS'],
+      [-860, -150, 'Application layer', 'L5-7 · WAF · application DDoS'],
+      [-920, 170, 'Bot Manager', 'bots and agents classified', '#3B1F66']] },
+    edge: { title: 'ION (CDN)', sub: 'edge servers', stages: [
+      [-665, -150, 'Edge server', 'TLS terminated · cache'],
+      [-665, 170, 'Edge server', 'origin shield · re-encrypt']] },
+    out: { title: 'to L3 · SiteShield', sub: 'origins only accept Akamai ranges', links: [L.cAA, L.cAC, L.cCA] },   // cCA: Cloudflare's cable crosses this card
+    attacks: [[-165, -1012, 'network attack · blocked', -205], [-135, -887, 'application attack · blocked', -100]],
+    hub: L.hubA, exits: [-450, 450] });
+  cdnDetail({ dev: D.cdnC, zc: 450, name: 'L2 · Cloudflare Edge', title: 'Cloudflare edge', sub: 'vendor hosted · 310+ cities · anycast',
+    sec: { title: 'Security', sub: 'one ruleset with Akamai', stages: [
+      [-985, -150, 'DDoS protection', 'L3/4 and L7'],
+      [-860, -150, 'WAF', 'managed rules'],
+      [-985, 170, 'Bot Management', 'bots and agents', '#3B1F66'],
+      [-860, 170, 'API Shield', 'schema validation · discovery', '#3B1F66']] },
+    edge: { title: 'Edge', sub: 'CDN and load balancing', stages: [
+      [-665, -150, 'CDN', 'TLS terminated · cache'],
+      [-665, 170, 'Origin pools', 'load balancing at the edge']] },
+    out: { title: 'to L3 · origin lockdown', sub: 'Cloudflare ranges · authenticated origin pulls', links: [L.cCC, L.cCA, L.cAC] },   // cAC: Akamai's cable crosses this card
+    attacks: [[-165, -1012, 'volumetric attack · absorbed', -205], [-135, -887, 'application attack · blocked', -100]],
+    hub: L.hubC, exits: [450, -450] });
+
   // L3 on AWS: the edge WAF account's VPC. CDN origin traffic from L2 enters through the internet gateway, reaches the
   // internet-facing ALB in the public subnets (AZ a, b, c) with AWS WAF attached to it, and leaves through an interface
   // VPC endpoint (network interfaces in the private subnets) over PrivateLink to the L4 Ingress VPC's endpoint service.
