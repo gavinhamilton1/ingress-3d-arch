@@ -399,6 +399,35 @@
        card: { from: [355, 30, 1045, 1000], to: [215, 12, 1185, 1008], lift: 45, color: LAYERS[4].color },   // the L4 AWS tile lifts out and grows
        title: 'L4 · Enforcement Tier (AWS)', shot: { x: 700, y: -60, z: 665, rx: -58, ry: 0, d: 1880 } });   // aimed towards the front so the bottom of the diagram (and the P2 run below it) is in view
 
+  // L3 on AWS: the edge WAF account's VPC. CDN origin traffic from L2 enters through the internet gateway, reaches the
+  // internet-facing ALB in the public subnets (AZ a, b, c) with AWS WAF attached to it, and leaves through an interface
+  // VPC endpoint (network interfaces in the private subnets) over PrivateLink to the L4 Ingress VPC's endpoint service.
+  // Simplified from the full design: one ALB stack, no per-subnet security groups or interfaces drawn.
+  new FK.Detail(stage, D.waf, ({ box, flow, group, iconTop, tag }) => {
+    const hop = (x, icon, text, bg = '#fff') => { box({ x, y: -15, z: 450, w: 50, h: 30, d: 70, c: '#3B1F66' }); iconTop({ x, y: -30, z: 450, icon, size: 38, bg }); tag({ x, z: 512, text, w: 110, h: 44, size: 14 }); };
+    group({ x1: -375, z1: 40, x2: 375, z2: 985, color: '#8C4FFF', icon: AWS.vpc, title: 'Edge WAF account', sub: 'VPC · us-east-1', hw: 280, width: 4, fill: .04 });
+    hop(-330, AWS.igw, 'Internet<br>gateway');
+    group({ x1: -275, z1: 95, x2: -45, z2: 975, color: '#7AA116', icon: AWS.pubsubnet, title: 'Public subnets', sub: 'AZ a · b · c', hw: 200, hh: 36, width: 3, dash: '8 6' });
+    hop(-160, AWS.alb, 'Internet-facing<br>ALB');
+    // AWS WAF attached to the ALB: every request goes out for inspection and comes back
+    box({ x: -160, y: -20, z: 660, w: 60, h: 40, d: 60, c: '#4A1010' }); iconTop({ x: -160, y: -40, z: 660, icon: AWS.waf, size: 36, bg: 'transparent' });
+    tag({ x: -160, z: 715, text: 'AWS WAF · web ACL', sub: 'CDN sources only · managed rules · rate limits', w: 210, h: 36, size: 12 });
+    flow([-172, -4, 486], [-172, -4, 628], '#F43F5E', 4);       // ALB -> WAF
+    flow([-148, -4, 628], [-148, -4, 486], '#F43F5E', 4);       // WAF -> ALB (allow / block)
+    group({ x1: -25, z1: 95, x2: 360, z2: 975, color: '#00A4A6', icon: AWS.subnet, title: 'Private subnets', sub: 'AZ a · b · c', hw: 200, hh: 36, width: 3, dash: '8 6' });
+    hop(160, AWS.endpoint, 'Interface VPC<br>endpoint');
+    tag({ x: 160, z: 552, text: '', sub: 'network interfaces in the private subnets', w: 180, h: 20, size: 12 });
+    // flows, left to right
+    flow([-440, -4, 450], [-357, -4, 450], '#FBBF24');          // from L2: CDN origin traffic
+    flow([-303, -4, 450], [-187, -4, 450], '#FBBF24');          // internet gateway -> ALB
+    flow([-133, -4, 450], [133, -4, 450], '#FBBF24');           // ALB (after WAF) -> interface endpoint
+    flow([187, -4, 450], [640, -4, 450], '#2DD4BF');            // PrivateLink -> the L4 endpoint service
+    tag({ x: -425, z: 482, text: 'from L2', w: 80, h: 24, size: 14 });
+    tag({ x: 470, z: 485, text: 'PrivateLink', sub: 'to the L4 endpoint service', w: 200, h: 36, size: 13 });
+  }, { near: 1900, far: 3000, at: [0, 0, 500], links: [L.inC, L.wafT2], walls: [W1, W2],
+       card: { from: [-345, 30, 345, 1000], to: [-392, 22, 392, 1000], lift: 45, color: LAYERS[3].color },   // the L3 AWS tile lifts out and grows
+       title: 'L3 · Regional Perimeter (AWS)', shot: { x: 0, y: -60, z: 640, rx: -58, ry: 0, d: 1650 } });
+
   const pk = new Packet(stage, W, { size: 34 });
   // L4 deployment view, modelled on ingress-poc: gateway-envoy's filter chain makes one ext_authz call to
   // auth-service, which resolves the session, exchanges the token and then evaluates the Rego payload policies in-process.

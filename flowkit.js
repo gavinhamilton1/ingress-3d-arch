@@ -310,7 +310,14 @@
       this._trackLayer();
       const free = !!this.explore || Math.abs(T.rx) > .5 || Math.abs(T.ry) > .5 || Math.abs(T.zoom - 1) > .01 || Math.abs(T.px) > 1 || Math.abs(T.pz) > 1;
       if (free !== this._free) { this._free = free; this.freeEl.classList.toggle('on', free); }
-      for (const d of this.details) d.update(e, free);
+      // One detail at a time: the one whose layer tile is under the cursor, or the one pinned by the player. With the
+      // cursor off the stage the current one stays.
+      if (this.mouse) {
+        const p = this.unproject(this.mouse.x, this.mouse.y), hit = p && this.details.find(d => d.contains(p));
+        if (hit && this.pinned && hit !== this.pinned) this.pinned = null;
+        this.activeDetail = hit || this.pinned || null;
+      } else if (this.pinned) this.activeDetail = this.pinned;
+      for (const d of this.details) d.update(e, free && d === this.activeDetail);
       // As a detail view comes in, fade the HUD (legend, caption, trace, latency budget) with it so the whole view shows
       const lod = this.details.reduce((m, d) => Math.max(m, d.f), 0), hud = clamp(1 - (lod - .15) / .6, 0, 1);
       if (hud !== this._hud) {
@@ -367,10 +374,11 @@
         f.setPointerCapture(e.pointerId);
       });
       f.addEventListener('pointermove', e => {
+        const fr = f.getBoundingClientRect(); this.mouse = { x: (e.clientX - fr.left) / this.scale, y: (e.clientY - fr.top) / this.scale };   // stage pixels, for choosing the detail
         if (!drag) return;
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         if (!drag.moved && Math.hypot(dx, dy) < 4) return;
-        drag.moved = true; f.classList.add('dragging'); drag.x = e.clientX; drag.y = e.clientY;
+        drag.moved = true; f.classList.add('dragging'); drag.x = e.clientX; drag.y = e.clientY; this.pinned = null;   // steering by hand: the cursor decides the detail again
         const sc = 1 / this.scale, T = this.viewT;
         if (drag.pan) {
           const k = this.e.d / this.P * sc, b = this.e.ry * D2R;
@@ -391,18 +399,21 @@
         if (e.target.closest('.fk-hud-i')) return;
         e.preventDefault();
         // Zoom towards the floor point under the cursor, so you can wheel straight into a part of the scene
+        this.pinned = null;   // zooming by hand: the cursor decides the detail again
         const T = this.viewT, r = f.getBoundingClientRect(), z0 = T.zoom, z1 = clamp(z0 * Math.exp(e.deltaY * .0015), .2, 3), k = z1 / z0;
         const p = this.unproject((e.clientX - r.left) / this.scale, (e.clientY - r.top) / this.scale);
         T.zoom = z1;
         if (p) { T.px += (p[0] - this.e.x) * (1 - k); T.pz += (p[2] - this.e.z) * (1 - k); }
+        this.mouse = { x: (e.clientX - r.left) / this.scale, y: (e.clientY - r.top) / this.scale };
       }, { passive: false });
       f.addEventListener('contextmenu', e => e.preventDefault());
+      f.addEventListener('pointerleave', () => { if (!drag) this.mouse = null; });   // off the stage: keep the current detail
     }
     deviceAt(t) {
       const n = t && t.closest && (t.closest('.fk-label.dev') || t.closest('.fk-dev'));
       return n ? this.devices[+n.dataset.dev] || null : null;
     }
-    resetView() { Object.assign(this.viewT, { rx: 0, ry: 0, zoom: 1, px: 0, pz: 0 }); }
+    resetView() { Object.assign(this.viewT, { rx: 0, ry: 0, zoom: 1, px: 0, pz: 0 }); this.pinned = null; }
     goTo(shot) { this.explore = { ...this.cam, ...shot }; this.onExplore && this.onExplore(); }
     follow() { this.explore = null; this.resetView(); }
 
@@ -1123,11 +1134,13 @@
   // fully shown / starts to appear.
   const d0 = d => d.g.style.display !== 'none';
   class Detail {
-    constructor(stage, dev, build, { near = 1300, far = 2300, at, hide = [], links = [], tags = [], walls = [], card, title = '', shot } = {}) {
+    constructor(stage, dev, build, { near = 1300, far = 2300, at, hide = [], links = [], tags = [], walls = [], card, zone, title = '', shot } = {}) {
       // hide: other devices the detail replaces; links: cables whose job the detail's own flow lines take over
       // title, shot: how it is listed under "Deployment diagrams" in the player, and the camera that opens it
       Object.assign(this, { stage, dev, near, far, hide, links, tags, walls, title, f: 0, c: at || [dev.x, 0, dev.z], labels: [] });   // walls: firewalls the wider view spills across   // tags: overlay labels of what it replaces
       this.shot = shot || { x: this.c[0], y: -60, z: this.c[2], rx: -55, ry: 0, d: near * .95 };
+      // zone: the layer tile [x1, z1, x2, z2] the cursor must be over for this detail to open (defaults to the card's tile)
+      this.zone = zone || (card && card.from) || [this.c[0] - 350, this.c[2] - 350, this.c[0] + 350, this.c[2] + 350];
       this.g = g(stage.world, 0, 0, 0); this.g.classList.add('fk-lod'); this.g.style.display = 'none';
       // card: the layer tile lifts out of the floor and grows to the detail's footprint, the detail sitting on top of it.
       //   { from: [x1, z1, x2, z2] the tile it starts as, to: [x1, z1, x2, z2] its full size, lift, color }
@@ -1164,6 +1177,11 @@
         iconTop: ({ x, y, z, icon, size = 34, bg = '#fff' }) => plane(G, { w: size, h: size, t: `translate3d(${x}px,${y - 1}px,${z}px) rotateX(90deg)`, html: `<div class="fk-itop" style="background:${bg}">${icon}</div>` })
       });
       stage.details.push(this);
+    }
+    // Is floor point p over this detail? Once it is mostly open, its whole footprint counts, so the cursor can roam it
+    contains(p) {
+      const [x1, z1, x2, z2] = this.f > .3 && this.card ? this.card.to : this.zone;
+      return p[0] >= x1 && p[0] <= x2 && p[2] >= z1 && p[2] <= z2;
     }
     update(cam, free) {
       const d = this.dev, [cx, , cz] = this.c, reach = cam.d + Math.hypot(cam.x - cx, cam.z - cz);
@@ -1297,7 +1315,7 @@
         const b = el('button', '', rows[gi], `<em>${c._key}</em>${c.title}`); b.onclick = () => { this.load(i); this.play(); }; return b;
       });
       // Deployment diagrams: one button per detail view the scene defines
-      const dep = host.querySelector('.fk-deploy'), dets = this.stage.details.filter(d => d.title);
+      const dep = host.querySelector('.fk-deploy'), dets = this.stage.details.filter(d => d.title).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
       if (dets.length) {
         dep.hidden = false;
         dets.forEach(d => { const b = el('button', '', dep.querySelector('.fk-chrow'), d.title); b.onclick = () => this.openDetail(d); });
@@ -1323,7 +1341,7 @@
     // where everything has been introduced, first.
     openDetail(d) {
       if (d.dev.g.style.display === 'none') { this.load(0); this.seek(this.duration); }
-      this.pause(); this.stage.resetView(); this.stage.goTo(d.shot);
+      this.pause(); this.stage.resetView(); this.stage.goTo(d.shot); this.stage.pinned = d;   // open even though the cursor is on the button
     }
     load(i) {
       if (this.tl) this.tl.dispose();
