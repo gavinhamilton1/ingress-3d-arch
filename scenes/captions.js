@@ -170,7 +170,7 @@ window.FK_CAPTIONS = {
   "L3 · Regional Perimeter": {
     "L3 · Regional perimeter": {
       step: "L3 · Regional perimeter",
-      text: "The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions. No platform components of our own run here",
+      text: "The entry into JPMorgan networks: PSaaS+ in 10 on-prem DMZ data centres and AWS WAF in 8 AWS regions. No platform components of our own run here",
       hold: 7.8
     },
     "What it does": {
@@ -199,7 +199,7 @@ window.FK_CAPTIONS = {
   "L4 · Enforcement Tier": {
     "L4 · Enforcement tier": {
       step: "L4 · Enforcement tier",
-      text: "Tier 2, the DMZ gateway inside SESF, on both substrates: Envoy and Kong data planes on-prem and on EKS. The single enforcement point, and it fails closed",
+      text: "Tier 2, the DMZ gateway on both substrates (inside SESF on-prem): Envoy and Kong data planes on-prem and on EKS. The single enforcement point, and it fails closed",
       hold: 8.4
     },
     "Inspect and apply policy": {

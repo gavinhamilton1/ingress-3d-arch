@@ -25,8 +25,8 @@ Deep link: `ingress.html?ch=2&t=7000` opens chapter 2 paused at 7 seconds. **Cop
 | L0 | DNS control plane (ahead of the request path, left of the clients) | 4 JPMorgan primary NS (CNAME → Akamai GTM) + 3 Cloudflare secondary NS (zone transfer; Cloudflare LB via override) |
 | L1 | Client | Browser · Mobile app · API client · Delegated agent · Autonomous agent · M2M |
 | L2 | Edge protection / CDN | Akamai · Cloudflare, active-active from one ruleset. Classifies callers; does not establish identity |
-| L3 | Regional perimeter | PSaaS+ with Akamai SiteShield (on-prem, 9 DCs) · AWS WAF (8 regions). CDN traffic only |
-| L4 | Enforcement tier · SESF / Tier 2 | T2 gateway on-prem and on EKS (Envoy / Kong): session validator, token exchange, global and route policies, signal receiver. The single enforcement point; fails closed |
+| L3 | Regional perimeter | PSaaS+ with Akamai SiteShield (on-prem, 10 DMZ DCs) · AWS WAF (8 regions). CDN traffic only |
+| L4 | Enforcement tier · Tier 2 (SESF on-prem) | T2 gateway on-prem and on EKS (Envoy / Kong): session validator, token exchange, global and route policies, signal receiver. The single enforcement point; fails closed |
 | L5 | IFA workload zone | Application workloads on GKP and EKS, reachable only from L4 over mTLS; identity arrives as headers |
 | L6 | Internal network | Downstream services, systems of record, session manager, signal manager, message broker, config pipeline |
 | P1 | Private connectivity | Institutional client over VAN / private circuit / leased line → BP PSaaS, entering at L3 |

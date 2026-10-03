@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 440">
+  <title>GKP</title>
+  <path fill="none" stroke="#3949AB" stroke-width="20" stroke-linejoin="round" d="M165 290H95A68 68 0 0 1 100 155A62 62 0 0 1 200 70A150 150 0 0 1 440 70A62 62 0 0 1 535 130A80 80 0 0 1 545 290H475"/>
+  <polygon points="320.0,97.0 449.0,159.1 480.9,298.7 391.6,410.7 248.4,410.7 159.1,298.7 191.0,159.1" fill="#3949AB" stroke="#3949AB" stroke-width="22" stroke-linejoin="round"/>
+  <g stroke="#fff" fill="none">
+    <circle cx="320" cy="262" r="82" stroke-width="15"/>
+    <path d="M320 262L320.0 144.0M320 262L412.3 188.4M320 262L435.0 288.3M320 262L371.2 368.3M320 262L268.8 368.3M320 262L205.0 288.3M320 262L227.7 188.4" stroke-width="13" stroke-linecap="round"/>
+  </g>
+  <polygon points="320.0,238.0 338.8,247.0 343.4,267.3 330.4,283.6 309.6,283.6 296.6,267.3 301.2,247.0" fill="#fff"/>
+  <circle cx="320" cy="262" r="9" fill="#3949AB"/>
+</svg>

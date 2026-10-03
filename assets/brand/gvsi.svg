@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 612 370" fill="none">
+  <title>GVSI</title>
+  <g stroke="#3949AB" stroke-width="22" stroke-linejoin="round">
+    <path d="M165 290H95A65 65 0 0 1 100 160A62 62 0 0 1 172 112A140 140 0 0 1 440 98A58 58 0 0 1 528 168A61 61 0 0 1 518 290H450"/>
+    <rect x="216" y="151" width="168" height="168"/>
+  </g>
+  <g fill="#3949AB">
+    <rect x="263" y="198" width="74" height="74"/>
+    <rect x="239" y="112" width="22" height="30"/><rect x="289" y="112" width="22" height="30"/><rect x="339" y="112" width="22" height="30"/>
+    <rect x="239" y="328" width="22" height="30"/><rect x="289" y="328" width="22" height="30"/><rect x="339" y="328" width="22" height="30"/>
+    <rect x="177" y="174" width="30" height="22"/><rect x="177" y="224" width="30" height="22"/><rect x="177" y="274" width="30" height="22"/>
+    <rect x="393" y="174" width="30" height="22"/><rect x="393" y="224" width="30" height="22"/><rect x="393" y="274" width="30" height="22"/>
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 552 412">
+  <title>GCP</title>
+  <g stroke="#1C2340" stroke-width="5" stroke-linejoin="round">
+    <!-- containers -->
+    <rect x="176" y="66" width="114" height="44" fill="#5AA9E6"/>
+    <rect x="290" y="66" width="56" height="44" fill="#2F7FC1"/>
+    <rect x="124" y="110" width="122" height="52" fill="#5AA9E6"/>
+    <rect x="246" y="110" width="44" height="52" fill="#2F7FC1"/>
+    <rect x="290" y="110" width="44" height="52" fill="#2F7FC1"/>
+    <rect x="334" y="110" width="30" height="52" fill="#2F7FC1"/>
+    <!-- whale body with tail -->
+    <path fill="#6E80DC" d="M24 166H398C412 140 416 110 412 84C395 76 382 60 380 38C396 40 410 50 422 62C424 38 436 18 456 8C470 26 470 52 460 72C480 66 506 66 530 76C520 98 498 112 470 116C478 220 420 330 300 378C200 412 90 392 48 330C22 290 14 220 24 166Z"/>
+    <!-- belly -->
+    <path fill="#C9D1F6" stroke="none" d="M34 270C120 300 230 300 310 270C318 300 318 340 300 378C200 412 90 392 48 330C40 312 36 292 34 270Z"/>
+    <path fill="none" d="M34 270C120 300 230 300 310 270"/>
+    <!-- eye -->
+    <circle cx="246" cy="250" r="36" fill="#fff"/>
+    <circle cx="262" cy="244" r="18" fill="#1C2340" stroke="none"/>
+    <circle cx="256" cy="238" r="5" fill="#fff" stroke="none"/>
+  </g>
+  <!-- container ribs -->
+  <g stroke="#1C2340" stroke-width="2" opacity=".55">
+    <path d="M300 72V104M310 72V104M320 72V104M330 72V104M338 72V104"/>
+    <path d="M256 116V156M266 116V156M276 116V156M300 116V156M310 116V156M320 116V156M344 116V156M354 116V156"/>
+  </g>
+  <g font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="34" fill="#1C2340" text-anchor="middle">
+    <text x="233" y="100">PSI</text>
+    <text x="185" y="148">VSI</text>
+  </g>
+</svg>

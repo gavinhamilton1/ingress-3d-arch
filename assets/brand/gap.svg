@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 632 454" fill="none">
+  <title>GAP</title>
+  <g stroke="#3949AB" stroke-width="20" stroke-linejoin="miter">
+    <path d="M318 364L112 270A72 72 0 0 1 95 135A60 60 0 0 1 185 90A150 150 0 0 1 440 70A62 62 0 0 1 540 120A80 80 0 0 1 524 270Z"/>
+    <path d="M206 192L130 228L318 312L506 228L432 192"/>
+  </g>
+  <path d="M120 348L318 438L512 348" stroke="#3949AB" stroke-width="22"/>
+  <g fill="#3949AB">
+    <path d="M318 58L428 108L318 158L208 108Z"/>
+    <path d="M208 122L311 168V272L208 225Z"/>
+    <path d="M428 122L325 168V272L428 225Z"/>
+  </g>
+</svg>

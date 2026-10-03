@@ -5,7 +5,7 @@
  *   L1 Client                 Browser · Mobile app · API client · Delegated agent · Autonomous agent · M2M
  *   L2 Edge protection / CDN  Akamai, Cloudflare: classify callers, do not establish identity
  *   L3 Regional perimeter     PSaaS+ (on-prem) · AWS WAF (AWS): CDN traffic only
- *   L4 Enforcement tier       Tier 2, the DMZ gateway inside SESF on both substrates (Envoy / Kong): the single enforcement point
+ *   L4 Enforcement tier       Tier 2, the DMZ gateway on both substrates (inside SESF on-prem; Envoy / Kong): the single enforcement point
  *   L5 IFA workload zone      application workloads on GKP and EKS, reachable only from L4 over mTLS
  *   L6 Internal network       downstream services, systems of record, session and signal managers, broker, config pipeline
  *
@@ -27,8 +27,8 @@
     { name: 'DNS control plane', alias: 'Steering', color: '#F472B6', desc: 'Resolves the hostname to an edge address before any request is made, chosen by location, latency, load and health. 4 JPMorgan primary and 3 Cloudflare secondary nameservers, with Akamai GTM and Cloudflare Load Balancing steering. No traffic flows through it; steering changes are bounded by TTL and resolver caching' },
     { name: 'Client', alias: 'Untrusted', color: '#94A3B8', desc: 'Browsers, mobile apps, API clients, delegated agents, autonomous agents and M2M callers, over the internet or private connectivity. Untrusted regardless of type; each holds a sender-constrained credential bound to a key it controls' },
     { name: 'Edge protection / CDN', alias: 'Edge', color: '#F97316', desc: 'Akamai and Cloudflare, active-active from one source ruleset. Terminates TLS, caches, absorbs volumetric attack, applies WAF, bot and agent classification, geographic policy and per-client rate limits. Classifies callers; does not establish identity' },
-    { name: 'Regional perimeter', alias: 'Perimeter', color: '#FBBF24', desc: 'PSaaS+ on-prem (9 data centres) and AWS WAF in AWS (8 regions). Admits only traffic from the CDN, which is what makes origin lockdown enforceable; a second WAF pass and perimeter traffic policy' },
-    { name: 'Enforcement tier', alias: 'SESF · Tier 2', color: '#22D3EE', desc: 'The DMZ gateway on both substrates, inside SESF. The single enforcement point: breaks and inspects TLS, resolves the credential to live state, exchanges tokens, runs the global and route policies, enforces scopes, mandates and lifetimes, consumes revocation and risk signals and injects verified identity. Fails closed' },
+    { name: 'Regional perimeter', alias: 'Perimeter', color: '#FBBF24', desc: 'PSaaS+ on-prem (10 DMZ data centres) and AWS WAF in AWS (8 regions). Admits only traffic from the CDN, which is what makes origin lockdown enforceable; a second WAF pass and perimeter traffic policy' },
+    { name: 'Enforcement tier', alias: 'Tier 2', color: '#22D3EE', desc: 'The DMZ gateway on both substrates, inside SESF on-prem. The single enforcement point: breaks and inspects TLS, resolves the credential to live state, exchanges tokens, runs the global and route policies, enforces scopes, mandates and lifetimes, consumes revocation and risk signals and injects verified identity. Fails closed' },
     { name: 'IFA workload zone', alias: 'Workloads', color: '#818CF8', desc: 'Isolated firewall application zone: application workloads on GKP and EKS, reachable only from L4 and only over mutual TLS. Receives verified identity as headers rather than parsing tokens' },
     { name: 'Internal network', alias: 'Trusted services', color: '#34D399', desc: 'Downstream services, systems of record, the identity platform\'s session and signal managers, the message broker, the configuration pipeline and the observability stack. Identity is propagated rather than re-asserted' }
   ].map((L, i) => { const x = i === 1 ? X[0] : X[i]; return { ...L, i, x1: x - 350, x2: x + 350, shot: { x, y: -190, z: 60, rx: -30, ry: -16, d: 3300 } }; });
@@ -88,7 +88,7 @@
   const FOOTPRINT = {
     akamai: { label: '4,100+ PoPs', NA: 1600, EMEA: 1100, APAC: 750 },
     cloudflare: { label: '310+ cities', NA: 95, EMEA: 105, APAC: 85 },
-    psaas: { label: '9 DCs', NA: 3, EMEA: 2, APAC: 4 },
+    psaas: { label: '10 DCs', NA: 4, EMEA: 2, APAC: 4 },   // AMER: Aurora, Broomfield, Orangeburg, Totowa · EMEA: Farnborough, Basingstoke · APAC: Equinix HK, Cavendish HK, SG-C01, SG-C02
     waf: { label: '8 regions', NA: 3, EMEA: 3, APAC: 2 },
     t2: { label: '9 DCs', NA: 4, EMEA: 2, APAC: 3 }
   };
@@ -164,11 +164,12 @@
   zone(stage, W, { x1: X[0] - 345, x2: X[0] + 345, z1: ZB[0], z2: ZB[1], color: LAYERS[1].color, label: 'L1', sub: LAYERS[1].name });
   zone(stage, W, { x1: X[1] - IW, x2: X[1] + IW, z1: ZB[0], z2: ZB[1], color: '#64748B', alpha: .04 });
   zone(stage, W, { x1: X[2] - 345, x2: X[2] + 345, z1: ZB[0], z2: ZB[1], color: LAYERS[2].color, label: 'L2', sub: LAYERS[2].name });
-  const SUB = { 3: 'Perimeter', 4: 'SESF · Tier 2', 5: 'IFA zone' };
+  // SESF is an on-prem zone, so the AWS L4 tile is just Tier 2
+  const SUB = { 3: ['Perimeter', 'Perimeter'], 4: ['SESF · Tier 2', 'Tier 2'], 5: ['IFA zone', 'IFA zone'] };
   for (const i of [3, 4, 5]) {
     const L = LAYERS[i], x1 = X[i] - 345, x2 = X[i] + 345;
-    zone(stage, W, { x1, x2, z1: ZB[0], z2: -SPLIT, color: L.color, label: 'L' + i, sub: SUB[i] + ' · on-prem' });
-    zone(stage, W, { x1, x2, z1: SPLIT, z2: ZB[1], color: L.color, label: 'L' + i, sub: SUB[i] + ' · AWS' });
+    zone(stage, W, { x1, x2, z1: ZB[0], z2: -SPLIT, color: L.color, label: 'L' + i, sub: SUB[i][0] + ' · on-prem' });
+    zone(stage, W, { x1, x2, z1: SPLIT, z2: ZB[1], color: L.color, label: 'L' + i, sub: SUB[i][1] + ' · AWS' });
   }
   zone(stage, W, { x1: X[6] - 345, x2: X[6] + 345, z1: ZB[0], z2: ZB[1], color: LAYERS[6].color, label: 'L6', sub: LAYERS[6].name });
   // Back corridor: P1 (institutional client to BP PSaaS)
@@ -405,15 +406,16 @@
   const cdnDetail = ({ dev, zc, title, sub, sec, edge, out, attacks, hub, exits, name, shotTitle }) => new FK.Detail(stage, dev, ({ box, flow, group, tag }) => {
     const stg = (x, z, c, text, s2, w = 112) => { box({ x, y: -18, z, w: 52, h: 36, d: 52, c }); tag({ x, z: z + 46, text, sub: s2, w, h: 44, size: 12 }); };
     group({ x1: -1068, z1: zc - 465, x2: -332, z2: zc + 465, color: '#F97316', title, sub, hw: 300, width: 4, fill: .04 });
-    group({ x1: -1045, z1: zc - 400, x2: -790, z2: zc + 400, color: '#F43F5E', title: sec.title, sub: sec.sub, hw: 230, hh: 36, width: 3, dash: '8 6' });
+    group({ x1: -1066, z1: zc - 400, x2: -785, z2: zc + 400, color: '#F43F5E', title: sec.title, sub: sec.sub, hw: 230, hh: 36, width: 3, dash: '8 6' });
     sec.stages.forEach(([x, dz, text, s2, c]) => stg(x, zc + dz, c || '#4A1010', text, s2));
-    group({ x1: -770, z1: zc - 400, x2: -560, z2: zc + 400, color: '#38BDF8', title: edge.title, sub: edge.sub, hw: 200, hh: 36, width: 3, dash: '8 6' });
+    group({ x1: -720, z1: zc - 400, x2: -515, z2: zc + 400, color: '#38BDF8', title: edge.title, sub: edge.sub, hw: 200, hh: 36, width: 3, dash: '8 6' });
     edge.stages.forEach(([x, dz, text, s2, c]) => stg(x, zc + dz, c || '#0C2A44', text, s2, 130));
-    // valid traffic: from the internet hub in L1, through the stages, out to both perimeters
-    flow([X[1], -4, 0], [X[1] + 130, -4, zc], '#22C55E', 5); flow([X[1] + 130, -4, zc], [-1045, -4, zc], '#22C55E', 5);
-    flow([-1045, -4, zc], [-560, -4, zc], '#22C55E', 5);
-    for (const zx of exits) flow([-560, -4, zc], [-82, -4, zx], '#22C55E', 4);   // on to PSaaS+ (on-prem) and AWS WAF, replacing the cables into L3
-    tag({ x: -470, z: zc + (zc < 0 ? 60 : -60), text: out.title, sub: out.sub, w: 170, h: 40, size: 12 });
+    // valid traffic, group boundary to group boundary: from the internet hub in L1 to the security group, a cable across to
+    // the edge group, then out to both perimeters (PSaaS+ on-prem and AWS WAF), replacing the cables into L3
+    flow([X[1], -4, 0], [X[1] + 130, -4, zc], '#22C55E', 5); flow([X[1] + 130, -4, zc], [-1066, -4, zc], '#22C55E', 5);
+    flow([-785, -4, zc], [-720, -4, zc], '#22C55E', 5);
+    for (const zx of exits) flow([-515, -4, zc], [-82, -4, zx], '#22C55E', 4);
+    tag({ x: -420, z: zc + (zc < 0 ? 60 : -60), text: out.title, sub: out.sub, w: 170, h: 40, size: 12 });
     // attacks, stopped at the stage that catches them
     // the first stops at the network layer; the second passes it and stops at the application layer
     attacks.forEach(([dz, x2, text, tz]) => { flow([-1180, -4, zc + dz], [x2, -4, zc + dz], '#F43F5E', 4); tag({ x: -1150, z: zc + tz, text: `<span style="color:#FB7185">${text}</span>`, w: 150, h: 30, size: 11 }); });
@@ -422,27 +424,53 @@
        title: name, shot: { x: -700, y: -60, z: zc + 60, rx: -58, ry: 0, d: 1600 } });
   cdnDetail({ dev: D.cdnA, zc: -450, name: 'L2 · Akamai Edge', title: 'Akamai edge', sub: 'vendor hosted · 4,100+ PoPs',
     sec: { title: 'Kona (WAF)', sub: 'inline before the ION edge servers', stages: [
-      [-985, -150, 'Network layer', 'L3/4 · firewall · network DDoS'],
-      [-860, -150, 'Application layer', 'L5-7 · WAF · application DDoS'],
-      [-920, 170, 'Bot Manager', 'bots and agents classified', '#3B1F66']] },
+      [-995, -150, 'Network layer', 'L3/4 · firewall · network DDoS'],
+      [-857, -150, 'Application layer', 'L5-7 · WAF · application DDoS'],
+      [-926, 170, 'Bot Manager', 'bots and agents classified', '#3B1F66']] },
     edge: { title: 'ION (CDN)', sub: 'edge servers', stages: [
-      [-665, -150, 'Edge server', 'TLS terminated · cache'],
-      [-665, 170, 'Edge server', 'origin shield · re-encrypt']] },
+      [-617, -150, 'Edge server', 'TLS terminated · cache'],
+      [-617, 170, 'Edge server', 'origin shield · re-encrypt']] },
     out: { title: 'to L3 · SiteShield', sub: 'origins only accept Akamai ranges', links: [L.cAA, L.cAC, L.cCA] },   // cCA: Cloudflare's cable crosses this card
-    attacks: [[-165, -1012, 'network attack · blocked', -205], [-135, -887, 'application attack · blocked', -100]],
+    attacks: [[-165, -1022, 'network attack · blocked', -205], [-135, -884, 'application attack · blocked', -100]],
     hub: L.hubA, exits: [-450, 450] });
   cdnDetail({ dev: D.cdnC, zc: 450, name: 'L2 · Cloudflare Edge', title: 'Cloudflare edge', sub: 'vendor hosted · 310+ cities · anycast',
     sec: { title: 'Security', sub: 'one ruleset with Akamai', stages: [
-      [-985, -150, 'DDoS protection', 'L3/4 and L7'],
-      [-860, -150, 'WAF', 'managed rules'],
-      [-985, 170, 'Bot Management', 'bots and agents', '#3B1F66'],
-      [-860, 170, 'API Shield', 'schema validation · discovery', '#3B1F66']] },
+      [-995, -150, 'DDoS protection', 'L3/4 and L7'],
+      [-857, -150, 'WAF', 'managed rules'],
+      [-995, 170, 'Bot Management', 'bots and agents', '#3B1F66'],
+      [-857, 170, 'API Shield', 'schema validation · discovery', '#3B1F66']] },
     edge: { title: 'Edge', sub: 'CDN and load balancing', stages: [
-      [-665, -150, 'CDN', 'TLS terminated · cache'],
-      [-665, 170, 'Origin pools', 'load balancing at the edge']] },
+      [-617, -150, 'CDN', 'TLS terminated · cache'],
+      [-617, 170, 'Origin pools', 'load balancing at the edge']] },
     out: { title: 'to L3 · origin lockdown', sub: 'Cloudflare ranges · authenticated origin pulls', links: [L.cCC, L.cCA, L.cAC] },   // cAC: Akamai's cable crosses this card
-    attacks: [[-165, -1012, 'volumetric attack · absorbed', -205], [-135, -887, 'application attack · blocked', -100]],
+    attacks: [[-165, -1022, 'volumetric attack · absorbed', -205], [-135, -884, 'application attack · blocked', -100]],
     hub: L.hubC, exits: [450, -450] });
+
+  // L3 on-prem: PSaaS+, the corporate internet perimeter in the DMZ data centres. HTTP and HTTPS only. Modelled on the
+  // JPMM physical web infrastructure diagram: in each DC a front load balancer pair owns the PSaaS VIP (80/443) and spreads
+  // CDN origin traffic across a pool of F5 WAF appliances, which forward to the tier 2 VIPs in sESF (L4). DMZ network
+  // firewalls exist but are not in the source diagram, so they are only noted, not drawn.
+  new FK.Detail(stage, D.psaas, ({ box, flow, group, tag }) => {
+    const zc = -480, stg = (x, z, c, text, s2, w = 120) => { box({ x, y: -18, z, w: 52, h: 36, d: 52, c }); tag({ x, z: z + 46, text, sub: s2, w, h: 44, size: 12 }); };
+    group({ x1: -378, z1: -945, x2: 378, z2: -35, color: '#FBBF24', title: 'PSaaS+ · DMZ data centre', sub: 'corporate internet perimeter · HTTP / HTTPS only · DMZ firewalls not drawn', hw: 420, width: 4, fill: .04 });
+    group({ x1: -366, z1: zc - 330, x2: -140, z2: zc + 240, color: '#60A5FA', title: 'Front load balancers', sub: 'PSaaS VIP · 80 / 443', hw: 220, hh: 36, width: 3, dash: '8 6' });
+    stg(-253, zc - 140, '#0F2A4A', 'Load balancer', 'owns the PSaaS VIP<br>CDN source ranges only');
+    stg(-253, zc + 120, '#0F2A4A', 'Load balancer', 'HA pair');
+    group({ x1: -105, z1: zc - 330, x2: 235, z2: zc + 240, color: '#E4002B', title: 'F5 WAF pool', sub: 'scales out behind the VIP', hw: 200, hh: 36, width: 3, dash: '8 6' });
+    stg(-40, zc - 140, '#3A0D14', 'F5 WAF 1', 'OWASP protections');
+    stg(100, zc - 140, '#3A0D14', 'F5 WAF 2', 'OWASP protections');
+    stg(30, zc + 120, '#3A0D14', 'F5 WAF n', 'forwards to the sESF<br>tier 2 VIP');
+    // traffic, group boundary to group boundary: from L2, through the load balancers to the WAF pool, out to the T2 gateway in sESF (L4)
+    flow([-440, -4, -450], [-366, -4, -450], '#22C55E', 5);
+    flow([-140, -4, -450], [-105, -4, -450], '#22C55E', 5);
+    flow([235, -4, -450], [640, -4, -450], '#22C55E', 5);
+    tag({ x: -420, z: -418, text: 'from L2', w: 80, h: 24, size: 14 });
+    tag({ x: 450, z: -405, text: 'to sESF (L4)', sub: 'the backend must terminate in sESF', w: 200, h: 36, size: 13 });
+    tag({ x: 0, z: -175, text: 'PSaaS+ · Third-party PSaaS+ · BP PSaaS+ (P1)', sub: 'public APIs and web apps · outsourced JPMC-branded apps · business partners', w: 560, h: 36, size: 12 });
+    tag({ x: 0, z: -105, text: '', sub: 'AMER: Aurora · Broomfield · Orangeburg · Totowa &nbsp; EMEA: Farnborough · Basingstoke &nbsp; APAC: Equinix HK · Cavendish HK · SG-C01 · SG-C02', w: 700, h: 22, size: 12 });
+  }, { near: 1900, far: 3000, at: [0, 0, -490], links: [L.inA, L.psT2], walls: [W1, W2],
+       card: { from: [-345, -950, 345, -30], to: [-392, -958, 392, -22], lift: 45, color: LAYERS[3].color },   // the L3 on-prem tile lifts out and grows
+       title: 'L3 · Regional Perimeter (on-prem PSaaS+)', shot: { x: 0, y: -60, z: -430, rx: -58, ry: 0, d: 1650 } });
 
   // L3 on AWS: the edge WAF account's VPC. CDN origin traffic from L2 enters through the internet gateway, reaches the
   // internet-facing ALB in the public subnets (AZ a, b, c) with AWS WAF attached to it, and leaves through an interface
@@ -1007,7 +1035,7 @@
       },
       (tl, t) => say(tl, t, 'Latency · 21 ms of the 50', 'Client → edge 8 ms and edge → region 10 ms are network distance, which depends on where the user is; the edge’s own processing is about 3 ms', { hold: 5200 })] }),
     L3: layerCh({ focus: [3], legs: [3], shot: { x: -60, y: -180, z: 0, rx: -30, ry: -8, d: 3300 }, steps: [
-      (tl, t) => say(tl, t + 400, 'L3 · Regional perimeter', 'The entry into JPMorgan networks: PSaaS+ in 9 on-prem data centres and AWS WAF in 8 AWS regions. No platform components of our own run here', { devs: [D.psaas, D.waf], hold: 5400 }),
+      (tl, t) => say(tl, t + 400, 'L3 · Regional perimeter', 'The entry into JPMorgan networks: PSaaS+ in 10 on-prem DMZ data centres and AWS WAF in 8 AWS regions. No platform components of our own run here', { devs: [D.psaas, D.waf], hold: 5400 }),
       (tl, t) => {
         cap(tl, t, 'What it does', 'It admits only traffic from the CDN, then applies a second WAF pass and perimeter traffic policy before handing over to SESF');
         t = pk.appear(tl, t + 300, [-590, Y, -450], 'tls', 'GET /accounts', 'from Akamai');
@@ -1030,7 +1058,7 @@
         panel: { at: D.waf, title: 'Perimeter controls', items: ['CDN source allow-list · Akamai SiteShield', 'PSaaS+ rulesets · second WAF pass', 'AWS WAF web ACLs on the load balancers', 'P1 enters here too, through BP PSaaS'], dx: 40, dy: -20 } }),
       (tl, t) => say(tl, t, 'Latency · 3 ms', 'Network policy and a second WAF pass only; identity and payload policy happen at L4', { hold: 4600 })] }),
     L4: layerCh({ focus: [4], legs: [4, 5], shot: look(D.t2, { dx: -150, dz: 400, dist: 2600 }), steps: [
-      (tl, t) => say(tl, t + 400, 'L4 · Enforcement tier', 'Tier 2, the DMZ gateway inside SESF, on both substrates: Envoy and Kong data planes on-prem and on EKS. The single enforcement point, and it fails closed', { devs: [D.t2, D.t2c], hold: 6000 }),
+      (tl, t) => say(tl, t + 400, 'L4 · Enforcement tier', 'Tier 2, the DMZ gateway on both substrates (inside SESF on-prem): Envoy and Kong data planes on-prem and on EKS. The single enforcement point, and it fails closed', { devs: [D.t2, D.t2c], hold: 6000 }),
       (tl, t) => {
         cap(tl, t, 'Inspect and apply policy', 'Envoy breaks and inspects TLS and calls auth-service, which resolves the session, exchanges the token, then runs the global malicious-content policy and the route policy generated from the workload’s code');
         t = pk.appear(tl, t + 300, [80, Y, -450], 'tls', 'POST /api/v1/users/register', 'valid payload');
