@@ -1804,7 +1804,7 @@
         head: q('.fk-head'), tip: q('.fk-tip'), cur: q('.fk-time .cur'), dur: q('.fk-time .dur'), time: q('.fk-time'),
         play: q('[data-a=play]'), rev: q('[data-a=rev]'), loop: q('[data-a=loop]'), all: q('[data-a=all]'), help: q('.fk-help'), scrub: q('.fk-scrub')
       };
-      // Chapters can be grouped into labelled rows (e.g. Layers / Journeys); keys 1-9 pick from the first row, Shift+1-9 from the second
+      // Chapters can be grouped into labelled rows (e.g. Layers / Scenarios); keys 1-9 pick from the first row, Shift+1-9 from the second
       const groups = this.groups = [...new Set(this.chapters.map(c => c.group || ''))];
       const rows = groups.map((gname, gi) => { const r = el('div', 'fk-chrow', this.ui.chapters, gname ? `<span class="lbl">${gname}</span>` : ''); r.dataset.g = gi; return r; });
       const seen = groups.map(() => 0);
@@ -1872,7 +1872,7 @@
       if (this.tl) this.tl.dispose();
       this.stage.reset(); this.stage.explore = null;
       const tl = new Timeline(this.stage);
-      this.stage.caption.chapter = this.chapters[i].title;
+      this.stage.caption.chapter = this.chapters[i].captions || this.chapters[i].title;   // captions: which captions.js section it reads
       this.chapters[i].build(tl);
       tl.freeze();
       this.tl = tl; this.idx = i; this.time = 0; this._rt = undefined; this._endWait = 0;
@@ -1933,7 +1933,7 @@
         <p>Drag the timeline or click a step to jump; play, step, reverse and set the speed.</p>
         <h4>Flows</h4>
         <div class="mk cd">${flows}</div>
-        <p>Animated walkthroughs of the layers and the request journeys.</p>
+        <p>Animated walkthroughs of the layers, and scenarios from a legitimate request to an attack.</p>
         ${xs.length ? `<h4>Diagrams</h4><div class="mk cd gr" style="grid-template-columns:${names.length ? 'auto ' : ''}repeat(${xs.length},auto)">${rows}</div><p>Each layer's deployment architecture, laid out like the scene. Or wheel in over a layer.</p>` : ''}
         <h4>Camera control</h4>
         <div class="mk cc"><span>Camera control</span><i>Reset</i><i>Hide overlays</i><i>Top down</i><i class="ib">${svg('fs')}</i><i class="ib">?</i></div>
@@ -1997,7 +1997,9 @@
       }).join('');
       this.ui.marks.innerHTML = m.map(x => `<i style="left:${x.pos / D * 100}%"></i>`).join('');
       let r = '';
-      for (let s = 0; s * 1000 <= D; s++) r += `<i class="${s % 5 ? '' : 'mj'}" style="left:${s * 1000 / D * 100}%">${s % 5 ? '' : `<span>${s}s</span>`}</i>`;
+      // tick spacing scales with length so a long flow's ruler stays readable: minor / labelled ticks in seconds
+      const [mn, mj] = D > 300000 ? [10, 30] : D > 150000 ? [5, 15] : [1, 5], lab = s => s < 60 ? s + 's' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      for (let s = 0; s * 1000 <= D; s += mn) r += `<i class="${s % mj ? '' : 'mj'}" style="left:${s * 1000 / D * 100}%">${s % mj ? '' : `<span>${lab(s)}</span>`}</i>`;
       this.ui.ruler.innerHTML = r;
       this._step = undefined;
     }
@@ -3864,7 +3866,7 @@ window.FK_AWS = {
       result: panel.result, resultColor: panel.color, step: panel.step || 420, hold: 900, dx: panel.dx ?? 30, dy: panel.dy ?? -20 }) - 250);
     return end + 300;
   }
-  const layerCh = spec => tl => {
+  const layerCh = spec => Object.assign(tl => {
     base(tl, '', 400);
     if (spec.legs) budget.begin(tl, 0, spec.legs);
     stage.flag(tl, 0, 'fk-notrace', true);   // no distributed trace in the layer explainers
@@ -3874,7 +3876,7 @@ window.FK_AWS = {
     for (const step of spec.steps) t = step(tl, t);
     stage.focus(tl, t, null);
     tl.wait(t, 1500);
-  };
+  }, { spec });
   const CLIENTS = Object.values(C), NS = [1, 2, 3, 4, 5, 6, 7].map(n => D['ns' + n]);
   // Per client type, from the client-type table (also used by the 'Client types' journey)
   const CT = [
@@ -4151,7 +4153,7 @@ window.FK_AWS = {
   }
 
   /* ---------- Chapter: payload policies at T2 (ingress-poc test payloads) ---------- */
-  function chPayload(tl) {
+  function chPayload(tl, { only, title = 'Payload policies · L4', intro = 'Three requests to POST /api/v1/users/register show the two Rego policies that protect every route' } = {}) {
     base(tl, '3f2a9c1e7b5d4e8fa0c6b2d9e1f47a53', 300);
     const IN = [L.cl.browser, L.hubA, L.cAA, L.inA, L.psT2], ONWARD = [L.t2On];
     const runs = [
@@ -4163,9 +4165,9 @@ window.FK_AWS = {
         'auth-service      403  route_users_register  email is not a valid email address', '#FDA4AF', 1]
     ];
     let t = 300;
-    cap(tl, t, 'Payload policies · L4', 'Three requests to POST /api/v1/users/register show the two Rego policies that protect every route');
+    cap(tl, t, title, intro);
     t = stage.shot(tl, t, SHOT.front, 1800);
-    runs.forEach(([k, st, tx, log, col, err], n) => {
+    runs.filter(([k]) => !only || k === only).map(r => only ? [r[0], r[1].replace(/^\d · /, ''), ...r.slice(2)] : r).forEach(([k, st, tx, log, col, err], n) => {
       // client -> T2
       [...IN, ...ONWARD].forEach(l => l.clear(tl, t));
       C.browser.html(tl, t, SCR.reg);
@@ -4517,23 +4519,155 @@ window.FK_AWS = {
     tl.wait(t, 3500);
   }
 
+  /* ---------- Scenarios: autonomous AI agents (treasury agent, payments example) ---------- */
+  // The agent registry, mandate store and owner approval are generic placeholders until the real services are named.
+  // The autonomous agent's path is the on-prem one: Akamai, PSaaS+, the T2 gateway in SESF, the payments workload on GKP.
+  const AG = { id: 'treasury-agent-07', owner: 'Treasury Ops', IN: [L.cl.aagent, L.hubA, L.cAA, L.inA, L.psT2] };
+  const MANDATE = ['Owner · Treasury Ops', 'payments.create only', '≤ $50,000 per payment', 'Approved beneficiaries only', '≤ 20 payments an hour'];
+  // one agent request from L1 to the T2 gateway; returns the time it arrives
+  function agentIn(tl, t, label, badge, { edge = true } = {}) {
+    stage.shot(tl, t, look(D.cdnA, { dx: -350, dz: 250, ry: 14, dist: 2600 }), 1600);
+    t = pk.appear(tl, t + 200, [X[0] + 60, Y, C.aagent.z], 'tls', label, badge);
+    t = go(tl, t, pk, [L.cl.aagent, L.hubA], 2000);
+    if (edge) t = stage.checklist(tl, t, { at: D.cdnA.top, title: 'Akamai · agent classification', items: [{ t: 'Declared agent · HTTP message signature verified' }, { t: 'Signing key in the agent directory' }, { t: 'Agent rate limits · within' }], result: 'Forward to origin', step: 260, hold: 300, dx: 30, dy: -20 });
+    stage.shot(tl, t, look(D.t2, { dx: -250, dz: 150, dist: 2300 }), 1600);
+    t = go(tl, t, pk, [L.cAA, L.inA, L.psT2], 2400);
+    D.t2.activate(tl, t, 3200);
+    return t;
+  }
+  // the refusal goes straight back to the agent
+  function agentBack(tl, t, code, why) {
+    pk.state_(tl, t, 'bad', code, why);
+    t = pk.seal(tl, t, 'bad');
+    stage.shot(tl, t, SHOT.front, 1400);
+    t = go(tl, t + 200, pk, AG.IN, 3000, { reverse: true, cls: 'bad', ease: 'inOutQuad' });
+    ring(stage, W, tl, t, C.aagent.top, '#F43F5E', 240);
+    return pk.vanish(tl, t + 600) + 300;
+  }
+  function chAgentValid(tl) {
+    base(tl, '7c1e4b9a2f6d48e0b3a5c8d1e9f20a64', 360);
+    budget.begin(tl, 0);
+    let t = 300;
+    cap(tl, t, 'Valid autonomous AI', 'A registered treasury agent pays a supplier: $12,000 to an approved beneficiary, within its mandate. It acts in its own right, with no user in the loop');
+    t = stage.shot(tl, t, look(C.aagent, { dist: 1700, ry: 24, dx: 250, dz: 60 }), 2000);
+    C.aagent.activate(tl, t, 3000);
+    t = stage.checklist(tl, t, { at: C.aagent.top, title: `${AG.id} · mandate (placeholder)`, items: MANDATE.map(x => ({ t: x })), result: 'Registered in the agent registry', step: 320, hold: 900, dx: 50, dy: -60 });
+    cap(tl, t, 'L2 · Edge', 'The agent signs every request. Akamai verifies the signature against the agent directory and applies agent rate limits; it classifies, it does not decide');
+    t = agentIn(tl, t, 'POST /v1/payments', '$12,000 · signed');
+    budget.spend(tl, t - 2400, 0, 7); budget.spend(tl, t - 2000, 1, 2); budget.spend(tl, t - 1200, 2, 9); budget.spend(tl, t - 600, 3, 2);
+    span(tl, t - 2400, D.cdnA, 'akamai.agent', 20, 300);
+    cap(tl, t, 'L4 · The mandate is enforced here', 'The T2 gateway checks the agent, its signed request and its live mandate on every call: allowed action, amount, beneficiary and velocity');
+    t = stage.checklist(tl, t, { at: D.t2.top, title: 'T2 gateway · agent checks', items: [
+      { t: 'mTLS · agent certificate valid' }, { t: 'Signed request · body digest matches' }, { t: `Agent registry · ${AG.id} active` },
+      { t: 'Mandate · payments.create' }, { t: 'Amount $12,000 ≤ $50,000' }, { t: 'Beneficiary on the approved list' }, { t: 'Velocity · 3 of 20 this hour' }],
+      result: 'Allow · inject agent identity and mandate', step: 380, hold: 900, dx: 40, dy: 10 });
+    budget.spend(tl, t, 4, 9); budget.spend(tl, t + 200, 5, 12);
+    span(tl, t - 2400, D.t2, 'envoy.t2 (agent)', 40, 300);
+    cap(tl, t, 'L5 · Payments workload', 'Over mutual TLS, the payments workload receives the agent identity, its owner and the mandate reference as headers, and books the payment');
+    t = pk.seal(tl, t, 'mtls');
+    stage.shot(tl, t, look(D.wlOn, { dx: -250, dz: 100, dist: 2000 }), 1600);
+    t = go(tl, t + 100, pk, [L.t2On], 1500, { cls: 'mtls' });
+    workload(tl, t, D.wlOn, pk, null, 'mtls', 'payments-svc', 80, 220);
+    t += 1500;
+    cap(tl, t, 'Response', '201 Created returns to the agent, with the payment reference');
+    pk.state_(tl, t, 'ok', '201 Created', 'payment ref PAY-48213');
+    stage.shot(tl, t, SHOT.overview, 2600, 'inOutSine');
+    t = go(tl, t + 200, pk, [...AG.IN, L.t2On], 4000, { reverse: true, cls: 'ok', ease: 'inOutQuad' });
+    ring(stage, W, tl, t, C.aagent.top, '#34D399', 240);
+    t = pk.vanish(tl, t);
+    cap(tl, t, 'Every action is attributable', `Each request is signed and logged with the agent (${AG.id}), its owner and its mandate under one trace ID`);
+    obs.log(tl, t, `t2-gateway        allow  agent=${AG.id} mandate=pay-50k owner=treasury-ops`, '#C7D2FE');
+    t = stage.shot(tl, t, SHOT.obs, 2200);
+    tl.wait(t, 3000);
+  }
+  function chAgentRogue(tl) {
+    base(tl, 'e2a94f0c6b1d47388c5e9a0b7d3f1c26', 420);
+    stage.flag(tl, 0, 'fk-notrace', true);   // several requests: the logs tell this story, not one trace
+    let t = 300;
+    cap(tl, t, 'Rogue AI', 'The same treasury agent has read an invoice carrying a hidden prompt injection. Its credential is genuine, so every check that asks who it is will pass: what matters is what it is allowed to do');
+    t = stage.shot(tl, t, look(C.aagent, { dist: 1700, ry: 24, dx: 250, dz: 60 }), 2000);
+    ring(stage, W, tl, t - 600, C.aagent.top, '#F43F5E', 220);
+    // 1 · outside the mandate
+    cap(tl, t, '1 · Outside the mandate', 'It tries to list every account. The edge passes it: the signature is genuine');
+    t = agentIn(tl, t, 'GET /v1/accounts?all', 'signed · genuine');
+    cap(tl, t, '1 · Refused at L4', 'accounts.read is not in its mandate. Default deny: 403, and nothing reaches L5');
+    t = stage.checklist(tl, t, { at: D.t2.top, title: 'T2 gateway · agent checks', items: [
+      { t: 'mTLS · agent certificate valid' }, { t: 'Signed request · valid' }, { t: `Agent registry · ${AG.id} active` }, { t: 'Mandate · accounts.read not granted', s: 'fail' }],
+      result: '403 · outside mandate', resultColor: '#F43F5E', step: 360, hold: 700, dx: 40, dy: 10 });
+    obs.log(tl, t, `t2-gateway        403  agent=${AG.id} accounts.read outside mandate`, '#FDA4AF', { err: 1 });
+    t = agentBack(tl, t, '403 Forbidden', 'outside mandate');
+    // 2 · over the limit, new beneficiary: step-up to the owner's approver
+    cap(tl, t, '2 · Over the limit', 'It tries to pay $2,000,000 to a beneficiary it has never paid before');
+    t = agentIn(tl, t, 'POST /v1/payments', '$2,000,000 · new payee', { edge: false });
+    cap(tl, t, '2 · Step-up to a human', 'Over the amount limit and to a new beneficiary: the agent cannot approve its own payment. L4 asks the owner’s approver out of band (placeholder), who declines');
+    t = stage.checklist(tl, t, { at: D.t2.top, title: 'T2 gateway · agent checks', items: [
+      { t: 'Mandate · payments.create' }, { t: 'Amount $2,000,000 > $50,000', s: 'fail' }, { t: 'Beneficiary not on the approved list', s: 'fail' },
+      { t: 'Step-up · owner’s approver, out of band', s: 'warn' }, { t: 'Approver declined', s: 'fail' }],
+      result: '403 · approval declined', resultColor: '#F43F5E', step: 420, hold: 900, dx: 40, dy: 10 });
+    obs.log(tl, t, `t2-gateway        403  agent=${AG.id} step-up declined amount=2000000`, '#FDA4AF', { err: 1 });
+    t = agentBack(tl, t, '403 Forbidden', 'approval declined');
+    // 3 · a burst, then the behaviour signal: suspend the agent
+    cap(tl, t, '3 · A burst', 'It retries in a burst of small payments, trying to stay under the limit');
+    stage.shot(tl, t, look(D.cdnA, { dx: -400, dz: 250, ry: 14, dist: 2800 }), 1400);
+    for (let i = 0; i < 14; i++) fly(stage, W, tl, t + 300 + i * 120, [X[0] + 60, Y - 20, C.aagent.z], [D.cdnA.x - 40, -120, D.cdnA.z], { color: '#FB923C', dur: 900, arc: -120, size: 8 });
+    t += 2400;
+    cap(tl, t, '3 · The pattern is the signal', 'The signal manager in L6 sees two refusals, a burst and a new pattern for this agent, and raises a CAEP risk signal; the message broker carries it to the L4 signal receiver');
+    stage.shot(tl, t, { x: 1500, y: -260, z: -400, rx: -32, ry: -12, d: 3600 }, 1400);
+    D.sig.activate(tl, t + 900, 2400); ring(stage, W, tl, t + 900, D.sig.top, '#F472B6', 240);
+    const chip = `<div class="fk-chip" style="--pc:#F472B6;transform:translate(-50%,-50%)">CAEP · suspend ${AG.id}</div>`;
+    t = fly(stage, W, tl, t + 1200, [D.sig.x, D.sig.topY - 10, D.sig.z], [D.broker.x, D.broker.topY - 10, D.broker.z], { html: chip, dur: 900, arc: -120 });
+    D.broker.activate(tl, t, 1400);
+    stage.shot(tl, t, look(D.t2, { dx: -150, dz: 150, dist: 2600 }), 1600);
+    t = fly(stage, W, tl, t + 100, [D.broker.x, D.broker.topY - 10, D.broker.z], [D.t2.x, D.t2.topY - 10, D.t2.z], { html: chip, dur: 1800, arc: -260 });
+    D.t2.activate(tl, t, 2400);
+    t = stage.checklist(tl, t, { at: D.t2.top, title: 'L4 · signal receiver', items: [{ t: 'Security event token verified' }, { t: `Subject · ${AG.id}` }, { t: 'Policy · risk high → suspend agent', s: 'warn' }, { t: 'Owner alerted · Treasury Ops (placeholder)' }],
+      result: 'Agent suspended in seconds', resultColor: '#FBBF24', step: 380, hold: 800, dx: 40, dy: 10 });
+    obs.log(tl, t, `signal-receiver   suspend agent=${AG.id} reason=behaviour`, '#FDE68A', { err: 1 });
+    // 4 · even a request inside the mandate is now refused
+    cap(tl, t, '4 · Contained', 'Its next request is a small payment that the mandate would normally allow. The agent is suspended, so L4 refuses it: 401, without waiting for its token to expire');
+    t = agentIn(tl, t, 'POST /v1/payments', '$9,000 · approved payee', { edge: false });
+    t = stage.checklist(tl, t, { at: D.t2.top, title: 'T2 gateway · agent checks', items: [{ t: 'mTLS · agent certificate valid' }, { t: `Agent registry · ${AG.id} suspended`, s: 'fail' }],
+      result: '401 · agent suspended', resultColor: '#F43F5E', step: 360, hold: 700, dx: 40, dy: 10 });
+    t = agentBack(tl, t, '401 Unauthorized', 'agent suspended');
+    cap(tl, t, 'Containment, not trust', 'The mandate limits what a hijacked agent can do, a human approves what is risky, and behaviour signals stop it within seconds. The owner reviews the trail before reinstating it');
+    t = stage.shot(tl, t, SHOT.obs, 2200);
+    tl.wait(t, 3500);
+  }
+
+  // The layers in detail: every layer explainer in one flow, in tour order (L1, L0, L2 to L6, then P). Each part reads
+  // its captions from that layer's own section in captions.js.
+  const DETAIL = [['L1', 'L1 · Client'], ['L0', 'L0 · DNS Control Plane'], ['L2', 'L2 · Edge Protection / CDN'], ['L3', 'L3 · Regional Perimeter'],
+    ['L4', 'L4 · Enforcement Tier'], ['L5', 'L5 · IFA Workload Zone'], ['L6', 'L6 · Internal Network'], ['P', 'P · Private Connectivity']];
+  function chLayersDetail(tl) {
+    base(tl, '', 400);
+    stage.flag(tl, 0, 'fk-notrace', true);
+    let t = 300;
+    for (const [k, name] of DETAIL) {
+      const spec = LAYER_CH[k].spec;
+      stage.caption.chapter = name;
+      if (spec.legs) budget.begin(tl, t, spec.legs); else tl.set(budget, 'spend', t, null, v => budget.paint(v, [], null), null);   // no budget for this layer
+      stage.focus(tl, t, spec.focus);
+      stage.shot(tl, t, spec.shot, 2000);
+      for (const step of spec.steps) t = step(tl, t);
+      t += 600;
+    }
+    stage.caption.chapter = 'The layers in detail';
+    stage.focus(tl, t, null);
+    tl.wait(t, 1500);
+  }
+  // Web scenarios built from the payload-policy runs: one request each (injection, malformed)
+  const scenarioPayload = (k, title, intro) => tl => chPayload(tl, { only: k, title, intro });
+
   const chapters = [
     { group: 'Layers', title: 'The layers', build: chTour },
-    { group: 'Layers', title: 'L0 · DNS Control Plane', build: LAYER_CH.L0 },
-    { group: 'Layers', title: 'L1 · Client', build: LAYER_CH.L1 },
-    { group: 'Layers', title: 'L2 · Edge Protection / CDN', build: LAYER_CH.L2 },
-    { group: 'Layers', title: 'L3 · Regional Perimeter', build: LAYER_CH.L3 },
-    { group: 'Layers', title: 'L4 · Enforcement Tier', build: LAYER_CH.L4 },
-    { group: 'Layers', title: 'L5 · IFA Workload Zone', build: LAYER_CH.L5 },
-    { group: 'Layers', title: 'L6 · Internal Network', build: LAYER_CH.L6 },
-    { group: 'Layers', title: 'P · Private Connectivity', build: LAYER_CH.P },
-    { group: 'Journeys', title: 'Web · on-prem', build: chWeb },
-    { group: 'Journeys', title: 'Client types · L4', build: chClients },
-    { group: 'Journeys', title: 'Payload policies · L4', build: chPayload },
-    { group: 'Journeys', title: 'API · AWS', build: chApi },
-    { group: 'Journeys', title: 'Private connectivity', build: chPrivate },
-    { group: 'Journeys', title: 'Failover', build: chFailover },
-    { group: 'Journeys', title: 'Defense in depth', build: chDefense }
+    { group: 'Layers', title: 'The layers in detail', build: chLayersDetail },
+    { group: 'Scenarios', title: 'Legitimate web', build: chWeb, captions: 'Web · on-prem' },
+    { group: 'Scenarios', title: 'Web injection attack', build: scenarioPayload('sqli', 'Web injection attack',
+      'A registration form submitted with an SQL injection in a field: the edge and perimeter pass it, and the global payload policy at L4 stops it') },
+    { group: 'Scenarios', title: 'Web malformed request', build: scenarioPayload('email', 'Web malformed request',
+      'A registration with a malformed email: clean enough for every attack filter, but the route policy, generated from the API contract, rejects it') },
+    { group: 'Scenarios', title: 'Valid autonomous AI', build: chAgentValid },
+    { group: 'Scenarios', title: 'Rogue AI', build: chAgentRogue }
   ];
   stage.onReset(() => { stage.tracker = pk; [D.wlCl, D.wlOn].forEach(w => w.pods.forEach(p => p.g.classList.remove('err'))); });
   const player = new Player(stage, document.getElementById('controls'), chapters);

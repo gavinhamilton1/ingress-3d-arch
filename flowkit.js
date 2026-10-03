@@ -1352,7 +1352,7 @@
         head: q('.fk-head'), tip: q('.fk-tip'), cur: q('.fk-time .cur'), dur: q('.fk-time .dur'), time: q('.fk-time'),
         play: q('[data-a=play]'), rev: q('[data-a=rev]'), loop: q('[data-a=loop]'), all: q('[data-a=all]'), help: q('.fk-help'), scrub: q('.fk-scrub')
       };
-      // Chapters can be grouped into labelled rows (e.g. Layers / Journeys); keys 1-9 pick from the first row, Shift+1-9 from the second
+      // Chapters can be grouped into labelled rows (e.g. Layers / Scenarios); keys 1-9 pick from the first row, Shift+1-9 from the second
       const groups = this.groups = [...new Set(this.chapters.map(c => c.group || ''))];
       const rows = groups.map((gname, gi) => { const r = el('div', 'fk-chrow', this.ui.chapters, gname ? `<span class="lbl">${gname}</span>` : ''); r.dataset.g = gi; return r; });
       const seen = groups.map(() => 0);
@@ -1420,7 +1420,7 @@
       if (this.tl) this.tl.dispose();
       this.stage.reset(); this.stage.explore = null;
       const tl = new Timeline(this.stage);
-      this.stage.caption.chapter = this.chapters[i].title;
+      this.stage.caption.chapter = this.chapters[i].captions || this.chapters[i].title;   // captions: which captions.js section it reads
       this.chapters[i].build(tl);
       tl.freeze();
       this.tl = tl; this.idx = i; this.time = 0; this._rt = undefined; this._endWait = 0;
@@ -1481,7 +1481,7 @@
         <p>Drag the timeline or click a step to jump; play, step, reverse and set the speed.</p>
         <h4>Flows</h4>
         <div class="mk cd">${flows}</div>
-        <p>Animated walkthroughs of the layers and the request journeys.</p>
+        <p>Animated walkthroughs of the layers, and scenarios from a legitimate request to an attack.</p>
         ${xs.length ? `<h4>Diagrams</h4><div class="mk cd gr" style="grid-template-columns:${names.length ? 'auto ' : ''}repeat(${xs.length},auto)">${rows}</div><p>Each layer's deployment architecture, laid out like the scene. Or wheel in over a layer.</p>` : ''}
         <h4>Camera control</h4>
         <div class="mk cc"><span>Camera control</span><i>Reset</i><i>Hide overlays</i><i>Top down</i><i class="ib">${svg('fs')}</i><i class="ib">?</i></div>
@@ -1545,7 +1545,9 @@
       }).join('');
       this.ui.marks.innerHTML = m.map(x => `<i style="left:${x.pos / D * 100}%"></i>`).join('');
       let r = '';
-      for (let s = 0; s * 1000 <= D; s++) r += `<i class="${s % 5 ? '' : 'mj'}" style="left:${s * 1000 / D * 100}%">${s % 5 ? '' : `<span>${s}s</span>`}</i>`;
+      // tick spacing scales with length so a long flow's ruler stays readable: minor / labelled ticks in seconds
+      const [mn, mj] = D > 300000 ? [10, 30] : D > 150000 ? [5, 15] : [1, 5], lab = s => s < 60 ? s + 's' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      for (let s = 0; s * 1000 <= D; s += mn) r += `<i class="${s % mj ? '' : 'mj'}" style="left:${s * 1000 / D * 100}%">${s % mj ? '' : `<span>${lab(s)}</span>`}</i>`;
       this.ui.ruler.innerHTML = r;
       this._step = undefined;
     }
