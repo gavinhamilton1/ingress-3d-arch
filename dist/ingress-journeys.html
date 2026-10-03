@@ -372,6 +372,8 @@
 .fk-ftag .ic { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; padding: 2px; box-sizing: border-box; background: #fff; border-radius: 3px; }
 .fk-ftag .ic svg { width: 100%; height: 100%; display: block; }
 .fk-deploy[hidden] { display: none; }
+.fk-chrow.fk-dgrid { display: grid; gap: 8px; justify-content: start; }
+.fk-dgrid .lbl { width: auto; padding-right: 10px; }
 /* Hide overlays: the layer key, caption, latency card, trace and every floating label (checklists and floor text stay) */
 .no-overlays .fk-legend, .no-overlays .fk-caption, .no-overlays .fk-budget, .no-overlays .fk-trace, .no-overlays .fk-label { display: none !important; }
 
@@ -1712,7 +1714,20 @@
       const dep = host.querySelector('.fk-deploy'), dets = this.stage.details.filter(d => d.title).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
       if (dets.length) {
         dep.hidden = false;
-        dets.forEach(d => { const b = el('button', '', dep.querySelector('.fk-chrow'), d.title); b.onclick = () => this.openDetail(d); });
+        // Laid out like the scene: a row per lane (back, z < 0, then front) and a column per position along x, so each
+        // button sits where its diagram is. stage.detailRows can name the rows.
+        const xs = [...new Set(dets.map(d => Math.round(d.c[0])))].sort((a, b) => a - b), row = d => d.c[2] < 0 ? 0 : 1;
+        const names = this.stage.detailRows || [], grid = dep.querySelector('.fk-chrow');
+        grid.classList.add('fk-dgrid'); grid.style.gridTemplateColumns = `${names.length ? 'auto ' : ''}repeat(${xs.length}, max-content)`;
+        [0, 1].forEach(r => {
+          if (!dets.some(d => row(d) === r)) return;
+          if (names.length) el('span', 'lbl', grid, names[r] || '');
+          xs.forEach(x => {
+            const d = dets.find(d => row(d) === r && Math.round(d.c[0]) === x);
+            if (!d) { el('span', '', grid); return; }
+            const b = el('button', '', grid, d.title); b.onclick = () => this.openDetail(d);
+          });
+        });
       }
       host.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
@@ -2639,7 +2654,8 @@ window.FK_AWS = {
  "gvsi": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 612 370\" fill=\"none\"> <title>GVSI</title> <g stroke=\"#3949AB\" stroke-width=\"22\" stroke-linejoin=\"round\"> <path d=\"M165 290H95A65 65 0 0 1 100 160A62 62 0 0 1 172 112A140 140 0 0 1 440 98A58 58 0 0 1 528 168A61 61 0 0 1 518 290H450\"/> <rect x=\"216\" y=\"151\" width=\"168\" height=\"168\"/> </g> <g fill=\"#3949AB\"> <rect x=\"263\" y=\"198\" width=\"74\" height=\"74\"/> <rect x=\"239\" y=\"112\" width=\"22\" height=\"30\"/><rect x=\"289\" y=\"112\" width=\"22\" height=\"30\"/><rect x=\"339\" y=\"112\" width=\"22\" height=\"30\"/> <rect x=\"239\" y=\"328\" width=\"22\" height=\"30\"/><rect x=\"289\" y=\"328\" width=\"22\" height=\"30\"/><rect x=\"339\" y=\"328\" width=\"22\" height=\"30\"/> <rect x=\"177\" y=\"174\" width=\"30\" height=\"22\"/><rect x=\"177\" y=\"224\" width=\"30\" height=\"22\"/><rect x=\"177\" y=\"274\" width=\"30\" height=\"22\"/> <rect x=\"393\" y=\"174\" width=\"30\" height=\"22\"/><rect x=\"393\" y=\"224\" width=\"30\" height=\"22\"/><rect x=\"393\" y=\"274\" width=\"30\" height=\"22\"/> </g> </svg>",
  "gcp": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 552 412\"> <title>GCP</title> <g stroke=\"#1C2340\" stroke-width=\"5\" stroke-linejoin=\"round\">  <rect x=\"176\" y=\"66\" width=\"114\" height=\"44\" fill=\"#5AA9E6\"/> <rect x=\"290\" y=\"66\" width=\"56\" height=\"44\" fill=\"#2F7FC1\"/> <rect x=\"124\" y=\"110\" width=\"122\" height=\"52\" fill=\"#5AA9E6\"/> <rect x=\"246\" y=\"110\" width=\"44\" height=\"52\" fill=\"#2F7FC1\"/> <rect x=\"290\" y=\"110\" width=\"44\" height=\"52\" fill=\"#2F7FC1\"/> <rect x=\"334\" y=\"110\" width=\"30\" height=\"52\" fill=\"#2F7FC1\"/>  <path fill=\"#6E80DC\" d=\"M24 166H398C412 140 416 110 412 84C395 76 382 60 380 38C396 40 410 50 422 62C424 38 436 18 456 8C470 26 470 52 460 72C480 66 506 66 530 76C520 98 498 112 470 116C478 220 420 330 300 378C200 412 90 392 48 330C22 290 14 220 24 166Z\"/>  <path fill=\"#C9D1F6\" stroke=\"none\" d=\"M34 270C120 300 230 300 310 270C318 300 318 340 300 378C200 412 90 392 48 330C40 312 36 292 34 270Z\"/> <path fill=\"none\" d=\"M34 270C120 300 230 300 310 270\"/>  <circle cx=\"246\" cy=\"250\" r=\"36\" fill=\"#fff\"/> <circle cx=\"262\" cy=\"244\" r=\"18\" fill=\"#1C2340\" stroke=\"none\"/> <circle cx=\"256\" cy=\"238\" r=\"5\" fill=\"#fff\" stroke=\"none\"/> </g>  <g stroke=\"#1C2340\" stroke-width=\"2\" opacity=\".55\"> <path d=\"M300 72V104M310 72V104M320 72V104M330 72V104M338 72V104\"/> <path d=\"M256 116V156M266 116V156M276 116V156M300 116V156M310 116V156M320 116V156M344 116V156M354 116V156\"/> </g> <g font-family=\"Georgia, 'Times New Roman', serif\" font-weight=\"700\" font-size=\"34\" fill=\"#1C2340\" text-anchor=\"middle\"> <text x=\"233\" y=\"100\">PSI</text> <text x=\"185\" y=\"148\">VSI</text> </g> </svg>",
  "gap": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 632 454\" fill=\"none\"> <title>GAP</title> <g stroke=\"#3949AB\" stroke-width=\"20\" stroke-linejoin=\"miter\"> <path d=\"M318 364L112 270A72 72 0 0 1 95 135A60 60 0 0 1 185 90A150 150 0 0 1 440 70A62 62 0 0 1 540 120A80 80 0 0 1 524 270Z\"/> <path d=\"M206 192L130 228L318 312L506 228L432 192\"/> </g> <path d=\"M120 348L318 438L512 348\" stroke=\"#3949AB\" stroke-width=\"22\"/> <g fill=\"#3949AB\"> <path d=\"M318 58L428 108L318 158L208 108Z\"/> <path d=\"M208 122L311 168V272L208 225Z\"/> <path d=\"M428 122L325 168V272L428 225Z\"/> </g> </svg>",
- "gkp": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 440\"> <title>GKP</title> <path fill=\"none\" stroke=\"#3949AB\" stroke-width=\"20\" stroke-linejoin=\"round\" d=\"M165 290H95A68 68 0 0 1 100 155A62 62 0 0 1 200 70A150 150 0 0 1 440 70A62 62 0 0 1 535 130A80 80 0 0 1 545 290H475\"/> <polygon points=\"320.0,97.0 449.0,159.1 480.9,298.7 391.6,410.7 248.4,410.7 159.1,298.7 191.0,159.1\" fill=\"#3949AB\" stroke=\"#3949AB\" stroke-width=\"22\" stroke-linejoin=\"round\"/> <g stroke=\"#fff\" fill=\"none\"> <circle cx=\"320\" cy=\"262\" r=\"82\" stroke-width=\"15\"/> <path d=\"M320 262L320.0 144.0M320 262L412.3 188.4M320 262L435.0 288.3M320 262L371.2 368.3M320 262L268.8 368.3M320 262L205.0 288.3M320 262L227.7 188.4\" stroke-width=\"13\" stroke-linecap=\"round\"/> </g> <polygon points=\"320.0,238.0 338.8,247.0 343.4,267.3 330.4,283.6 309.6,283.6 296.6,267.3 301.2,247.0\" fill=\"#fff\"/> <circle cx=\"320\" cy=\"262\" r=\"9\" fill=\"#3949AB\"/> </svg>"
+ "gkp": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 440\"> <title>GKP</title> <path fill=\"none\" stroke=\"#3949AB\" stroke-width=\"20\" stroke-linejoin=\"round\" d=\"M165 290H95A68 68 0 0 1 100 155A62 62 0 0 1 200 70A150 150 0 0 1 440 70A62 62 0 0 1 535 130A80 80 0 0 1 545 290H475\"/> <polygon points=\"320.0,97.0 449.0,159.1 480.9,298.7 391.6,410.7 248.4,410.7 159.1,298.7 191.0,159.1\" fill=\"#3949AB\" stroke=\"#3949AB\" stroke-width=\"22\" stroke-linejoin=\"round\"/> <g stroke=\"#fff\" fill=\"none\"> <circle cx=\"320\" cy=\"262\" r=\"82\" stroke-width=\"15\"/> <path d=\"M320 262L320.0 144.0M320 262L412.3 188.4M320 262L435.0 288.3M320 262L371.2 368.3M320 262L268.8 368.3M320 262L205.0 288.3M320 262L227.7 188.4\" stroke-width=\"13\" stroke-linecap=\"round\"/> </g> <polygon points=\"320.0,238.0 338.8,247.0 343.4,267.3 330.4,283.6 309.6,283.6 296.6,267.3 301.2,247.0\" fill=\"#fff\"/> <circle cx=\"320\" cy=\"262\" r=\"9\" fill=\"#3949AB\"/> </svg>",
+ "ec2": "<svg width=\"40px\" height=\"40px\" viewBox=\"0 0 40 40\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"> <title>Icon-Architecture-Group/32/EC2-instance-contents_32</title> <g id=\"ec2-Icon-Architecture-Group/32/EC2-instance-contents_32\" stroke=\"none\" stroke-width=\"1\" fill=\"none\" fill-rule=\"evenodd\"> <rect id=\"ec2-Rectangle\" fill=\"#ED7100\" x=\"0\" y=\"0\" width=\"40\" height=\"40\"></rect> <path d=\"M10,29 L29,29 L29,10 L10,10 L10,29 Z M33,12 L33,11 L30,11 L30,9.5 C30,9.224 29.776,9 29.5,9 L28,9 L28,6 L27,6 L27,9 L24,9 L24,6 L23,6 L23,9 L20,9 L20,6 L19,6 L19,9 L16,9 L16,6 L15,6 L15,9 L12,9 L12,6 L11,6 L11,9 L9.5,9 C9.224,9 9,9.224 9,9.5 L9,11 L6,11 L6,12 L9,12 L9,15 L6,15 L6,16 L9,16 L9,19 L6,19 L6,20 L9,20 L9,23 L6,23 L6,24 L9,24 L9,27 L6,27 L6,28 L9,28 L9,29.5 C9,29.776 9.224,30 9.5,30 L11,30 L11,33 L12,33 L12,30 L15,30 L15,33 L16,33 L16,30 L19,30 L19,33 L20,33 L20,30 L23,30 L23,33 L24,33 L24,30 L27,30 L27,33 L28,33 L28,30 L29.5,30 C29.776,30 30,29.776 30,29.5 L30,28 L33,28 L33,27 L30,27 L30,24 L33,24 L33,23 L30,23 L30,20 L33,20 L33,19 L30,19 L30,16 L33,16 L33,15 L30,15 L30,12 L33,12 Z\" id=\"ec2-Fill-1\" fill=\"#FFFFFF\"></path> </g> </svg>"
 };
 
 </script>
@@ -2965,11 +2981,12 @@ window.FK_AWS = {
   };
 
   /* ---------- Detail views: zoom in on a device with the free camera to see its architecture ---------- */
+  stage.detailRows = ['On-prem', 'AWS'];   // rows of the player's Deployment diagrams grid: the back lane (Akamai, on-prem), the front lane (Cloudflare, AWS)
   // L4 on AWS (Ingress VPC, us-east-1, AZs a and b). Traffic arrives over PrivateLink: from L3 (the CTC edge account's
   // internet gateway, internet-facing ALB with AWS WAF, and interface VPC endpoint) and from P2 partners' own interface
   // endpoints, into our VPC endpoint service, then the NLB (public subnet), then the internal ALB (private subnet), then
-  // the EKS cluster: namespace ingress-gateway runs the Envoy (web) gateway pods, each with a session-validator sidecar
-  // (session check, token exchange, ext_authz policies), and the Kong (API) gateway pods, each with an API validator
+  // the EKS cluster: namespace web-gateway runs the Envoy (web) gateway pods, each with a session-validator sidecar
+  // (session check, token exchange, ext_authz policies), and namespace api-gateway the Kong (API) gateway pods, each with an API validator
   // sidecar (OAS validation, token validation, tokenization);
   // namespace ingress-control runs the Kong control plane (proxy hub, analytics, config manager, backed by Aurora
   // PostgreSQL), the xDS control plane, the config distributor and the signal receiver. ElastiCache for Redis holds the
@@ -3009,12 +3026,25 @@ window.FK_AWS = {
       if (icon) iconTop({ x, y: -44, z: 280, icon, size: 28, bg });
       tag({ x, z: 326, text: name, w: 70, h: 34, size: 10 });
     }
-    // ingress-gateway: an Envoy group (web, session-validator sidecars) and a Kong group (API, API validator sidecars)
-    group({ x1: 670, z1: 365, x2: 1105, z2: 925, color: '#A78BFA', title: 'ingress-gateway', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
-    group({ x1: 690, z1: 410, x2: 1090, z2: 610, color: '#D163CE', icon: AWS.envoy, iconBg: '#fff', title: 'Envoy', sub: 'web gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
-    group({ x1: 690, z1: 630, x2: 1090, z2: 905, color: '#CCFF00', icon: AWS.kong, iconBg: KONG_BG, title: 'Kong', sub: 'API gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
-    [770, 880, 990].forEach((x, i) => { pod(x, 520, '#3B1636'); iconTop({ x, y: -44, z: 520, icon: AWS.envoy, size: 30 }); tag({ x: x + 8, z: 556, text: `pod ${i + 1}`, w: 60, h: 18, size: 11 }); });
-    [770, 880, 990].forEach((x, i) => { pod(x, 770, '#1A2A05'); iconTop({ x, y: -44, z: 770, icon: AWS.kong, size: 30, bg: KONG_BG }); tag({ x: x + 8, z: 806, text: `pod ${i + 1}`, w: 60, h: 18, size: 11 }); });
+    // Gateways, split the standard way: one namespace and one Deployment per gateway (web-gateway: Envoy with
+    // session-validator sidecars; api-gateway: Kong with API validator sidecars), so each scales, is secured (RBAC, network
+    // policy) and fails on its own. Each pod is isolated (own IP, own limits); the pods are spread across worker nodes (EC2)
+    // in AZ a and AZ b, so losing a node or a zone leaves the rest serving. Illustrative: 4 pods, 2 nodes per gateway.
+    const gw = (z1, z2, ns, sub, c, icon, bg) => {
+      group({ x1: 670, z1, x2: 1105, z2, color: '#A78BFA', title: ns, sub, hw: 260, hh: 32, width: 3, dash: '6 6' });
+      const nz1 = z1 + 35, nz2 = nz1 + 185, pz = nz2 - 55;
+      ['a', 'b'].forEach((az, j) => {
+        const x1 = 682 + j * 209, x2 = x1 + 202;
+        group({ x1, z1: nz1, x2, z2: nz2, color: '#ED7100', icon: AWS.ec2, title: `node · AZ ${az}`, hw: 130, hh: 26, width: 2, dash: '5 5' });
+        [0, 1].forEach(k => {
+          const x = x1 + 50 + k * 88;
+          pod(x, pz, c); iconTop({ x, y: -44, z: pz, icon, size: 30, bg });
+          tag({ x: x + 8, z: pz + 36, text: `pod ${1 + j + 2 * k}`, w: 60, h: 18, size: 11 });   // spread: AZ a has pods 1 and 3, AZ b 2 and 4
+        });
+      });
+    };
+    gw(365, 640, 'web-gateway', 'namespace · Envoy deployment', '#3B1636', AWS.envoy, '#fff');
+    gw(650, 925, 'api-gateway', 'namespace · Kong deployment', '#1A2A05', AWS.kong, KONG_BG);
     // flows, left to right
     flow([80, -4, 450], [273, -4, 450], '#FBBF24');             // from L3 (the edge account's interface endpoint), replacing the L3 cable
     // from P2: the partner's interface endpoint, replacing the PrivateLink cable. Right angles around the outside of the
@@ -3023,10 +3053,10 @@ window.FK_AWS = {
       flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
     flow([327, -4, 450], [401, -4, 450], '#8C4FFF');            // endpoint service -> NLB
     flow([455, -4, 450], [551, -4, 450], '#8C4FFF');            // NLB -> ALB
-    flow([605, -4, 440], [690, -4, 505], '#22D3EE');            // ALB -> the Envoy group (web): any pod can take it
-    flow([605, -4, 465], [690, -4, 765], '#22D3EE', 4);         // ALB -> the Kong group (API)
-    flow([1090, -4, 505], [1150, -4, 470], '#22D3EE', 4);       // the gateway groups -> L5 over mTLS
-    flow([1090, -4, 765], [1150, -4, 480], '#22D3EE', 4);
+    flow([605, -4, 440], [670, -4, 505], '#22D3EE');            // ALB -> web-gateway (Envoy): any pod can take it
+    flow([605, -4, 465], [670, -4, 785], '#22D3EE', 4);         // ALB -> api-gateway (Kong)
+    flow([1105, -4, 505], [1150, -4, 470], '#22D3EE', 4);       // the gateway groups -> L5 over mTLS
+    flow([1105, -4, 785], [1150, -4, 480], '#22D3EE', 4);
     flow([1150, -4, 475], [1330, -4, 450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
     flow([650, -4, 760], [610, -4, 760], '#F87171', 4);         // EKS <-> ElastiCache (the sidecars' caches)
     flow([650, -4, 880], [610, -4, 880], '#94A3B8', 4);         // EKS <-> Aurora (the Kong control plane)
@@ -3036,8 +3066,8 @@ window.FK_AWS = {
     tag({ x: 175, z: 482, text: 'from L3', w: 100, h: 24, size: 14 });   // the L3 edge account gets its own deployment diagram later
     tag({ x: 520, z: 1056, text: 'from P2', sub: 'partner interface endpoints', w: 200, h: 40, size: 14 });
     tag({ x: 1215, z: 238, text: 'CAEP risk signals', sub: 'from an L5 AWS service (source TBC)', w: 170, h: 36, size: 12 });
-    tag({ x: 880, z: 586, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
-    tag({ x: 880, z: 840, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
+    tag({ x: 887, z: 612, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
+    tag({ x: 887, z: 897, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
     tag({ x: 578, z: 805, text: 'ElastiCache for Redis', sub: 'token · revoke · policy caches', w: 120, h: 44, size: 12 });
     tag({ x: 578, z: 925, text: 'Aurora PostgreSQL', sub: 'Kong control plane', w: 120, h: 44, size: 12 });
     tag({ x: 1195, z: 500, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
@@ -3054,14 +3084,10 @@ window.FK_AWS = {
   // Onward to L5 is mTLS.
   new FK.Detail(stage, D.t2, ({ box, flow, group, iconTop, tag }) => {
     const KONG_BG = '#001408', GV = '#5C6BC0';
-    // one GVSI: a slab (the VSI) with the GVSI and GCP marks on its front edge, and one container standing on it
-    const node = (x, z, c, icon, bg, side = true) => {
-      box({ x, y: -6, z, w: 120, h: 12, d: 80, c: '#1F2660' });
-      iconTop({ x: x - 40, y: -12, z: z + 28, icon: AWS.gvsi, size: 20, bg: '#fff' });
-      iconTop({ x: x + 40, y: -12, z: z + 28, icon: AWS.gcp, size: 20, bg: '#fff' });
-      box({ x, y: -34, z: z - 8, w: 44, h: 44, d: 44, c });
-      if (side) box({ x: x + 30, y: -25, z: z - 8, w: 18, h: 26, d: 18, c: '#166534' });   // validator sidecar
-      if (icon) iconTop({ x, y: -56, z: z - 8, icon, size: 28, bg });
+    // one GVSI (the VM) holding GCP (the Docker runtime on it); the container goes inside the GCP box
+    const vsi = (x1, z1, x2, z2, title) => {
+      group({ x1, z1, x2, z2, color: GV, icon: AWS.gvsi, iconBg: '#fff', title, hw: 110, hh: 28, width: 2, dash: '6 5' });
+      group({ x1: x1 + 12, z1: z1 + 35, x2: x2 - 12, z2: z2 - 10, color: '#6E80DC', icon: AWS.gcp, iconBg: '#fff', title: 'GCP', hw: 80, hh: 26, width: 2, dash: '4 4' });
     };
     group({ x1: 250, z1: -990, x2: 1150, z2: -40, color: '#22D3EE', title: 'sESF', sub: 'Tier 2 · on-prem · GVSIs running GCP (Docker), no orchestration', hw: 400, width: 4, fill: .04 });
     // tier 2 VIP at the edge of sESF: both L3 (PSaaS+) and P1 (BP PSaaS) arrive here
@@ -3070,32 +3096,33 @@ window.FK_AWS = {
     // PostgreSQL for the Kong control plane (assumed)
     box({ x: 300, y: -20, z: -800, w: 60, h: 40, d: 50, c: '#1E2A44' });
     tag({ x: 300, z: -755, text: 'PostgreSQL', sub: 'Kong control plane', w: 110, h: 40, size: 12 });
-    // control plane: one container per service, each on its own GVSI, separate from the gateway GVSIs
+    // control plane: one container per service, each on its own GVSI (separate from the gateway GVSIs), nested the same way
     group({ x1: 400, z1: -945, x2: 1105, z2: -695, color: GV, title: 'Control plane', sub: 'separate GVSIs', hw: 170, hh: 36, width: 3, dash: '6 6' });
-    for (const [x, c, icon, bg, name] of [
-      [530, '#1A2A05', AWS.kong, KONG_BG, 'Kong control plane'],
-      [670, '#3B1636', AWS.envoy, '#fff', 'Envoy xDS control plane'],
-      [810, '#334155', null, null, 'config distributor'],
-      [950, '#4A1530', null, null, 'signal receiver']]) {
-      node(x, -810, c, icon, bg, false);
-      tag({ x, z: -738, text: name, w: 130, h: 20, size: 11 });
-    }
-    // Web Ingress (Envoy) and API Ingress (Kong): three GVSIs each behind the tier 2 VIP. Nested like the platform itself:
+    [[AWS.kong, KONG_BG, '#1A2A05', 'Kong<br>control plane'],
+     [AWS.envoy, '#fff', '#3B1636', 'Envoy xDS<br>control plane'],
+     [null, null, '#334155', 'config<br>distributor'],
+     [null, null, '#4A1530', 'signal<br>receiver']].forEach(([icon, bg, c, name], i) => {
+      const x1 = 412 + i * 172, x2 = x1 + 162, cz = -785;
+      vsi(x1, -899, x2, -735, `GVSI ${i + 1}`);
+      box({ x: x1 + 52, y: -22, z: cz, w: 44, h: 44, d: 44, c });
+      if (icon) iconTop({ x: x1 + 52, y: -44, z: cz, icon, size: 28, bg });
+      tag({ x: x1 + 112, z: cz, text: name, w: 66, h: 34, size: 10 });
+    });
+    // Web gateways (Envoy) and API gateways (Kong): three GVSIs each behind the tier 2 VIP. Nested like the platform itself:
     // GVSI (the VM) > GCP (the Docker runtime on it) > the gateway container with its validator sidecar.
     const ingress = (z1, z2, color, icon, bg, title, sub, c) => {
       group({ x1: 400, z1, x2: 1085, z2, color, title, sub, hw: 260, hh: 40, width: 3, dash: '8 6' });   // no icon: the containers carry it
       const gz1 = z1 + 50, gz2 = gz1 + 165;
       [0, 1, 2].forEach(i => {
         const x1 = 415 + i * 220, x2 = x1 + 205, cx = (x1 + x2) / 2 - 10, cz = gz2 - 48;
-        group({ x1, z1: gz1, x2, z2: gz2, color: GV, icon: AWS.gvsi, iconBg: '#fff', title: `GVSI ${i + 1}`, hw: 110, hh: 28, width: 2, dash: '6 5' });
-        group({ x1: x1 + 12, z1: gz1 + 35, x2: x2 - 12, z2: gz2 - 10, color: '#6E80DC', icon: AWS.gcp, iconBg: '#fff', title: 'GCP', hw: 80, hh: 26, width: 2, dash: '4 4' });
+        vsi(x1, gz1, x2, gz2, `GVSI ${i + 1}`);
         box({ x: cx, y: -22, z: cz, w: 44, h: 44, d: 44, c });
         box({ x: cx + 30, y: -13, z: cz + 8, w: 18, h: 26, d: 18, c: '#166534' });   // validator sidecar
         iconTop({ x: cx, y: -44, z: cz, icon, size: 28, bg });
       });
     };
-    ingress(-685, -415, '#D163CE', AWS.envoy, '#fff', 'Web Ingress', 'Envoy · Docker image on GCP', '#3B1636');
-    ingress(-405, -135, '#CCFF00', AWS.kong, KONG_BG, 'API Ingress', 'Kong · Docker image on GCP', '#1A2A05');
+    ingress(-685, -415, '#D163CE', AWS.envoy, '#fff', 'Web gateways', 'Envoy · Docker image on GCP', '#3B1636');
+    ingress(-405, -135, '#CCFF00', AWS.kong, KONG_BG, 'API gateways', 'Kong · Docker image on GCP', '#1A2A05');
     tag({ x: 750, z: -445, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
     tag({ x: 750, z: -162, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
     // flows, left to right
@@ -3103,8 +3130,8 @@ window.FK_AWS = {
     // from P1: BP PSaaS at the back, replacing the P1 cable; right angles around the outside of sESF so it crosses nothing
     for (const [a, b] of [[[670, -1230], [670, -1030]], [[670, -1030], [232, -1030]], [[232, -1030], [232, -472]], [[232, -472], [273, -472]]])
       flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
-    flow([327, -4, -460], [400, -4, -550], '#22D3EE');            // VIP -> Web Ingress (Envoy GVSIs): any of them can take it
-    flow([327, -4, -440], [400, -4, -270], '#22D3EE', 4);         // VIP -> API Ingress (Kong GVSIs)
+    flow([327, -4, -460], [400, -4, -550], '#22D3EE');            // VIP -> web gateways (Envoy GVSIs): any of them can take it
+    flow([327, -4, -440], [400, -4, -270], '#22D3EE', 4);         // VIP -> API gateways (Kong GVSIs)
     flow([1085, -4, -550], [1150, -4, -470], '#22D3EE', 4);       // the gateways -> L5 over mTLS
     flow([1085, -4, -270], [1150, -4, -460], '#22D3EE', 4);
     flow([1150, -4, -465], [1330, -4, -450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
@@ -3120,7 +3147,7 @@ window.FK_AWS = {
     tag({ x: 1195, z: -415, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
   }, { near: 2050, far: 3150, at: [700, 0, -500], links: [L.psT2, L.bpT2, L.t2On], walls: [W2, W3],
        card: { from: [355, -950, 1045, -30], to: [215, -1008, 1185, -12], lift: 45, color: LAYERS[4].color },   // the L4 on-prem tile lifts out and grows
-       title: 'L4 · Enforcement Tier (on-prem)', shot: { x: 700, y: -60, z: -580, rx: -58, ry: 0, d: 1960 } });
+       title: 'L4 · Enforcement Tier (on-prem)', shot: { x: 700, y: -60, z: -460, rx: -58, ry: 0, d: 1830 } });
 
   // L2: one deployment diagram per CDN, each lifting its half of the L2 column (Akamai at the back, Cloudflare at the
   // front). Left to right: traffic from L1, the security stages (attacks stopped where they are caught, in red), the

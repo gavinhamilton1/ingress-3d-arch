@@ -319,11 +319,12 @@
   };
 
   /* ---------- Detail views: zoom in on a device with the free camera to see its architecture ---------- */
+  stage.detailRows = ['On-prem', 'AWS'];   // rows of the player's Deployment diagrams grid: the back lane (Akamai, on-prem), the front lane (Cloudflare, AWS)
   // L4 on AWS (Ingress VPC, us-east-1, AZs a and b). Traffic arrives over PrivateLink: from L3 (the CTC edge account's
   // internet gateway, internet-facing ALB with AWS WAF, and interface VPC endpoint) and from P2 partners' own interface
   // endpoints, into our VPC endpoint service, then the NLB (public subnet), then the internal ALB (private subnet), then
-  // the EKS cluster: namespace ingress-gateway runs the Envoy (web) gateway pods, each with a session-validator sidecar
-  // (session check, token exchange, ext_authz policies), and the Kong (API) gateway pods, each with an API validator
+  // the EKS cluster: namespace web-gateway runs the Envoy (web) gateway pods, each with a session-validator sidecar
+  // (session check, token exchange, ext_authz policies), and namespace api-gateway the Kong (API) gateway pods, each with an API validator
   // sidecar (OAS validation, token validation, tokenization);
   // namespace ingress-control runs the Kong control plane (proxy hub, analytics, config manager, backed by Aurora
   // PostgreSQL), the xDS control plane, the config distributor and the signal receiver. ElastiCache for Redis holds the
@@ -363,12 +364,25 @@
       if (icon) iconTop({ x, y: -44, z: 280, icon, size: 28, bg });
       tag({ x, z: 326, text: name, w: 70, h: 34, size: 10 });
     }
-    // ingress-gateway: an Envoy group (web, session-validator sidecars) and a Kong group (API, API validator sidecars)
-    group({ x1: 670, z1: 365, x2: 1105, z2: 925, color: '#A78BFA', title: 'ingress-gateway', sub: 'namespace', hw: 170, hh: 32, width: 3, dash: '6 6' });
-    group({ x1: 690, z1: 410, x2: 1090, z2: 610, color: '#D163CE', icon: AWS.envoy, iconBg: '#fff', title: 'Envoy', sub: 'web gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
-    group({ x1: 690, z1: 630, x2: 1090, z2: 905, color: '#CCFF00', icon: AWS.kong, iconBg: KONG_BG, title: 'Kong', sub: 'API gateway', hw: 118, hh: 40, width: 3, dash: '8 6' });
-    [770, 880, 990].forEach((x, i) => { pod(x, 520, '#3B1636'); iconTop({ x, y: -44, z: 520, icon: AWS.envoy, size: 30 }); tag({ x: x + 8, z: 556, text: `pod ${i + 1}`, w: 60, h: 18, size: 11 }); });
-    [770, 880, 990].forEach((x, i) => { pod(x, 770, '#1A2A05'); iconTop({ x, y: -44, z: 770, icon: AWS.kong, size: 30, bg: KONG_BG }); tag({ x: x + 8, z: 806, text: `pod ${i + 1}`, w: 60, h: 18, size: 11 }); });
+    // Gateways, split the standard way: one namespace and one Deployment per gateway (web-gateway: Envoy with
+    // session-validator sidecars; api-gateway: Kong with API validator sidecars), so each scales, is secured (RBAC, network
+    // policy) and fails on its own. Each pod is isolated (own IP, own limits); the pods are spread across worker nodes (EC2)
+    // in AZ a and AZ b, so losing a node or a zone leaves the rest serving. Illustrative: 4 pods, 2 nodes per gateway.
+    const gw = (z1, z2, ns, sub, c, icon, bg) => {
+      group({ x1: 670, z1, x2: 1105, z2, color: '#A78BFA', title: ns, sub, hw: 260, hh: 32, width: 3, dash: '6 6' });
+      const nz1 = z1 + 35, nz2 = nz1 + 185, pz = nz2 - 55;
+      ['a', 'b'].forEach((az, j) => {
+        const x1 = 682 + j * 209, x2 = x1 + 202;
+        group({ x1, z1: nz1, x2, z2: nz2, color: '#ED7100', icon: AWS.ec2, title: `node · AZ ${az}`, hw: 130, hh: 26, width: 2, dash: '5 5' });
+        [0, 1].forEach(k => {
+          const x = x1 + 50 + k * 88;
+          pod(x, pz, c); iconTop({ x, y: -44, z: pz, icon, size: 30, bg });
+          tag({ x: x + 8, z: pz + 36, text: `pod ${1 + j + 2 * k}`, w: 60, h: 18, size: 11 });   // spread: AZ a has pods 1 and 3, AZ b 2 and 4
+        });
+      });
+    };
+    gw(365, 640, 'web-gateway', 'namespace · Envoy deployment', '#3B1636', AWS.envoy, '#fff');
+    gw(650, 925, 'api-gateway', 'namespace · Kong deployment', '#1A2A05', AWS.kong, KONG_BG);
     // flows, left to right
     flow([80, -4, 450], [273, -4, 450], '#FBBF24');             // from L3 (the edge account's interface endpoint), replacing the L3 cable
     // from P2: the partner's interface endpoint, replacing the PrivateLink cable. Right angles around the outside of the
@@ -377,10 +391,10 @@
       flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
     flow([327, -4, 450], [401, -4, 450], '#8C4FFF');            // endpoint service -> NLB
     flow([455, -4, 450], [551, -4, 450], '#8C4FFF');            // NLB -> ALB
-    flow([605, -4, 440], [690, -4, 505], '#22D3EE');            // ALB -> the Envoy group (web): any pod can take it
-    flow([605, -4, 465], [690, -4, 765], '#22D3EE', 4);         // ALB -> the Kong group (API)
-    flow([1090, -4, 505], [1150, -4, 470], '#22D3EE', 4);       // the gateway groups -> L5 over mTLS
-    flow([1090, -4, 765], [1150, -4, 480], '#22D3EE', 4);
+    flow([605, -4, 440], [670, -4, 505], '#22D3EE');            // ALB -> web-gateway (Envoy): any pod can take it
+    flow([605, -4, 465], [670, -4, 785], '#22D3EE', 4);         // ALB -> api-gateway (Kong)
+    flow([1105, -4, 505], [1150, -4, 470], '#22D3EE', 4);       // the gateway groups -> L5 over mTLS
+    flow([1105, -4, 785], [1150, -4, 480], '#22D3EE', 4);
     flow([1150, -4, 475], [1330, -4, 450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
     flow([650, -4, 760], [610, -4, 760], '#F87171', 4);         // EKS <-> ElastiCache (the sidecars' caches)
     flow([650, -4, 880], [610, -4, 880], '#94A3B8', 4);         // EKS <-> Aurora (the Kong control plane)
@@ -390,8 +404,8 @@
     tag({ x: 175, z: 482, text: 'from L3', w: 100, h: 24, size: 14 });   // the L3 edge account gets its own deployment diagram later
     tag({ x: 520, z: 1056, text: 'from P2', sub: 'partner interface endpoints', w: 200, h: 40, size: 14 });
     tag({ x: 1215, z: 238, text: 'CAEP risk signals', sub: 'from an L5 AWS service (source TBC)', w: 170, h: 36, size: 12 });
-    tag({ x: 880, z: 586, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
-    tag({ x: 880, z: 840, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
+    tag({ x: 887, z: 612, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
+    tag({ x: 887, z: 897, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
     tag({ x: 578, z: 805, text: 'ElastiCache for Redis', sub: 'token · revoke · policy caches', w: 120, h: 44, size: 12 });
     tag({ x: 578, z: 925, text: 'Aurora PostgreSQL', sub: 'Kong control plane', w: 120, h: 44, size: 12 });
     tag({ x: 1195, z: 500, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
@@ -408,14 +422,10 @@
   // Onward to L5 is mTLS.
   new FK.Detail(stage, D.t2, ({ box, flow, group, iconTop, tag }) => {
     const KONG_BG = '#001408', GV = '#5C6BC0';
-    // one GVSI: a slab (the VSI) with the GVSI and GCP marks on its front edge, and one container standing on it
-    const node = (x, z, c, icon, bg, side = true) => {
-      box({ x, y: -6, z, w: 120, h: 12, d: 80, c: '#1F2660' });
-      iconTop({ x: x - 40, y: -12, z: z + 28, icon: AWS.gvsi, size: 20, bg: '#fff' });
-      iconTop({ x: x + 40, y: -12, z: z + 28, icon: AWS.gcp, size: 20, bg: '#fff' });
-      box({ x, y: -34, z: z - 8, w: 44, h: 44, d: 44, c });
-      if (side) box({ x: x + 30, y: -25, z: z - 8, w: 18, h: 26, d: 18, c: '#166534' });   // validator sidecar
-      if (icon) iconTop({ x, y: -56, z: z - 8, icon, size: 28, bg });
+    // one GVSI (the VM) holding GCP (the Docker runtime on it); the container goes inside the GCP box
+    const vsi = (x1, z1, x2, z2, title) => {
+      group({ x1, z1, x2, z2, color: GV, icon: AWS.gvsi, iconBg: '#fff', title, hw: 110, hh: 28, width: 2, dash: '6 5' });
+      group({ x1: x1 + 12, z1: z1 + 35, x2: x2 - 12, z2: z2 - 10, color: '#6E80DC', icon: AWS.gcp, iconBg: '#fff', title: 'GCP', hw: 80, hh: 26, width: 2, dash: '4 4' });
     };
     group({ x1: 250, z1: -990, x2: 1150, z2: -40, color: '#22D3EE', title: 'sESF', sub: 'Tier 2 · on-prem · GVSIs running GCP (Docker), no orchestration', hw: 400, width: 4, fill: .04 });
     // tier 2 VIP at the edge of sESF: both L3 (PSaaS+) and P1 (BP PSaaS) arrive here
@@ -424,32 +434,33 @@
     // PostgreSQL for the Kong control plane (assumed)
     box({ x: 300, y: -20, z: -800, w: 60, h: 40, d: 50, c: '#1E2A44' });
     tag({ x: 300, z: -755, text: 'PostgreSQL', sub: 'Kong control plane', w: 110, h: 40, size: 12 });
-    // control plane: one container per service, each on its own GVSI, separate from the gateway GVSIs
+    // control plane: one container per service, each on its own GVSI (separate from the gateway GVSIs), nested the same way
     group({ x1: 400, z1: -945, x2: 1105, z2: -695, color: GV, title: 'Control plane', sub: 'separate GVSIs', hw: 170, hh: 36, width: 3, dash: '6 6' });
-    for (const [x, c, icon, bg, name] of [
-      [530, '#1A2A05', AWS.kong, KONG_BG, 'Kong control plane'],
-      [670, '#3B1636', AWS.envoy, '#fff', 'Envoy xDS control plane'],
-      [810, '#334155', null, null, 'config distributor'],
-      [950, '#4A1530', null, null, 'signal receiver']]) {
-      node(x, -810, c, icon, bg, false);
-      tag({ x, z: -738, text: name, w: 130, h: 20, size: 11 });
-    }
-    // Web Ingress (Envoy) and API Ingress (Kong): three GVSIs each behind the tier 2 VIP. Nested like the platform itself:
+    [[AWS.kong, KONG_BG, '#1A2A05', 'Kong<br>control plane'],
+     [AWS.envoy, '#fff', '#3B1636', 'Envoy xDS<br>control plane'],
+     [null, null, '#334155', 'config<br>distributor'],
+     [null, null, '#4A1530', 'signal<br>receiver']].forEach(([icon, bg, c, name], i) => {
+      const x1 = 412 + i * 172, x2 = x1 + 162, cz = -785;
+      vsi(x1, -899, x2, -735, `GVSI ${i + 1}`);
+      box({ x: x1 + 52, y: -22, z: cz, w: 44, h: 44, d: 44, c });
+      if (icon) iconTop({ x: x1 + 52, y: -44, z: cz, icon, size: 28, bg });
+      tag({ x: x1 + 112, z: cz, text: name, w: 66, h: 34, size: 10 });
+    });
+    // Web gateways (Envoy) and API gateways (Kong): three GVSIs each behind the tier 2 VIP. Nested like the platform itself:
     // GVSI (the VM) > GCP (the Docker runtime on it) > the gateway container with its validator sidecar.
     const ingress = (z1, z2, color, icon, bg, title, sub, c) => {
       group({ x1: 400, z1, x2: 1085, z2, color, title, sub, hw: 260, hh: 40, width: 3, dash: '8 6' });   // no icon: the containers carry it
       const gz1 = z1 + 50, gz2 = gz1 + 165;
       [0, 1, 2].forEach(i => {
         const x1 = 415 + i * 220, x2 = x1 + 205, cx = (x1 + x2) / 2 - 10, cz = gz2 - 48;
-        group({ x1, z1: gz1, x2, z2: gz2, color: GV, icon: AWS.gvsi, iconBg: '#fff', title: `GVSI ${i + 1}`, hw: 110, hh: 28, width: 2, dash: '6 5' });
-        group({ x1: x1 + 12, z1: gz1 + 35, x2: x2 - 12, z2: gz2 - 10, color: '#6E80DC', icon: AWS.gcp, iconBg: '#fff', title: 'GCP', hw: 80, hh: 26, width: 2, dash: '4 4' });
+        vsi(x1, gz1, x2, gz2, `GVSI ${i + 1}`);
         box({ x: cx, y: -22, z: cz, w: 44, h: 44, d: 44, c });
         box({ x: cx + 30, y: -13, z: cz + 8, w: 18, h: 26, d: 18, c: '#166534' });   // validator sidecar
         iconTop({ x: cx, y: -44, z: cz, icon, size: 28, bg });
       });
     };
-    ingress(-685, -415, '#D163CE', AWS.envoy, '#fff', 'Web Ingress', 'Envoy · Docker image on GCP', '#3B1636');
-    ingress(-405, -135, '#CCFF00', AWS.kong, KONG_BG, 'API Ingress', 'Kong · Docker image on GCP', '#1A2A05');
+    ingress(-685, -415, '#D163CE', AWS.envoy, '#fff', 'Web gateways', 'Envoy · Docker image on GCP', '#3B1636');
+    ingress(-405, -135, '#CCFF00', AWS.kong, KONG_BG, 'API gateways', 'Kong · Docker image on GCP', '#1A2A05');
     tag({ x: 750, z: -445, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
     tag({ x: 750, z: -162, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
     // flows, left to right
@@ -457,8 +468,8 @@
     // from P1: BP PSaaS at the back, replacing the P1 cable; right angles around the outside of sESF so it crosses nothing
     for (const [a, b] of [[[670, -1230], [670, -1030]], [[670, -1030], [232, -1030]], [[232, -1030], [232, -472]], [[232, -472], [273, -472]]])
       flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
-    flow([327, -4, -460], [400, -4, -550], '#22D3EE');            // VIP -> Web Ingress (Envoy GVSIs): any of them can take it
-    flow([327, -4, -440], [400, -4, -270], '#22D3EE', 4);         // VIP -> API Ingress (Kong GVSIs)
+    flow([327, -4, -460], [400, -4, -550], '#22D3EE');            // VIP -> web gateways (Envoy GVSIs): any of them can take it
+    flow([327, -4, -440], [400, -4, -270], '#22D3EE', 4);         // VIP -> API gateways (Kong GVSIs)
     flow([1085, -4, -550], [1150, -4, -470], '#22D3EE', 4);       // the gateways -> L5 over mTLS
     flow([1085, -4, -270], [1150, -4, -460], '#22D3EE', 4);
     flow([1150, -4, -465], [1330, -4, -450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
@@ -474,7 +485,7 @@
     tag({ x: 1195, z: -415, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
   }, { near: 2050, far: 3150, at: [700, 0, -500], links: [L.psT2, L.bpT2, L.t2On], walls: [W2, W3],
        card: { from: [355, -950, 1045, -30], to: [215, -1008, 1185, -12], lift: 45, color: LAYERS[4].color },   // the L4 on-prem tile lifts out and grows
-       title: 'L4 · Enforcement Tier (on-prem)', shot: { x: 700, y: -60, z: -580, rx: -58, ry: 0, d: 1960 } });
+       title: 'L4 · Enforcement Tier (on-prem)', shot: { x: 700, y: -60, z: -460, rx: -58, ry: 0, d: 1830 } });
 
   // L2: one deployment diagram per CDN, each lifting its half of the L2 column (Akamai at the back, Cloudflare at the
   // front). Left to right: traffic from L1, the security stages (attacks stopped where they are caught, in red), the

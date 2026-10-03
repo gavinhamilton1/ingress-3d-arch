@@ -1318,7 +1318,20 @@
       const dep = host.querySelector('.fk-deploy'), dets = this.stage.details.filter(d => d.title).sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
       if (dets.length) {
         dep.hidden = false;
-        dets.forEach(d => { const b = el('button', '', dep.querySelector('.fk-chrow'), d.title); b.onclick = () => this.openDetail(d); });
+        // Laid out like the scene: a row per lane (back, z < 0, then front) and a column per position along x, so each
+        // button sits where its diagram is. stage.detailRows can name the rows.
+        const xs = [...new Set(dets.map(d => Math.round(d.c[0])))].sort((a, b) => a - b), row = d => d.c[2] < 0 ? 0 : 1;
+        const names = this.stage.detailRows || [], grid = dep.querySelector('.fk-chrow');
+        grid.classList.add('fk-dgrid'); grid.style.gridTemplateColumns = `${names.length ? 'auto ' : ''}repeat(${xs.length}, max-content)`;
+        [0, 1].forEach(r => {
+          if (!dets.some(d => row(d) === r)) return;
+          if (names.length) el('span', 'lbl', grid, names[r] || '');
+          xs.forEach(x => {
+            const d = dets.find(d => row(d) === r && Math.round(d.c[0]) === x);
+            if (!d) { el('span', '', grid); return; }
+            const b = el('button', '', grid, d.title); b.onclick = () => this.openDetail(d);
+          });
+        });
       }
       host.addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
