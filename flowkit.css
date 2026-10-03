@@ -342,9 +342,6 @@
 .fk-time { font: 600 15px ui-monospace, Menlo, monospace; color: #F1F5F9; display: flex; gap: 6px; align-items: baseline; }
 .fk-time .dur { color: #64748B; font-weight: 400; font-size: 12px; }
 .fk-options button { font-size: 12px; padding: 5px 10px; }
-.fk-help { display: grid; grid-template-columns: 90px 1fr; gap: 6px 14px; background: #0B1324; border: 1px solid #1E293B; border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.45; }
-.fk-help[hidden] { display: none; }
-.fk-help b { color: #7DD3FC; font-weight: 600; }
 .fk-bar button { white-space: nowrap; }
 .fk-player > .fk-time { align-self: center; margin-top: -4px; }   /* the timer, centred under the playback controls */
 .fk-time[data-rate]::after { content: '· ' attr(data-rate); color: #FBBF24; font-size: 12px; }
@@ -444,3 +441,8 @@
   background: #0B1220; border: 1px solid #334155; color: #E2E8F0; font: 500 11px system-ui, sans-serif; padding: 4px 8px; border-radius: 6px; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .4); }
 .fk-bar .side.l [data-tip]:hover::after { left: 0; transform: none; }
 .fk-bar .side.r > [data-tip]:hover::after, .fk-bar .speed button:last-child:hover::after { left: auto; right: 0; transform: none; }
+/* Playback speed: a dropdown beside the transport */
+.fk-speed select { appearance: none; -webkit-appearance: none; font: 600 13px ui-monospace, Menlo, monospace; color: #E2E8F0; background: #111C31 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2394A3B8' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 9px center;
+  border: 1px solid #334155; border-radius: 7px; padding: 6px 26px 6px 11px; cursor: pointer; }
+.fk-speed select:hover { background-color: #18253F; border-color: #38BDF8; }
+.fk-wing { width: 120px; display: flex; } .fk-wing.l { justify-content: flex-end; } .fk-wing.r { justify-content: flex-start; }   /* equal wings keep play (and the timecode under it) centred */

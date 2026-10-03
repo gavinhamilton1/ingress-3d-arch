@@ -1332,10 +1332,9 @@
           <div class="fk-track"><div class="fk-ruler"></div><div class="fk-fill"></div><div class="fk-marks"></div><div class="fk-head"><i></i></div><div class="fk-tip"></div></div>
         </div>
         <div class="fk-transport fk-bar">
-          <div class="side l">
-            <button data-a="link" data-tip="Copy a link to this exact moment">${svg('link')}<span>Copy link</span></button>
-          </div>
+          <div class="side l"></div>
           <div class="mid">
+            <div class="fk-wing l"><button data-a="link" data-tip="Copy a link to this exact moment">${svg('link')}<span>Copy link</span></button></div>
             <div class="grp">
               <button data-a="start" data-tip="Move to start · Home">${svg('start')}</button>
               <button data-a="prevStep" data-tip="Skip back to the previous step · [">${svg('prevStep')}</button>
@@ -1343,37 +1342,26 @@
               <button data-a="nextStep" data-tip="Skip forward to the next step · ]">${svg('nextStep')}</button>
               <button data-a="end" data-tip="Move to end · End">${svg('end')}</button>
             </div>
+            <div class="fk-wing r"><label class="fk-speed" data-tip="Playback speed · J / K / L shuttle"><select aria-label="Playback speed">${SPEEDS.map(s => `<option value="${s}">${s}×</option>`).join('')}</select></label></div>
           </div>
-          <div class="side r">
-            <div class="grp speed">${SPEEDS.map(s => `<button data-s="${s}" data-tip="Playback speed ${s}× · J / K / L shuttle">${s}×</button>`).join('')}</div>
-            <button data-a="loop" class="tg" data-tip="Loop this flow">${svg('loop')}</button>
-          </div>
+          <div class="side r"></div>
         </div>
         <div class="fk-time"><span class="cur">00:00.000</span><span class="dur">/ 00:00.000</span></div>
         <hr class="fk-div">
         <div class="fk-chapters">
-          <div class="fk-chhead"><b>Flows</b><span>Select a flow to play it</span><div class="sp"></div>
-            <button data-a="all" class="tg" title="Play every flow in order">Play all flows</button>
-            <button data-a="help" title="Keyboard shortcuts (?)">?</button></div>
+          <div class="fk-chhead"><b>Flows</b><span>Select a flow to play it</span></div>
         </div>
         <div class="fk-chapters fk-deploy" hidden>
           <div class="fk-chhead"><b>Diagrams</b><span>Select one to zoom into a layer's deployment architecture · Esc to come back</span></div>
           <div class="fk-chrow"></div>
-        </div>
-        <div class="fk-help" hidden>
-          <b>Playback</b><span>Space play / pause · J reverse · K pause · L forward (press again to speed up)</span>
-          <b>Scrub</b><span>← → one frame · Shift+← → one second · Alt+← → 100 ms · , . one frame · [ ] previous / next step · Home / End</span>
-          <b>Timeline</b><span>Drag to scrub · hold Shift while dragging for 10× finer control · wheel over the timeline steps frame by frame · click a step to jump to it</span>
-          <b>Camera</b><span>Drag the scene to orbit · right-drag or Shift-drag to pan · wheel to zoom · double-click or R to reset · F to follow the script</span>
-          <b>Explore</b><span>Click any device for details · hover a layer in the legend to isolate it · click a layer to fly there</span>
-          <b>Flows</b><span>1–9 pick from the first row · Shift+1–9 from the second · H hide or show overlays · V fill the window · Esc close panels</span>
         </div>`;
-      host.querySelectorAll('[data-tip]').forEach(b => b.setAttribute('aria-label', b.dataset.tip));   // tooltips double as accessible names
+      host.querySelectorAll('[data-tip]').forEach(b => b.setAttribute('aria-label', b.dataset.tip));
+      host.querySelector('.fk-speed select').onchange = e => this.setRate(+e.target.value);   // tooltips double as accessible names
       const q = s => host.querySelector(s);
       this.ui = {
         chapters: q('.fk-chapters'), steps: q('.fk-steps'), track: q('.fk-track'), ruler: q('.fk-ruler'), fill: q('.fk-fill'), marks: q('.fk-marks'),
         head: q('.fk-head'), tip: q('.fk-tip'), cur: q('.fk-time .cur'), dur: q('.fk-time .dur'), time: q('.fk-time'),
-        play: q('[data-a=play]'), rev: q('[data-a=rev]'), loop: q('[data-a=loop]'), all: q('[data-a=all]'), help: q('.fk-help'), scrub: q('.fk-scrub')
+        play: q('[data-a=play]'), rev: q('[data-a=rev]'), speed: q('.fk-speed select'), scrub: q('.fk-scrub')
       };
       // Chapters can be grouped into labelled rows (e.g. Layers / Scenarios); keys 1-9 pick from the first row, Shift+1-9 from the second
       const groups = this.groups = [...new Set(this.chapters.map(c => c.group || ''))];
@@ -1418,8 +1406,8 @@
         const acts = {
           start: () => this.seek(0), end: () => this.seek(this.duration), back: () => this.step(e.shiftKey ? -1000 : -this.frameMs), fwd: () => this.step(e.shiftKey ? 1000 : this.frameMs),
           prevStep: () => this.jumpStep(-1), nextStep: () => this.jumpStep(1), play: () => this.toggle(1), rev: () => this.toggle(-1),
-          loop: () => { this.loop = !this.loop; this._paintButtons(); }, all: () => { this.all = !this.all; this._paintButtons(); if (this.all && !this.playing) this.play(); },
-          reset: () => this.stage.follow(), link: () => this.copyLink(b), help: () => { this.ui.help.hidden = !this.ui.help.hidden; }
+          all: () => { this.all = !this.all; this._paintButtons(); if (this.all && !this.playing) this.play(); },
+          reset: () => this.stage.follow(), link: () => this.copyLink(b)
         };
         acts[a] && acts[a]();
       });
@@ -1500,7 +1488,7 @@
       return `
         <h4>Playback</h4>
         <div class="mk scr"><div class="st">${steps}</div><div class="tk"><b></b><u></u></div></div>
-        <div class="mk tr">${['start', 'prevStep'].map(ic).join('')}<i class="ib big">${svg('play')}</i>${['nextStep', 'end'].map(ic).join('')}<span class="sp"><i>0.5×</i><i class="on">1×</i><i>2×</i></span></div>
+        <div class="mk tr">${['start', 'prevStep'].map(ic).join('')}<i class="ib big">${svg('play')}</i>${['nextStep', 'end'].map(ic).join('')}<span class="sp"><i class="on">1× &#9662;</i></span></div>
         <p>Drag the timeline or click a step to jump; play, skip between steps and set the speed.</p>
         <h4>Flows</h4>
         <div class="mk cd">${flows}</div>
@@ -1556,8 +1544,7 @@
       if (this.ui.rev) this.ui.rev.innerHTML = svg(this.playing && this.dir < 0 ? 'pause' : 'rev');   // no reverse button now (J still plays backwards)
       this.ui.play.classList.toggle('on', this.playing && this.dir > 0);
       if (this.ui.rev) this.ui.rev.classList.toggle('on', this.playing && this.dir < 0);
-      this.ui.loop.classList.toggle('on', this.loop); this.ui.all.classList.toggle('on', this.all);
-      this.host.querySelectorAll('[data-s]').forEach(b => b.classList.toggle('on', +b.dataset.s === this.rate));
+      if (SPEEDS.includes(this.rate)) this.ui.speed.value = String(this.rate);   // a shuttle rate outside the list shows on the timer instead
       if (!SPEEDS.includes(this.rate)) this.ui.time.dataset.rate = this.rate + '×'; else delete this.ui.time.dataset.rate;
     }
     _buildTimeline() {
@@ -1650,9 +1637,8 @@
           l: () => this.shuttle(1), L: () => this.shuttle(1), j: () => this.shuttle(-1), J: () => this.shuttle(-1),
           f: () => this.stage.follow(), F: () => this.stage.follow(), r: () => this.stage.resetCamera(), R: () => this.stage.resetCamera(),
           h: () => this.toggleView('overlays'), H: () => this.toggleView('overlays'), v: () => this.fullscreen(), V: () => this.fullscreen(),
-          '?': () => { this.ui.help.hidden = !this.ui.help.hidden; },
+          '?': () => { this.pause(); this.showIntro(); },   // ? brings back the start screen
           Escape: () => {
-            this.ui.help.hidden = true;
             if (this.intro) this.hideIntro();
             else if (this.stage.selected) this.stage.select(null);
             else if (this.stage.pinned) this.stage.follow();      // Esc leaves diagram mode for the scene

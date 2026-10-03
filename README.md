@@ -46,7 +46,7 @@ Latency budget: 50 ms p95 from L1 to L5, warm connections, a well-placed NA user
 
 ## Player controls
 
-On page load a start screen sits over the scene: a play button in the middle, how the mouse drives the camera on the left (left-drag rotate, wheel zoom, right-drag pan) and what the controls below do on the right. Play, Space or picking a flow starts; ✕ or Esc closes it without playing; a link with `?t=` skips it. Below the scene, **Flows** lists the animated walkthroughs (Layers and Journeys; Play all flows plays them in order) and **Diagrams** the deployment diagrams.
+On page load a start screen sits over the scene: a play button in the middle, how the mouse drives the camera on the left (left-drag rotate, wheel zoom, right-drag pan) and what the controls below do on the right. Play, Space or picking a flow starts; ✕ or Esc closes it without playing; a link with `?t=` skips it. Below the scene, **Flows** lists the animated walkthroughs (Layers and Scenarios) and **Diagrams** the deployment diagrams.
 
 | Action | Mouse | Keys |
 |---|---|---|
@@ -58,10 +58,11 @@ On page load a start screen sits over the scene: a play button in the middle, ho
 | 100 ms / 1 s | | Alt+← → / Shift+← → |
 | Skip back / forward (previous / next step) | ⏪ ⏩, or click a step | [ ] |
 | Scrub | drag the timeline; hold Shift for 10× finer | wheel over the timeline = frame steps |
-| Speed | 0.1× to 4× | |
-| Loop, play all | buttons | |
+| Speed | dropdown beside the transport, 0.1× to 4× | J / K / L shuttle |
 | Fill the window (scene only, letterboxed 16:9; not OS full screen) | icon button on the Camera control card | V (Esc goes back) |
 | Flows | buttons | 1 to 9, Shift+1 to 9 |
+| Copy link to this moment | Copy link, beside the transport | |
+| Start screen (help) | ? on the Camera control card | ? |
 
 Camera: drag to orbit, right-drag or Shift-drag to pan, wheel to zoom (towards the cursor), double-click or R to reset, F to follow the script again. Click a device (or its label) for an info card with its layer, role, regional footprint and controls. Hover a layer in the legend to isolate it; click a layer to fly there. The **Camera control** card (bottom left of the scene, never hidden by Hide overlays) has, in order: **Reset** (in the scene, back to the script's camera, as F; in a diagram, to the diagram's own view; also R or a double-click), **Hide / Show overlays** (H: the layer key, caption, latency card, trace and labels), **Top down / 3D view** (a flat plan view of the whole scene, or of the open diagram), **Slide view** (whenever a diagram is open; it switches to that diagram's Top down: the diagram alone on white with dark text, the rest of the scene, the traffic lines with their labels and the overlays hidden, for screenshots in slides and docs; combine with full screen for a bigger capture) the **full screen** icon (V; fills the browser window, Esc goes back) and **?**, which brings back the start screen.
 
