@@ -434,22 +434,33 @@
       node(x, -810, c, icon, bg, false);
       tag({ x, z: -738, text: name, w: 130, h: 20, size: 11 });
     }
-    // gateway GVSIs: the Envoy (web) and Kong (API) containers, one per GVSI, behind the tier 2 VIP
-    group({ x1: 400, z1: -680, x2: 1085, z2: -420, color: '#D163CE', icon: AWS.envoy, iconBg: '#fff', title: 'Envoy', sub: 'web gateway · Docker image on GCP', hw: 230, hh: 40, width: 3, dash: '8 6' });
-    group({ x1: 400, z1: -405, x2: 1085, z2: -110, color: '#CCFF00', icon: AWS.kong, iconBg: KONG_BG, title: 'Kong', sub: 'API gateway · Docker image on GCP', hw: 230, hh: 40, width: 3, dash: '8 6' });
-    [600, 760, 920].forEach((x, i) => { node(x, -565, '#3B1636', AWS.envoy, '#fff'); tag({ x, z: -500, text: `GVSI ${i + 1}`, w: 80, h: 18, size: 11 }); });
-    [600, 760, 920].forEach((x, i) => { node(x, -290, '#1A2A05', AWS.kong, KONG_BG); tag({ x, z: -225, text: `GVSI ${i + 1}`, w: 80, h: 18, size: 11 }); });
-    tag({ x: 760, z: -452, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
-    tag({ x: 760, z: -165, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
+    // Web Ingress (Envoy) and API Ingress (Kong): three GVSIs each behind the tier 2 VIP. Nested like the platform itself:
+    // GVSI (the VM) > GCP (the Docker runtime on it) > the gateway container with its validator sidecar.
+    const ingress = (z1, z2, color, icon, bg, title, sub, c) => {
+      group({ x1: 400, z1, x2: 1085, z2, color, title, sub, hw: 260, hh: 40, width: 3, dash: '8 6' });   // no icon: the containers carry it
+      const gz1 = z1 + 50, gz2 = gz1 + 165;
+      [0, 1, 2].forEach(i => {
+        const x1 = 415 + i * 220, x2 = x1 + 205, cx = (x1 + x2) / 2 - 10, cz = gz2 - 48;
+        group({ x1, z1: gz1, x2, z2: gz2, color: GV, icon: AWS.gvsi, iconBg: '#fff', title: `GVSI ${i + 1}`, hw: 110, hh: 28, width: 2, dash: '6 5' });
+        group({ x1: x1 + 12, z1: gz1 + 35, x2: x2 - 12, z2: gz2 - 10, color: '#6E80DC', icon: AWS.gcp, iconBg: '#fff', title: 'GCP', hw: 80, hh: 26, width: 2, dash: '4 4' });
+        box({ x: cx, y: -22, z: cz, w: 44, h: 44, d: 44, c });
+        box({ x: cx + 30, y: -13, z: cz + 8, w: 18, h: 26, d: 18, c: '#166534' });   // validator sidecar
+        iconTop({ x: cx, y: -44, z: cz, icon, size: 28, bg });
+      });
+    };
+    ingress(-685, -415, '#D163CE', AWS.envoy, '#fff', 'Web Ingress', 'Envoy · Docker image on GCP', '#3B1636');
+    ingress(-405, -135, '#CCFF00', AWS.kong, KONG_BG, 'API Ingress', 'Kong · Docker image on GCP', '#1A2A05');
+    tag({ x: 750, z: -445, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
+    tag({ x: 750, z: -162, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
     // flows, left to right
     flow([80, -4, -450], [273, -4, -450], '#FBBF24');             // from L3 (the PSaaS+ F5 WAF pool), replacing the L3 cable
     // from P1: BP PSaaS at the back, replacing the P1 cable; right angles around the outside of sESF so it crosses nothing
     for (const [a, b] of [[[670, -1230], [670, -1030]], [[670, -1030], [232, -1030]], [[232, -1030], [232, -472]], [[232, -472], [273, -472]]])
       flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
-    flow([327, -4, -460], [400, -4, -565], '#22D3EE');            // VIP -> the Envoy GVSIs (web): any of them can take it
-    flow([327, -4, -440], [400, -4, -290], '#22D3EE', 4);         // VIP -> the Kong GVSIs (API)
-    flow([1085, -4, -540], [1150, -4, -470], '#22D3EE', 4);       // the gateways -> L5 over mTLS
-    flow([1085, -4, -290], [1150, -4, -460], '#22D3EE', 4);
+    flow([327, -4, -460], [400, -4, -550], '#22D3EE');            // VIP -> Web Ingress (Envoy GVSIs): any of them can take it
+    flow([327, -4, -440], [400, -4, -270], '#22D3EE', 4);         // VIP -> API Ingress (Kong GVSIs)
+    flow([1085, -4, -550], [1150, -4, -470], '#22D3EE', 4);       // the gateways -> L5 over mTLS
+    flow([1085, -4, -270], [1150, -4, -460], '#22D3EE', 4);
     flow([1150, -4, -465], [1330, -4, -450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
     flow([1085, -4, -640], [1340, -4, -640], '#F87171', 4);       // the sidecars' caches: GemFire in L5
     flow([400, -4, -800], [330, -4, -800], '#94A3B8', 4);         // control plane <-> PostgreSQL (Kong control plane)
