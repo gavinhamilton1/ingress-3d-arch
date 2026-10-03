@@ -249,9 +249,16 @@
       this.caption = new Caption(this);
       // Camera control card. Reset (always shown): in the scene it goes back to the script's camera, in a
       // diagram to that diagram's own view. Top down (always): a flat plan view of the open diagram, or of the whole scene.
-      this.freeEl = el('div', 'fk-free fk-hud-i', this.hud, `<span>Camera control</span><button data-a="reset" title="Reset the camera (R)">Reset</button><button data-a="plan" title="Plan view from directly above">Top down</button>`);
+      this.freeEl = el('div', 'fk-free fk-hud-i', this.hud, `<span>Camera control</span><button data-a="reset" title="Reset the camera (R)">Reset</button><button data-a="plan" title="Plan view from directly above">Top down</button><button data-a="slide" title="Slide view: the diagram alone on white, for screenshots in slides and docs" hidden>Slide view</button>`);
       this.freeEl.querySelector('[data-a=reset]').onclick = () => this.resetCamera();
       this.freeEl.querySelector('[data-a=plan]').onclick = () => this.togglePlan();
+      // Slide view: offered whenever a diagram is open; it goes to that diagram's Top down first if needed
+      this.freeEl.querySelector('[data-a=slide]').onclick = () => {
+        if (this.slide) { this.slide = false; return; }
+        if (!(this.plan && this.plan.d)) { if (this.plan) this.togglePlan(); this.togglePlan(); }
+        this.slide = !!(this.plan && this.plan.d);
+      };
+      this.slide = false;                                         // slide view: the planned diagram alone, light, for slides and docs
       this.pk = 1; this.plan = null;                              // perspective stretch (1 = normal); plan view: { d: the diagram, or null for the scene }
       this.sceneBounds = null;                                    // [x1, z1, x2, z2] the scene's plan view frames (set by the scene)
       this._pointer();
@@ -330,10 +337,14 @@
       for (const d of this.details) d.update(e, free && d === this.activeDetail);
       const det = free && this.activeDetail && this.activeDetail.f > .3 ? this.activeDetail : null;
       if (this.plan && this.plan.d && det !== this.plan.d) this.plan = null;   // a diagram's plan view ends when it closes or switches
-      const ctl = (det ? 1 : 0) + (this.plan ? 2 : 0);
+      const sd = this.plan && this.plan.d; if (!sd) this.slide = false;      // slide view only exists in a diagram's plan view
+      const ctl = (det ? 1 : 0) + (this.plan ? 2 : 0) + (sd ? 4 : 0) + (this.slide ? 8 : 0);
       if (ctl !== this._ctl) {
         this._ctl = ctl; const q = s => this.freeEl.querySelector(s);
         q('[data-a=plan]').textContent = this.plan ? '3D view' : 'Top down'; q('[data-a=plan]').classList.toggle('on', !!this.plan);
+        q('[data-a=slide]').hidden = !det; q('[data-a=slide]').classList.toggle('on', this.slide);
+        this.frame.classList.toggle('fk-slide', this.slide);
+        for (const d of this.details) for (const n of [d.g, d.cardG]) n && n.classList.toggle('fk-keep', this.slide && d === sd);
       }
       // As a detail view comes in, fade the HUD (legend, caption, trace, latency budget) with it so the whole view shows
       const lod = this.details.reduce((m, d) => Math.max(m, d.f), 0), hud = clamp(1 - (lod - .15) / .6, 0, 1);
@@ -607,7 +618,16 @@
       this.el = el('div', 'fk-budget', stage.hud, `<div class="bh"><b>${title}</b><span class="tot"></span></div><div class="bar">${legs.map(l => `<div class="sg${l.kind === 'net' ? ' net' : ''}" style="width:${(l.ms / target * 100).toFixed(2)}%;--c:${l.color}"><i></i></div>`).join('')}</div><div class="lg">${legs.map(l => `<span style="width:${(l.ms / target * 100).toFixed(2)}%">${l.label}<small>${l.ms}</small></span>`).join('')}</div>`);
       this.segs = [...this.el.querySelectorAll('.sg')]; this.labs = [...this.el.querySelectorAll('.lg span')]; this.tot = this.el.querySelector('.tot');
       this.paint(-1, [], null); stage.onReset(() => this.paint(-1, [], null));
+      // follow(fn): live fill from the scene each frame (fn returns a 0..1 fraction per leg, or null). Shown on top of
+      // the timed spends; it is visual, not a measurement, so it moves faster than the narrated story.
+      this.auto = null; this.fr = null;
+      stage.onFrame.push(() => {
+        if (!this.auto) return;
+        const fr = this.auto(), k = fr ? fr.map(f => f.toFixed(2)).join() : '';
+        if (k !== this._fk) { this._fk = k; this.fr = fr; if (this._last) this.paint(...this._last); }
+      });
     }
+    follow(fn) { this.auto = fn; }
     // Show the bar for this timeline; focus: optional leg indexes to emphasise (a layer chapter)
     begin(tl, pos, focus = null) {
       const plan = this.plan = [];
@@ -617,9 +637,11 @@
     }
     spend(tl, pos, i, ms) { this.plan.push({ pos, i, ms }); tl.set(this, 'spend', pos, pos, this._apply, null); return pos; }
     paint(v, plan, focus) {
+      this._last = [v, plan, focus];
       this.el.style.display = v === null ? 'none' : ''; if (v === null) return;
       const used = this.legs.map(() => null);
       plan.filter(p => p.pos <= v).forEach(p => { used[p.i] = (used[p.i] || 0) + p.ms; });
+      if (this.fr) this.fr.forEach((f, i) => { if (f > 0) used[i] = Math.max(used[i] || 0, Math.round(f * this.legs[i].ms)); });
       const total = used.reduce((a, b) => a + (b || 0), 0);
       this.segs.forEach((sg, i) => { const u = used[i], l = this.legs[i]; sg.firstChild.style.width = u == null ? '0%' : Math.min(100, u / l.ms * 100) + '%'; sg.classList.toggle('over', u != null && u > l.ms); sg.classList.toggle('dim', !!(focus && !focus.includes(i))); });
       this.labs.forEach((lb, i) => { lb.classList.toggle('dim', !!(focus && !focus.includes(i))); lb.querySelector('small').textContent = used[i] == null ? this.legs[i].ms : `${used[i]}/${this.legs[i].ms}`; });
@@ -1198,6 +1220,7 @@
         plane(this.cardShadow, { w: w + 80, h: d + 80, t: 'translateY(-1px) rotateX(90deg)', bg: 'radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.25) 70%, transparent)' });
         this.cardG = el('div', 'fk-n fk-lod', stage.world); this.cardG.style.display = 'none';
         const slab = box(this.cardG, { y: t / 2, w, h: t, d, c: '#0B1626' });
+        slab.top.classList.add('fk-slab-top'); this.cardG.style.setProperty('--cc', col);
         slab.top.style.background = `linear-gradient(180deg, ${rgba(.10)}, ${rgba(.04)}), #0A1422`;
         slab.top.style.boxShadow = `inset 0 0 0 3px ${rgba(.75)}, 0 0 40px ${rgba(.35)}`;
         for (const k of ['front', 'back', 'left', 'right']) slab[k].style.boxShadow = `inset 0 3px 0 ${rgba(.6)}`;
@@ -1212,14 +1235,15 @@
         flow: (a, b, color = '#22D3EE', w = 6) => { const n = el('div', 'fk-n fk-lodflow', G); n.style.transform = orient(a, b); n.style.setProperty('--pc', color); plane(n, { w, h: 100, t: 'rotateX(90deg)', two: true, bg: '' }); return n; },
         // a dashed group box with its header (icon square + title) lying on the floor in the top-left (back-left)
         // corner, the usual convention for AWS deployment diagrams. icon: SVG markup; iconBg: tile colour behind it
-        group: ({ x1, z1, x2, z2, color, icon, iconBg = 'transparent', title = '', sub = '', hw = 260, hh = 44, width = 4, dash = '12 8', fill = .03 }) => {
+        group: ({ x1, z1, x2, z2, color, icon, iconBg = 'transparent', title = '', sub = '', hw = 260, hh = 44, width = 4, dash = '12 8', fill = .03, font = 19 }) => {   // font: header title px (sub scales with it)
           outline(stage, G, { pts: [[x1, z1], [x2, z1], [x2, z2], [x1, z2]], color, width, dash, fill });
-          plane(G, { w: hw, h: hh, t: `translate3d(${x1 + hw / 2}px,-3px,${z1 + hh / 2}px) rotateX(90deg)`,
-            html: `<div class="fk-ghead" style="--gc:${color};--gb:${iconBg}">${icon ? `<span class="gi">${icon}</span>` : ''}<span class="gt"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span></div>` });
+          const pad = Math.round(font * .32);   // a little room between the header and the dashed edge
+          plane(G, { w: hw, h: hh, t: `translate3d(${x1 + pad + hw / 2}px,-3px,${z1 + pad + hh / 2}px) rotateX(90deg)`,
+            html: `<div class="fk-ghead" style="--gc:${color};--gb:${iconBg};font-size:${font}px">${icon ? `<span class="gi">${icon}</span>` : ''}<span class="gt"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span></div>` });
         },
         // a flat label printed on the floor, centred on (x, z), like the text under an icon in a 2D diagram
-        tag: ({ x, z, text, sub = '', w = 160, h = 40, size = 15, align = 'center' }) => plane(G, { w, h, t: `translate3d(${x}px,-2px,${z}px) rotateX(90deg)`,
-          html: `<div class="fk-ftag" style="font-size:${size}px;text-align:${align};justify-content:${align === 'left' ? 'flex-start' : 'center'}"><div>${text}${sub ? `<small>${sub}</small>` : ''}</div></div>` }),
+        tag: ({ x, z, text, sub = '', w = 160, h = 40, size = 15, align = 'center', cable = false }) => plane(G, { w, h, t: `translate3d(${x}px,-2px,${z}px) rotateX(90deg)`,   // cable: it labels a traffic line (hidden in slide view)
+          html: `<div class="fk-ftag${cable ? ' fl' : ''}" style="font-size:${size}px;text-align:${align};justify-content:${align === 'left' ? 'flex-start' : 'center'}"><div>${text}${sub ? `<small>${sub}</small>` : ''}</div></div>` }),
         // a logo tile lying on top of a 3D box (y: height of the box top, negative up)
         iconTop: ({ x, y, z, icon, size = 34, bg = '#fff' }) => plane(G, { w: size, h: size, t: `translate3d(${x}px,${y - 1}px,${z}px) rotateX(90deg)`, html: `<div class="fk-itop" style="background:${bg}">${icon}</div>` })
       });
@@ -1272,7 +1296,7 @@
 
   /* ---------- Player: chapters, transport, fine scrubbing ---------- */
   const ICON = {
-    start: '<path d="M6 5v14M19 5l-10 7 10 7z"/>',
+    start: '<path d="M5 5h3v14H5zM19 5l-10 7 10 7z"/>',   // bar at the arrow's tip
     prevStep: '<path d="M11 5l-8 7 8 7zM21 5l-8 7 8 7z"/>',
     back: '<path d="M15 6l-7 6 7 6"/>',
     rev: '<path d="M17 5L6 12l11 7z"/>',
@@ -1280,12 +1304,13 @@
     pause: '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>',
     fwd: '<path d="M9 6l7 6-7 6"/>',
     nextStep: '<path d="M3 5l8 7-8 7zM13 5l8 7-8 7z"/>',
-    end: '<path d="M18 5v14M5 5l10 7-10 7z"/>',
+    end: '<path d="M16 5h3v14h-3zM5 5l10 7-10 7z"/>',
     loop: '<path d="M4 12a6 6 0 0 1 6-6h8M15 3l3 3-3 3M20 12a6 6 0 0 1-6 6H6M9 21l-3-3 3-3" fill="none"/>',
     fs: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none"/>',
+    link: '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1.5 1.5M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1.5-1.5" fill="none"/>',
     fsx: '<path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5" fill="none"/>'
   };
-  const svg = k => `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="${k === 'back' || k === 'fwd' || k === 'loop' || k === 'fs' || k === 'fsx' ? 2.2 : 0}" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+  const svg = k => `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="${k === 'back' || k === 'fwd' || k === 'loop' || k === 'fs' || k === 'fsx' || k === 'link' ? 2.2 : 0}" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
   const fmt = ms => { ms = Math.max(0, Math.round(ms)); const m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60; return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`; };
   const SPEEDS = [.1, .25, .5, 1, 2, 4];
 
@@ -1308,22 +1333,20 @@
         </div>
         <div class="fk-transport fk-bar">
           <div class="side l">
+            <button data-a="link" data-tip="Copy a link to this exact moment">${svg('link')}<span>Copy link</span></button>
           </div>
           <div class="mid">
             <div class="grp">
-              <button data-a="start" title="Go to start (Home)">${svg('start')}</button>
-              <button data-a="prevStep" title="Previous step ( [ )">${svg('prevStep')}</button>
-              <button data-a="back" title="Back one frame ( , or ← ) · Shift: 1 s">${svg('back')}</button>
-              <button data-a="rev" title="Play backwards (J)">${svg('rev')}</button>
-              <button data-a="play" class="big" title="Play / pause (Space)">${svg('play')}</button>
-              <button data-a="fwd" title="Forward one frame ( . or → ) · Shift: 1 s">${svg('fwd')}</button>
-              <button data-a="nextStep" title="Next step ( ] )">${svg('nextStep')}</button>
-              <button data-a="end" title="Go to end (End)">${svg('end')}</button>
+              <button data-a="start" data-tip="Move to start · Home">${svg('start')}</button>
+              <button data-a="prevStep" data-tip="Skip back to the previous step · [">${svg('prevStep')}</button>
+              <button data-a="play" class="big" data-tip="Play / pause · Space">${svg('play')}</button>
+              <button data-a="nextStep" data-tip="Skip forward to the next step · ]">${svg('nextStep')}</button>
+              <button data-a="end" data-tip="Move to end · End">${svg('end')}</button>
             </div>
           </div>
           <div class="side r">
-            <div class="grp speed" title="Playback speed (J / K / L shuttle)">${SPEEDS.map(s => `<button data-s="${s}">${s}×</button>`).join('')}</div>
-            <button data-a="loop" class="tg" title="Loop this flow">${svg('loop')}</button>
+            <div class="grp speed">${SPEEDS.map(s => `<button data-s="${s}" data-tip="Playback speed ${s}× · J / K / L shuttle">${s}×</button>`).join('')}</div>
+            <button data-a="loop" class="tg" data-tip="Loop this flow">${svg('loop')}</button>
           </div>
         </div>
         <div class="fk-time"><span class="cur">00:00.000</span><span class="dur">/ 00:00.000</span></div>
@@ -1331,7 +1354,6 @@
         <div class="fk-chapters">
           <div class="fk-chhead"><b>Flows</b><span>Select a flow to play it</span><div class="sp"></div>
             <button data-a="all" class="tg" title="Play every flow in order">Play all flows</button>
-            <button data-a="link" title="Copy a link to this exact moment">Copy link</button>
             <button data-a="help" title="Keyboard shortcuts (?)">?</button></div>
         </div>
         <div class="fk-chapters fk-deploy" hidden>
@@ -1346,6 +1368,7 @@
           <b>Explore</b><span>Click any device for details · hover a layer in the legend to isolate it · click a layer to fly there</span>
           <b>Flows</b><span>1–9 pick from the first row · Shift+1–9 from the second · H hide or show overlays · V fill the window · Esc close panels</span>
         </div>`;
+      host.querySelectorAll('[data-tip]').forEach(b => b.setAttribute('aria-label', b.dataset.tip));   // tooltips double as accessible names
       const q = s => host.querySelector(s);
       this.ui = {
         chapters: q('.fk-chapters'), steps: q('.fk-steps'), track: q('.fk-track'), ruler: q('.fk-ruler'), fill: q('.fk-fill'), marks: q('.fk-marks'),
@@ -1477,8 +1500,8 @@
       return `
         <h4>Playback</h4>
         <div class="mk scr"><div class="st">${steps}</div><div class="tk"><b></b><u></u></div></div>
-        <div class="mk tr">${['start', 'prevStep', 'back', 'rev'].map(ic).join('')}<i class="ib big">${svg('play')}</i>${['fwd', 'nextStep', 'end'].map(ic).join('')}<span class="sp"><i>0.5×</i><i class="on">1×</i><i>2×</i></span></div>
-        <p>Drag the timeline or click a step to jump; play, step, reverse and set the speed.</p>
+        <div class="mk tr">${['start', 'prevStep'].map(ic).join('')}<i class="ib big">${svg('play')}</i>${['nextStep', 'end'].map(ic).join('')}<span class="sp"><i>0.5×</i><i class="on">1×</i><i>2×</i></span></div>
+        <p>Drag the timeline or click a step to jump; play, skip between steps and set the speed.</p>
         <h4>Flows</h4>
         <div class="mk cd">${flows}</div>
         <p>Animated walkthroughs of the layers, and scenarios from a legitimate request to an attack.</p>
@@ -1530,9 +1553,9 @@
     }
     _paintButtons() {
       this.ui.play.innerHTML = svg(this.playing && this.dir > 0 ? 'pause' : 'play');
-      this.ui.rev.innerHTML = svg(this.playing && this.dir < 0 ? 'pause' : 'rev');
+      if (this.ui.rev) this.ui.rev.innerHTML = svg(this.playing && this.dir < 0 ? 'pause' : 'rev');   // no reverse button now (J still plays backwards)
       this.ui.play.classList.toggle('on', this.playing && this.dir > 0);
-      this.ui.rev.classList.toggle('on', this.playing && this.dir < 0);
+      if (this.ui.rev) this.ui.rev.classList.toggle('on', this.playing && this.dir < 0);
       this.ui.loop.classList.toggle('on', this.loop); this.ui.all.classList.toggle('on', this.all);
       this.host.querySelectorAll('[data-s]').forEach(b => b.classList.toggle('on', +b.dataset.s === this.rate));
       if (!SPEEDS.includes(this.rate)) this.ui.time.dataset.rate = this.rate + '×'; else delete this.ui.time.dataset.rate;
@@ -1608,7 +1631,7 @@
     }
     copyLink(btn) {
       const u = new URL(location.href); u.searchParams.set('ch', this.idx + 1); u.searchParams.set('t', Math.round(this.time));
-      const done = () => { const o = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = o; }, 1200); };
+      const lb = btn.querySelector('span') || btn, done = () => { const o = lb.textContent; lb.textContent = 'Copied'; setTimeout(() => { lb.textContent = o; }, 1200); };
       if (navigator.clipboard) navigator.clipboard.writeText(u.toString()).then(done, () => prompt('Link to this moment', u.toString()));
       else prompt('Link to this moment', u.toString());
     }

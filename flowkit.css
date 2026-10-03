@@ -90,6 +90,7 @@
 .fk-chip { transform: translate(-50%, -100%); white-space: nowrap; background: rgba(8, 15, 32, .92); border-radius: 6px; padding: 4px 8px;
   font: 600 11px ui-monospace, Menlo, monospace; color: #E0F2FE; border: 1px solid var(--pc, #38BDF8); display: flex; align-items: center; gap: 6px; }
 .fk-chip small { font: 500 10px system-ui, sans-serif; color: #94A3B8; }
+.fk-chip.big { font: 700 46px system-ui, sans-serif; padding: 16px 30px; border-width: 4px; border-radius: 18px; color: #F8FAFC; box-shadow: 0 0 40px var(--pc), 0 0 0 8px rgba(8, 15, 32, .6); }   /* a message that must not be missed (world-sized: it is seen from far away) */
 
 .fk-dot { border-radius: 50%; background: var(--c); box-shadow: 0 0 10px 2px var(--c); }
 
@@ -177,12 +178,12 @@
 .fk-panel pre .bad { background: rgba(244, 63, 94, .28); color: #FECDD3; }
 
 /* HUD: caption, trace, legend, info card, free-camera pill */
-.fk-caption { position: absolute; left: 50%; top: 0; width: 600px; margin-left: -300px; box-sizing: border-box; transform-origin: 50% 0; text-align: center;
+.fk-caption { position: absolute; left: 50%; top: 0; width: 680px; margin-left: -340px; box-sizing: border-box; transform-origin: 50% 0; text-align: center;
   background: rgba(8, 15, 32, .72); border: 1px solid rgba(125, 211, 252, .28); padding: 11px 20px 13px; border-radius: 12px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, .35); backdrop-filter: blur(3px); z-index: 5; }
 @keyframes fkCap { from { opacity: 0; transform: translateY(6px); } }
 .fk-caption .st { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #7DD3FC; }
-.fk-caption .tx { font-size: 17px; line-height: 1.38; margin-top: 5px; color: #E2E8F0; }
+.fk-caption .tx { font-size: 16px; line-height: 1.38; margin-top: 5px; color: #E2E8F0; }   /* one line, about 12 words */
 .fk-trace { position: absolute; right: 18px; top: 16px; width: 360px; background: rgba(8, 15, 32, .86); border: 1px solid rgba(167, 139, 250, .35);
   border-radius: 10px; padding: 10px 12px; font-size: 11px; }
 .no-trace .fk-trace, .fk-notrace .fk-trace { display: none; }
@@ -261,10 +262,12 @@
 .fk-budget .tot .k { margin-right: 10px; font-size: 10px; color: #94A3B8; }
 .fk-budget .tot .k.net::before, .fk-budget .lg .net-key::before { content: ''; display: inline-block; width: 12px; height: 6px; margin-right: 4px; border-radius: 1px; vertical-align: middle;
   background: repeating-linear-gradient(135deg, #94A3B8 0 2px, transparent 2px 4px); }
-.fk-budget .sg.net i { background: repeating-linear-gradient(135deg, var(--c) 0 3px, rgba(0, 0, 0, .35) 3px 6px); }
+.fk-budget .sg.net { background: repeating-linear-gradient(135deg, rgba(148, 163, 184, .24) 0 3px, rgba(148, 163, 184, .07) 3px 6px); }   /* network legs: chevrons even when empty */
+.fk-budget .sg.net i { background: repeating-linear-gradient(135deg, var(--c) 0 3px, rgba(0, 0, 0, .35) 3px 6px); background-size: 8.5px 100%; animation: fk-chev .5s linear infinite; }
+@keyframes fk-chev { to { background-position: 8.5px 0; } }
 .fk-budget .bar { display: flex; gap: 2px; height: 10px; }
 .fk-budget .sg { position: relative; background: rgba(148, 163, 184, .12); border-radius: 3px; overflow: hidden; transition: opacity .3s; }
-.fk-budget .sg i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--c); box-shadow: 0 0 8px var(--c); transition: width .3s; }
+.fk-budget .sg i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--c); box-shadow: 0 0 8px var(--c); transition: width .25s linear; }
 .fk-budget .sg.over i { background: #F43F5E; box-shadow: 0 0 8px #F43F5E; }
 .fk-budget .sg.dim, .fk-budget .lg span.dim { opacity: .3; }
 .fk-budget .lg { display: flex; gap: 2px; margin-top: 4px; }
@@ -360,7 +363,7 @@
 .fk-ghead { display: flex; align-items: center; gap: 8px; width: 100%; height: 100%; font: 700 19px/1.1 system-ui, sans-serif; color: #E2E8F0; white-space: nowrap; }
 .fk-ghead .gi { flex: none; height: 100%; aspect-ratio: 1; display: grid; place-items: center; background: var(--gb); box-sizing: border-box; padding: 2px; border-radius: 3px; }
 .fk-ghead .gi svg { width: 100%; height: 100%; display: block; }
-.fk-ghead .gt small { display: block; font: 400 13px system-ui, sans-serif; color: #94A3B8; margin-top: 2px; }
+.fk-ghead .gt small { display: block; font: 400 .684em system-ui, sans-serif; color: #94A3B8; margin-top: 2px; }
 .fk-itop { width: 100%; height: 100%; box-sizing: border-box; padding: 3px; border-radius: 3px; display: grid; place-items: center; }
 .fk-itop svg { width: 100%; height: 100%; display: block; }
 /* Detail views: the HUD panels fade with the zoom (--hud, set per frame; a filter so it composes with the caption's own timeline opacity) */
@@ -425,3 +428,19 @@
 .fk-intro .x:hover { border-color: #38BDF8; color: #F1F5F9; }
 .fk-intro .dn { display: flex; align-items: center; gap: 10px; margin-top: 22px; color: #64748B; opacity: .55; font-size: 12px; letter-spacing: .06em; }
 .fk-intro .dn svg { flex: none; }
+/* Slide view (Top down on a diagram): the diagram alone on white, dark text, for screenshots in slides and docs */
+.fk-slide, .fk-slide .fk-stage { background: #fff !important; }
+.fk-slide .fk-world > :not(.fk-keep) { visibility: hidden !important; }
+.fk-slide .fk-ov, .fk-slide .fk-legend, .fk-slide .fk-caption, .fk-slide .fk-budget, .fk-slide .fk-trace { display: none !important; }
+.fk-slide .fk-slab-top { background: #fff !important; box-shadow: inset 0 0 0 3px var(--cc) !important; }
+.fk-slide .fk-keep .fk-ghead { color: #0F172A; }
+.fk-slide .fk-keep .fk-ghead .gt small, .fk-slide .fk-keep .fk-ftag small { color: #475569; }
+.fk-slide .fk-keep .fk-ftag { color: #0F172A; }
+.fk-slide .fk-lodflow, .fk-slide .fk-ftag.fl { display: none; }   /* no traffic lines in slide view: just the architecture */
+.fk-slide .fk-free { opacity: .35; } .fk-slide .fk-free:hover { opacity: 1; }
+/* Tooltips on the playback bar (data-tip): instant, above the button */
+.fk-bar [data-tip] { position: relative; }
+.fk-bar [data-tip]:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 30;
+  background: #0B1220; border: 1px solid #334155; color: #E2E8F0; font: 500 11px system-ui, sans-serif; padding: 4px 8px; border-radius: 6px; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .4); }
+.fk-bar .side.l [data-tip]:hover::after { left: 0; transform: none; }
+.fk-bar .side.r > [data-tip]:hover::after, .fk-bar .speed button:last-child:hover::after { left: auto; right: 0; transform: none; }

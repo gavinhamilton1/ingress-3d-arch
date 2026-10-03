@@ -2,7 +2,7 @@
  * Caption text and timing for every chapter. Edit freely, then reload ingress.html (or rebuild dist/ with build.py).
  *
  *   step  the title shown on the caption card and on the scrubber
- *   text  the description
+ *   text  the description: one line, about 12 words, so the scene does the explaining
  *   hold  seconds the caption stays on screen before the next step appears
  *
  * Timing: raising a hold pauses the animation just before the next step. Lowering it shortens the caption only where
@@ -15,318 +15,318 @@
  */
 window.FK_CAPTIONS = {
 
-  // ---- Layers · The layers · 11 captions · 86.2 s
+  // ---- The layers · 11 captions
   "The layers": {
     "The layers": {
       step: "The layers",
-      text: "From the client to the internal network, with L0 steering from the side",
-      hold: 3.0
+      text: "From the client to the internal network, with L0 steering alongside",
+      hold: 3
     },
     "L1 · Client": {
       step: "L1 · Client",
-      text: "Browsers, mobile apps, API clients, delegated and autonomous agents and M2M callers. Every request starts here, untrusted regardless of type",
+      text: "Every request starts here, untrusted, whatever the client type",
       hold: 7.8
     },
     "L0 · DNS control plane": {
       step: "L0 · DNS control plane",
-      text: "Before a client sends anything, its resolver asks L0 for an edge address. L0 answers from beside the request path, never in it",
-      hold: 10.2   // animation
+      text: "Before any request, the resolver asks L0 for an edge address",
+      hold: 10.2
     },
     "L2 · Edge protection / CDN": {
       step: "L2 · Edge protection / CDN",
-      text: "Akamai and Cloudflare terminate TLS close to the user, absorb attacks and classify callers, without establishing identity",
+      text: "Akamai and Cloudflare end TLS near users, absorb attacks, classify callers",
       hold: 6.9
     },
     "L3 · Regional perimeter": {
       step: "L3 · Regional perimeter",
-      text: "PSaaS+ and AWS WAF admit only CDN traffic into JPMorgan networks, which is what makes origin lockdown enforceable",
+      text: "Only CDN traffic may enter JPMorgan networks: origin lockdown",
       hold: 6.6
     },
     "L4 · Enforcement tier": {
       step: "L4 · Enforcement tier",
-      text: "The single enforcement point: resolves every credential to live state, inspects the payload, enforces scopes and mandates, and injects verified identity",
+      text: "The single enforcement point, coarse-grained: live state, payload, scopes, identity",
       hold: 8.3
     },
     "L5 · IFA workload zone": {
       step: "L5 · IFA workload zone",
-      text: "Application workloads on GKP and EKS, reachable only from L4 over mutual TLS",
+      text: "Application workloads on GKP and EKS, reachable only from L4 over mTLS",
       hold: 4.9
     },
     "L6 · Internal network": {
       step: "L6 · Internal network",
-      text: "Downstream services, systems of record and the identity platform, with identity propagated rather than re-asserted",
+      text: "Downstream services and systems of record; identity propagated, not re-asserted",
       hold: 6.6
     },
     "P1 · VAN → BP PSaaS": {
       step: "P1 · VAN → BP PSaaS",
-      text: "Institutional clients on private circuits bypass L0 and L2 and enter at L3. They are still L1 clients and still carry a credential",
+      text: "Institutional clients on private circuits skip L0 and L2, entering at L3",
       hold: 7.4
     },
     "P2 · AWS PrivateLink": {
       step: "P2 · AWS PrivateLink",
-      text: "Partner services in their own AWS VPC reach our endpoint service privately, entering at L4",
+      text: "Partners in their own AWS VPC reach us privately, entering at L4",
       hold: 5.6
     },
     "All together": {
       step: "All together",
-      text: "Web on-prem, an API call into AWS, M2M on-prem and partners over P1 and P2, all at once",
-      hold: 18.6   // animation
+      text: "Web, API, M2M and partner traffic, all at once",
+      hold: 18.6
     }
   },
 
-  // ---- Layers · L0 · DNS Control Plane · 5 captions · 47.4 s
-  "L0 · DNS Control Plane": {
-    "L0 · DNS control plane": {
-      step: "L0 · DNS control plane",
-      text: "It resolves the hostname to an edge address before any request is made. It sits ahead of the request path: no traffic flows through it",
-      hold: 7.5
-    },
-    "Two DNS providers": {
-      step: "Two DNS providers",
-      text: "jpmorgan.com is served by 4 JPMorgan primary nameservers and 3 Cloudflare secondaries (zone transfer). Resolvers ask any of them, so either provider can fail without an outage",
-      hold: 9.0
-    },
-    "A lookup, step by step": {
-      step: "A lookup, step by step",
-      text: "The resolver asks a nameserver, follows the hand-off to Akamai GTM, and gets the best edge IP back",
-      hold: 12.2   // animation
-    },
-    "Smart routing": {
-      step: "Smart routing",
-      text: "Akamai GTM and Cloudflare Load Balancing pick the edge from the client’s location, latency, load and health, using handout policies, liveness tests, pools and monitors",
-      hold: 9.0
-    },
-    "Steering is not instant": {
-      step: "Steering is not instant",
-      text: "Changes are bounded by the TTL and resolver caching rather than taking effect immediately. Cached answers also mean DNS adds nothing to most requests, so it sits outside the 50 ms budget",
-      hold: 9.0
-    }
-  },
-
-  // ---- Layers · L1 · Client · 5 captions · 41.3 s
+  // ---- L1 · Client · 5 captions
   "L1 · Client": {
     "L1 · Client": {
       step: "L1 · Client",
-      text: "Browsers, mobile apps, API clients, delegated agents, autonomous agents and M2M callers. Every request starts here, untrusted regardless of type",
-      hold: 8.0
+      text: "Browsers, apps, API clients, agents and machines: all untrusted here",
+      hold: 8
     },
     "Not security categories": {
       step: "Not security categories",
-      text: "Human, machine and agent are not security categories: any of them can hold a credential. What counts is the credential, and the key it is bound to",
+      text: "Human, machine or agent doesn't matter: the credential and its key do",
       hold: 8.1
     },
     "Two ways in": {
       step: "Two ways in",
-      text: "Over the internet through L2 and L3, or over private connectivity: P1 enters at L3 and P2 at L4. The path changes; the check at L4 does not",
+      text: "Over the internet, or privately via P1 or P2: L4 always checks",
       hold: 7.8
     },
     "Why: assume compromise": {
       step: "Why: assume compromise",
-      text: "Devices get malware, tokens get stolen, bots imitate people and agents overreach. So no layer trusts a request because of where it came from",
+      text: "Assume compromise: no request is trusted for where it came from",
       hold: 7.8
     },
     "Latency · client → edge: 8 ms": {
       step: "Latency · client → edge: 8 ms",
-      text: "Network distance, not our processing: DNS steering or anycast picks a nearby PoP, and warm connections (TLS resumption, HTTP/2 or HTTP/3 reuse) avoid extra round trips. Mobile networks take longer",
-      hold: 9.0
+      text: "Network distance, not processing: nearby PoPs and warm connections keep it low",
+      hold: 9
     }
   },
 
-  // ---- Layers · L2 · Edge Protection / CDN · 6 captions · 48.4 s
+  // ---- L0 · DNS Control Plane · 5 captions
+  "L0 · DNS Control Plane": {
+    "L0 · DNS control plane": {
+      step: "L0 · DNS control plane",
+      text: "Resolves the hostname to an edge address; no traffic passes through it",
+      hold: 7.5
+    },
+    "Two DNS providers": {
+      step: "Two DNS providers",
+      text: "4 JPMorgan primaries, 3 Cloudflare secondaries: either provider can fail",
+      hold: 9
+    },
+    "A lookup, step by step": {
+      step: "A lookup, step by step",
+      text: "Resolver, nameserver, hand-off to Akamai GTM, best edge IP back",
+      hold: 12.2
+    },
+    "Smart routing": {
+      step: "Smart routing",
+      text: "GTM and Cloudflare LB pick the edge by location, latency, load, health",
+      hold: 9
+    },
+    "Steering is not instant": {
+      step: "Steering is not instant",
+      text: "Changes wait on TTLs and caches; cached answers cost the budget nothing",
+      hold: 9
+    }
+  },
+
+  // ---- L2 · Edge Protection / CDN · 6 captions
   "L2 · Edge Protection / CDN": {
     "L2 · Edge protection / CDN": {
       step: "L2 · Edge protection / CDN",
-      text: "Akamai (4,100+ PoPs) and Cloudflare (310+ cities), active-active from one source ruleset: the first hop we control, as close to the client as possible",
+      text: "Akamai and Cloudflare, active-active from one ruleset: our first hop",
       hold: 8.3
     },
     "What the edge does": {
       step: "What the edge does",
-      text: "TLS ends at the PoP; the edge classifies the caller, serves from cache when it can, and otherwise forwards to the perimeter. It classifies; it does not establish identity",
-      hold: 9.0
+      text: "Ends TLS, classifies the caller, serves cache, else forwards to the perimeter",
+      hold: 9
     },
     "Why at the edge": {
       step: "Why at the edge",
-      text: "Volumetric attacks, bots and common web attacks are absorbed across thousands of PoPs, far away from our data centres",
+      text: "Volumetric attacks, bots and web attacks absorbed far from our data centres",
       hold: 6.8
     },
     "Defences by client type": {
       step: "Defences by client type",
-      text: "With no identity yet, the edge picks its defences by what the caller looks like",
-      hold: 6.9   // animation
+      text: "No identity yet, so defences match what the caller looks like",
+      hold: 6.9
     },
     "Hand-off to a region: 10 ms": {
       step: "Hand-off to a region: 10 ms",
-      text: "The edge re-originates over TLS to the perimeter, from source addresses the perimeter restricts to. Each CDN can reach both regional perimeters, so a regional outage is routed around",
-      hold: 9.0
+      text: "Each CDN reaches both regions over TLS, routing around outages",
+      hold: 9
     },
     "Latency · 21 ms of the 50": {
       step: "Latency · 21 ms of the 50",
-      text: "Client → edge 8 ms and edge → region 10 ms are network distance, which depends on where the user is; the edge’s own processing is about 3 ms",
+      text: "21 of the 50 ms: mostly network distance, about 3 ms processing",
       hold: 7.8
     }
   },
 
-  // ---- Layers · L3 · Regional Perimeter · 5 captions · 37.5 s
+  // ---- L3 · Regional Perimeter · 5 captions
   "L3 · Regional Perimeter": {
     "L3 · Regional perimeter": {
       step: "L3 · Regional perimeter",
-      text: "The entry into JPMorgan networks: PSaaS+ in 10 on-prem DMZ data centres and AWS WAF in 8 AWS regions. No platform components of our own run here",
+      text: "PSaaS+ in 10 DMZ data centres, AWS WAF in 8 regions",
       hold: 7.8
     },
     "What it does": {
       step: "What it does",
-      text: "It admits only traffic from the CDN, then applies a second WAF pass and perimeter traffic policy before handing over to SESF",
+      text: "Admits only CDN traffic, a second WAF pass, then hands over to SESF",
       hold: 7.1
     },
     "Why: origin lockdown": {
       step: "Why: origin lockdown",
-      text: "Source addresses are restricted to CDN ranges (Akamai SiteShield on-prem) and direct-to-origin paths are closed, so the edge cannot be skipped",
+      text: "Only CDN source ranges, no direct-to-origin path: the edge can't be skipped",
       hold: 7.9
     },
     "Why a second control point": {
       step: "Why a second control point",
-      text: "An independent regional layer with its own WAF pass and traffic policy, and a clean boundary before anything reaches the enforcement tier",
+      text: "An independent second control point before the enforcement tier",
       hold: 7.7
     },
     "Latency · 3 ms": {
       step: "Latency · 3 ms",
-      text: "Network policy and a second WAF pass only; identity and payload policy happen at L4",
-      hold: 6.4   // animation
+      text: "3 ms: network policy and a WAF pass; identity happens at L4",
+      hold: 6.4
     }
   },
 
-  // ---- Layers · L4 · Enforcement Tier · 9 captions · 121.9 s
+  // ---- L4 · Enforcement Tier · 9 captions
   "L4 · Enforcement Tier": {
     "L4 · Enforcement tier": {
       step: "L4 · Enforcement tier",
-      text: "Tier 2, the DMZ gateway on both substrates (inside SESF on-prem): Envoy and Kong data planes on-prem and on EKS. The single enforcement point, and it fails closed",
+      text: "Tier 2 on both substrates: Envoy and Kong, one enforcement point, fails closed",
       hold: 8.4
     },
     "Inspect and apply policy": {
       step: "Inspect and apply policy",
-      text: "Envoy breaks and inspects TLS and calls auth-service, which resolves the session, exchanges the token, then runs the global malicious-content policy and the route policy generated from the workload’s code",
-      hold: 34.9   // animation
+      text: "Envoy inspects; auth-service checks the session, swaps the token, runs policy",
+      hold: 34.9
     },
     "Live state, not just a valid token": {
       step: "Live state, not just a valid token",
-      text: "The session validator sidecar resolves the session against the session manager in L6, through a revoke cache, then mints the internal token",
-      hold: 16.7   // animation
+      text: "The sidecar checks live session state in L6, then mints the internal token",
+      hold: 16.7
     },
     "A signal arrives": {
       step: "A signal arrives",
-      text: "The signal manager in L6 raises a CAEP risk-level-change for this session; the message broker carries it to the L4 signal receiver",
+      text: "Observability feeds the signal manager; its CAEP signal reaches L4 via the broker",
       hold: 7.4
     },
     "Receive, verify, enforce": {
       step: "Receive, verify, enforce",
-      text: "The signal receiver verifies the Security Event Token and matches it to the live session; the policy decides the action: step-up to AAL3",
-      hold: 9.8   // animation
+      text: "L4 verifies the security event and sets the session to step-up",
+      hold: 9.8
     },
     "The next request is stopped": {
       step: "The next request is stopped",
-      text: "The same session tries a payment. Its enforcement state now requires step-up, so L4 refuses it with a 401 and nothing reaches L5",
-      hold: 19.0   // animation
+      text: "The next payment from that session is refused with 401",
+      hold: 19
     },
     "What L4 resolves, per client type": {
       step: "What L4 resolves, per client type",
-      text: "Every client type presents something different, and L4 resolves each one to live state before anything goes further",
-      hold: 7.1   // animation
+      text: "Each client type presents something different; L4 resolves each to live state",
+      hold: 7.1
     },
     "Why one enforcement point": {
       step: "Why one enforcement point",
-      text: "Internet and partner paths all converge here, so identity, payload policy and signals are enforced once, consistently. Onward to L5 is mutual TLS, and the workload verifies the client certificate",
-      hold: 9.0
+      text: "Every path converges here, so policy and signals are enforced once",
+      hold: 9
     },
     "Latency · 24 ms": {
       step: "Latency · 24 ms",
-      text: "The largest slice: break and inspect, ext_authz and two Rego evaluations (about 10 ms), then live state, token exchange and mTLS to L5 (about 14 ms). Signals arrive asynchronously, and enforcement state is cached locally",
-      hold: 9.0
+      text: "24 ms: inspect and policy about 10, live state and exchange about 14",
+      hold: 9
     }
   },
 
-  // ---- Layers · L5 · IFA Workload Zone · 5 captions · 37.0 s
+  // ---- L5 · IFA Workload Zone · 5 captions
   "L5 · IFA Workload Zone": {
     "L5 · IFA workload zone": {
       step: "L5 · IFA workload zone",
-      text: "The isolated firewall application zone: application workloads on GKP and EKS with their sidecars, bounded by firewall rules on the internal network",
+      text: "The isolated workload zone: GKP and EKS workloads behind firewall rules",
       hold: 8.1
     },
     "What arrives here": {
       step: "What arrives here",
-      text: "Only traffic from L4, over mutual TLS. The workload verifies the peer certificate on every connection and receives verified identity as headers, rather than parsing tokens",
-      hold: 9.0
+      text: "Only L4 traffic over mTLS; identity arrives as headers, not tokens",
+      hold: 9
     },
     "Injected identity, per client type": {
       step: "Injected identity, per client type",
-      text: "What the workload receives depends on who is calling, and for agents on whose behalf",
-      hold: 6.9   // animation
+      text: "What the workload receives depends on who calls, and for whom",
+      hold: 6.9
     },
     "What workloads can rely on": {
       step: "What workloads can rely on",
-      text: "Authentication, live state, payload hygiene and risk are handled once, consistently, at L4",
-      hold: 5.9   // animation
+      text: "Authentication, live state, payload hygiene and risk are handled once at L4",
+      hold: 5.9
     },
     "Latency · outside the 50 ms": {
       step: "Latency · outside the 50 ms",
-      text: "The ingress budget ends on arrival at L5; what happens here is the application’s own time",
-      hold: 6.4   // animation
+      text: "The ingress budget ends at L5; what follows is the application's time",
+      hold: 6.4
     }
   },
 
-  // ---- Layers · L6 · Internal Network · 4 captions · 34.0 s
+  // ---- L6 · Internal Network · 4 captions
   "L6 · Internal Network": {
     "L6 · Internal network": {
       step: "L6 · Internal network",
-      text: "Trusted services on the internal network: downstream services and systems of record, the identity platform’s session and signal managers, the message broker and the configuration pipeline",
-      hold: 9.0
+      text: "Trusted services, systems of record and the identity platform",
+      hold: 9
     },
     "Identity carried forward": {
       step: "Identity carried forward",
-      text: "When a workload calls a downstream service, the correlation identifier and the acting-for chain go with it, over mutual TLS. Identity is propagated, not re-asserted",
+      text: "Calls downstream carry the trace and acting-for chain over mTLS",
       hold: 8.9
     },
     "It also feeds L4": {
       step: "It also feeds L4",
-      text: "The session manager supplies live state, the signal manager raises risk signals that the broker carries, and the configuration pipeline distributes route policy to the enforcement tier",
-      hold: 9.0
+      text: "It feeds L4 live state, risk signals and route policy",
+      hold: 9
     },
     "Observability": {
       step: "Observability",
-      text: "Every layer reports to the observability stack, with the same trace ID from L1 to L6",
-      hold: 6.4   // animation
+      text: "Every layer reports to observability with the same trace ID",
+      hold: 6.4
     }
   },
 
-  // ---- Layers · P · Private Connectivity · 5 captions · 40.9 s
+  // ---- P · Private Connectivity · 5 captions
   "P · Private Connectivity": {
     "P · Private connectivity": {
       step: "P · Private connectivity",
-      text: "Two paths that skip part of the internet route. On both, the client is still L1 and still carries a credential",
+      text: "Two paths that skip part of the internet; clients still carry credentials",
       hold: 6.5
     },
     "P1 · VAN → BP PSaaS": {
       step: "P1 · VAN → BP PSaaS",
-      text: "An institutional client on a VAN, private circuit or leased line bypasses L0 and L2 and enters at L3, through BP PSaaS. The circuit is only the network path",
-      hold: 9.7   // animation
+      text: "VAN or leased line clients skip L0 and L2, entering through BP PSaaS",
+      hold: 9.7
     },
     "P2 · AWS PrivateLink": {
       step: "P2 · AWS PrivateLink",
-      text: "A partner service in its own AWS VPC never touches the internet: it bypasses L0, L2 and L3 and enters at L4, through our endpoint service and its load balancer",
-      hold: 10.7   // animation
+      text: "Partners in their own VPC never touch the internet, entering at L4",
+      hold: 10.7
     },
     "Why they still converge on L4": {
       step: "Why they still converge on L4",
-      text: "Each path secures its own hop, but neither replaces the credential check: both are enforced at L4 like internet traffic",
+      text: "Each path secures its hop, but L4 still checks every credential",
       hold: 6.9
     },
     "Latency": {
       step: "Latency",
-      text: "Set by the circuit, the AWS network or the internal network rather than the internet; the L4 budget is the same as for internet traffic",
+      text: "Latency follows the circuit or AWS network; the L4 budget is unchanged",
       hold: 7.6
     }
   },
 
-  // ---- Journeys · Web · on-prem · 13 captions · 96.2 s
+  // ---- Web · on-prem · 13 captions
   "Web · on-prem": {
     "Web journey · on-prem": {
       step: "Web journey · on-prem",
@@ -335,362 +335,195 @@ window.FK_CAPTIONS = {
     },
     "L0 · DNS": {
       step: "L0 · DNS",
-      text: "Before the request: the resolver asks one of the seven nameservers. A JPMorgan primary returns a CNAME to Akamai GTM, and GTM picks the best edge",
-      hold: 11.0   // animation
+      text: "The resolver asks a nameserver; Akamai GTM picks the best edge",
+      hold: 11
     },
     "L2 · CDN / edge protection": {
       step: "L2 · CDN / edge protection",
-      text: "The browser connects straight to the edge IP it was given. Akamai terminates TLS, absorbs attacks, applies WAF and bot management, then forwards to origin",
+      text: "The browser connects to the edge; Akamai inspects, then forwards to origin",
       hold: 8.4
     },
     "L3 · Regional perimeter": {
       step: "L3 · Regional perimeter",
-      text: "Only CDN traffic may enter the on-prem network; PSaaS+ admits it into SESF",
+      text: "PSaaS+ admits only CDN traffic into SESF",
       hold: 4.8
     },
     "L4 · Enforcement tier": {
       step: "L4 · Enforcement tier",
-      text: "The request reaches the T2 gateway in SESF, the single enforcement point",
+      text: "The request reaches the T2 gateway, the single enforcement point",
       hold: 4.7
     },
     "Inside L4 · gateway-envoy": {
       step: "Inside L4 · gateway-envoy",
-      text: "The T2 node expands: Envoy calls auth-service (ext_authz) to resolve the session, exchange the token and run the payload policies",
+      text: "Envoy calls auth-service: resolve the session, exchange the token, apply policy",
       hold: 7.3
     },
     "Route, then resolve the session": {
       step: "Route, then resolve the session",
-      text: "Envoy matches the route; the session validator checks the session (for ingress-gateway, signed, DPoP-bound) against live state, and the token is exchanged for an internal one",
-      hold: 16.2   // animation
+      text: "Route matched; the DPoP-bound session is checked live, the token exchanged",
+      hold: 16.2
     },
     "No body, no payload policies": {
       step: "No body, no payload policies",
-      text: "This GET has no body, so the global and route payload policies are skipped; the Payload policies journey shows them at work",
-      hold: 7.0
+      text: "A GET with no body skips the payload policies",
+      hold: 7
     },
     "L5 · IFA workload zone": {
       step: "L5 · IFA workload zone",
-      text: "Over mutual TLS, the accounts workload on GKP receives the verified identity as headers",
+      text: "Over mTLS, the accounts workload gets verified identity as headers",
       hold: 5.4
     },
     "L6 · Internal network": {
       step: "L6 · Internal network",
-      text: "The workload reads the system of record downstream, with the trace ID and the acting-for chain carried forward",
+      text: "The workload reads the system of record, carrying trace and identity",
       hold: 6.5
     },
     "Response": {
       step: "Response",
-      text: "200 OK returns along the same path, with one trace ID across every layer",
+      text: "200 OK returns the same way, one trace ID throughout",
       hold: 4.9
     },
     "Next click · caches": {
       step: "Next click · caches",
-      text: "The DNS answer is still cached, so L0 is not contacted, and the edge serves the static asset from its cache",
-      hold: 11.1   // animation
+      text: "DNS is cached and the edge serves the asset from cache",
+      hold: 11.1
     },
     "Observability": {
       step: "Observability",
-      text: "Every layer emitted a span, log and metric tagged with the same trace ID",
-      hold: 5.2   // animation
+      text: "Every layer logged a span with the same trace ID",
+      hold: 5.2
     }
   },
 
-  // ---- Journeys · Client types · L4 · 8 captions · 75.8 s
-  "Client types · L4": {
-    "Client types": {
-      step: "Client types",
-      text: "Six client types, one enforcement point: what each presents at L4, what L4 resolves it to, and what reaches the workload",
-      hold: 6.9
+  // ---- Web injection attack · 5 captions
+  "Web injection attack": {
+    "Web injection attack": {
+      step: "Web injection attack",
+      text: "An SQL injection in a form field: the edge passes it, L4 stops it"
     },
-    "Browser": {
-      step: "Browser",
-      text: "At L2: javaScript challenge, fingerprinting, CAPTCHA. At L4 it presents: signed session artefact, opaque reference",
-      hold: 10.1   // animation
+    "SQL injection": {
+      step: "SQL injection",
+      text: "The registration form crosses the edge and perimeter to L4"
     },
-    "Mobile app": {
-      step: "Mobile app",
-      text: "At L2: app attestation, certificate pinning. At L4 it presents: access token, key-bound",
-      hold: 10.1   // animation
+    "SQL injection · policies": {
+      step: "SQL injection · policies",
+      text: "The global policy spots the injection pattern and denies: 403"
     },
-    "API client": {
-      step: "API client",
-      text: "At L2: schema validation, per-client rate limits, API discovery. At L4 it presents: delegated access token, DPoP or certificate bound",
-      hold: 10.1   // animation
-    },
-    "Delegated agent": {
-      step: "Delegated agent",
-      text: "At L2: agent classification, schema validation, rate limits. At L4 it presents: exchanged agent-scoped token, sub = user, act = agent",
-      hold: 10.1   // animation
-    },
-    "Autonomous agent": {
-      step: "Autonomous agent",
-      text: "At L2: agent classification, signed-request check, strict rate and transaction limits. At L4 it presents: agent credential plus signed request",
-      hold: 10.1   // animation
-    },
-    "M2M": {
-      step: "M2M",
-      text: "At L2: rate limits, IP allow-lists. At L4 it presents: client credentials or signed assertion",
-      hold: 10.1   // animation
-    },
-    "One table, one place": {
-      step: "One table, one place",
-      text: "Human, machine and agent are not security categories: the credential and its key decide what L4 resolves, and L4 is the only place that decides it",
-      hold: 8.1
-    }
-  },
-
-  // ---- Journeys · Payload policies · L4 · 11 captions · 132.8 s
-  "Payload policies · L4": {
-    "Payload policies · L4": {
-      step: "Payload policies · L4",
-      text: "Three requests to POST /api/v1/users/register show the two Rego policies that protect every route",
-      hold: 5.9
-    },
-    "1 · Valid payload": {
-      step: "1 · Valid payload",
-      text: "The browser submits the registration form; the request crosses the edge and perimeter to L4",
-      hold: 5.6
-    },
-    "1 · Valid payload · policies": {
-      step: "1 · Valid payload · policies",
-      text: "Session resolved and token exchanged; the global policy finds no injection patterns; the route policy confirms required fields and formats: allowed, 201 Created",
-      hold: 31.4   // animation
-    },
-    "1 · Valid payload · 201": {
-      step: "1 · Valid payload · 201",
-      text: "Allowed: the request continues over mTLS to the workload in L5, and 201 Created returns to the client",
-      hold: 8.8   // animation
-    },
-    "2 · SQL injection": {
-      step: "2 · SQL injection",
-      text: "The browser submits the registration form; the request crosses the edge and perimeter to L4",
-      hold: 5.6
-    },
-    "2 · SQL injection · policies": {
-      step: "2 · SQL injection · policies",
-      text: "The global policy (a blocklist, default allow) matches an injection pattern in full_name and denies: 403. The route policy never runs",
-      hold: 20.1   // animation
-    },
-    "2 · SQL injection · 403": {
-      step: "2 · SQL injection · 403",
-      text: "The 403 goes straight back to the client; nothing reaches L5",
-      hold: 5.4   // animation
-    },
-    "3 · Malformed email": {
-      step: "3 · Malformed email",
-      text: "The browser submits the registration form; the request crosses the edge and perimeter to L4",
-      hold: 5.6
-    },
-    "3 · Malformed email · policies": {
-      step: "3 · Malformed email · policies",
-      text: "The global policy passes; the route policy (default deny) rejects the email format: 403",
-      hold: 30.1   // animation
-    },
-    "3 · Malformed email · 403": {
-      step: "3 · Malformed email · 403",
-      text: "The 403 goes straight back to the client; nothing reaches L5",
-      hold: 5.4   // animation
+    "SQL injection · 403": {
+      step: "SQL injection · 403",
+      text: "The 403 goes straight back; nothing reaches L5"
     },
     "One lever for every route": {
       step: "One lever for every route",
-      text: "The global policy patches every route at once against new attack patterns; each route policy is generated from its workload’s code and knows only its own fields",
-      hold: 8.7
+      text: "One global policy guards every route; route policies come from workload code"
     }
   },
 
-  // ---- Journeys · API · AWS · 7 captions · 45.4 s
-  "API · AWS": {
-    "API journey · AWS": {
-      step: "API journey · AWS",
-      text: "An API client calls the accounts API",
-      hold: 3.1
+  // ---- Web malformed request · 5 captions
+  "Web malformed request": {
+    "Web malformed request": {
+      step: "Web malformed request",
+      text: "A malformed email passes the attack filters; the route policy rejects it"
     },
-    "L0 · DNS": {
-      step: "L0 · DNS",
-      text: "This resolver happened to ask a Cloudflare secondary. The zone came from the JPMorgan primary, but this hostname is overridden to Cloudflare LB, which answers with an anycast IP",
-      hold: 9.0
+    "Malformed email": {
+      step: "Malformed email",
+      text: "The registration form crosses the edge and perimeter to L4"
     },
-    "L2 · CDN / edge protection": {
-      step: "L2 · CDN / edge protection",
-      text: "Cloudflare terminates TLS, checks the API request and the client, then forwards to origin",
-      hold: 6.2   // animation
+    "Malformed email · policies": {
+      step: "Malformed email · policies",
+      text: "The global policy passes; the route policy rejects the email format: 403"
     },
-    "L3 · Regional perimeter": {
-      step: "L3 · Regional perimeter",
-      text: "AWS WAF admits only CDN traffic into AWS",
-      hold: 4.8   // animation
+    "Malformed email · 403": {
+      step: "Malformed email · 403",
+      text: "The 403 goes straight back; nothing reaches L5"
     },
-    "L4 · Enforcement tier · AWS": {
-      step: "L4 · Enforcement tier · AWS",
-      text: "The T2 gateway on EKS terminates mTLS, resolves the key-bound token to the user’s grant, exchanges it, and runs the global and route policies",
-      hold: 7.8
-    },
-    "L5 · IFA workload zone": {
-      step: "L5 · IFA workload zone",
-      text: "The accounts workload on EKS answers, with the user and client identity in headers",
-      hold: 5.2
-    },
-    "Response": {
-      step: "Response",
-      text: "200 OK and a JSON body return to the client",
-      hold: 9.0   // animation
+    "One lever for every route": {
+      step: "One lever for every route",
+      text: "One global policy guards every route; route policies come from workload code"
     }
   },
 
-  // ---- Journeys · Private connectivity · 13 captions · 82.2 s
-  "Private connectivity": {
-    "Private connectivity": {
-      step: "Private connectivity",
-      text: "Institutional clients and partner services can skip part of the internet route",
-      hold: 5.0
+  // ---- Valid autonomous AI · 7 captions
+  "Valid autonomous AI": {
+    "Valid autonomous AI": {
+      step: "Valid autonomous AI",
+      text: "A registered treasury agent pays $12,000 to an approved supplier, in mandate"
     },
-    "Distinct routes, one enforcement point": {
-      step: "Distinct routes, one enforcement point",
-      text: "No DNS steering or CDN: each path lands on its own entry point, and every one converges on L4",
-      hold: 5.7
-    },
-    "P1 · Private circuit": {
-      step: "P1 · Private circuit",
-      text: "Institutional client Acme sends a payment over its VAN / leased line",
-      hold: 4.6
-    },
-    "P1 · BP PSaaS, entering at L3": {
-      step: "P1 · BP PSaaS, entering at L3",
-      text: "BP PSaaS terminates the circuit, checks the client allow-list and maps the route. The circuit is only the network path",
-      hold: 6.8
-    },
-    "L4 · Enforcement tier": {
-      step: "L4 · Enforcement tier",
-      text: "The client is still L1 and still carries a credential: the T2 gateway resolves it and applies the same policies as for internet traffic",
-      hold: 7.6
-    },
-    "L5 · IFA workload zone": {
-      step: "L5 · IFA workload zone",
-      text: "The payments workload on GKP accepts the instruction",
-      hold: 3.8
-    },
-    "Response": {
-      step: "Response",
-      text: "201 Created returns over the same private circuit",
-      hold: 4.3   // animation
-    },
-    "P2 · Partner VPC": {
-      step: "P2 · Partner VPC",
-      text: "A trusted 3rd party runs its service in its own AWS account and VPC, alongside ours on the AWS network",
-      hold: 6.1
-    },
-    "P2 · Interface endpoint": {
-      step: "P2 · Interface endpoint",
-      text: "It calls a private IP inside its own VPC: an interface endpoint for our service",
-      hold: 5.1
-    },
-    "P2 · VPC to VPC": {
-      step: "P2 · VPC to VPC",
-      text: "PrivateLink carries it from the partner VPC straight into our VPC: no internet gateway, NAT or public IP, and no L0, L2 or L3",
-      hold: 7.1
-    },
-    "P2 · Endpoint service, entering at L4": {
-      step: "P2 · Endpoint service, entering at L4",
-      text: "Only allow-listed partner accounts can connect, only to this one service, and only in that direction. Its load balancer fronts the enforcement tier",
-      hold: 8.1
-    },
-    "L4 · Enforcement tier · AWS": {
-      step: "L4 · Enforcement tier · AWS",
-      text: "A credential is still required: the T2 gateway on EKS terminates mTLS and resolves the partner’s signed assertion to workload identity",
-      hold: 11.1   // animation
-    },
-    "Two private paths, one enforcement point": {
-      step: "Two private paths, one enforcement point",
-      text: "Internet traffic comes through L2 and L3. P1 enters at L3 and P2 at L4, and all of it meets the same L4 enforcement",
-      hold: 6.7
-    }
-  },
-
-  // ---- Journeys · Failover · 11 captions · 60.4 s
-  "Failover": {
-    "Failover": {
-      step: "Failover",
-      text: "A mobile user on a bad day: an edge network is degraded and an on-prem region is down",
-      hold: 5.3
-    },
-    "Incident 1 · L2": {
-      step: "Incident 1 · L2",
-      text: "The Akamai edge serving this region is degraded",
-      hold: 3.6
-    },
-    "Incident 2 · L3": {
-      step: "Incident 2 · L3",
-      text: "The on-prem PSaaS+ region is down",
-      hold: 3.0
-    },
-    "L1 · Steering failover": {
-      step: "L1 · Steering failover",
-      text: "The cached answer expires (20 s TTL). A JPM NS hands off to GTM; GTM sees its edge is degraded and answers with a Cloudflare edge IP. Failover speed is bounded by the TTL",
-      hold: 10.1   // animation
+    "One identity, many instances": {
+      step: "One identity, many instances",
+      text: "No agent number: each instance has its own key and key-bound session"
     },
     "L2 · Edge": {
       step: "L2 · Edge",
-      text: "The app connects to Cloudflare; the user sees no error",
-      hold: 3.9
+      text: "Akamai verifies the agent's signature and rate limits; it classifies only"
     },
-    "L2 · Origin failover": {
-      step: "L2 · Origin failover",
-      text: "On-prem origin health checks fail, so Cloudflare sends the request to the AWS origin",
-      hold: 5.3
+    "L4 · The mandate is enforced here": {
+      step: "L4 · Coarse-grained checks",
+      text: "L4 checks key, signature, live session and scope; nothing finer"
     },
-    "L3 · Regional perimeter": {
-      step: "L3 · Regional perimeter",
-      text: "AWS WAF admits the request into AWS",
-      hold: 4.5   // animation
-    },
-    "L4 · T2 gateway · AWS": {
-      step: "L4 · T2 gateway · AWS",
-      text: "The same enforcement on EKS: the session resolves to live state, then Envoy routes to the workload with outlier detection and retries",
-      hold: 7.5
-    },
-    "L5 · Upstream error": {
-      step: "L5 · Upstream error",
-      text: "The first pod returns 503",
-      hold: 2.6
-    },
-    "Retry": {
-      step: "Retry",
-      text: "The gateway retries the idempotent request on a healthy pod",
-      hold: 4.2
+    "L5 · Payments workload": {
+      step: "L5 · Payments workload",
+      text: "The workload gets agent, owner, session and mandate reference as headers"
     },
     "Response": {
       step: "Response",
-      text: "200 OK returns through AWS and Cloudflare; two failovers, zero errors for the user",
-      hold: 10.2   // animation
+      text: "201 Created returns with the payment reference"
+    },
+    "Every action is attributable": {
+      step: "Every action is attributable",
+      text: "Every request is logged with registration, owner, session and key"
     }
   },
 
-  // ---- Journeys · Defense in depth · 5 captions · 46.3 s
-  "Defense in depth": {
-    "Defense in depth": {
-      step: "Defense in depth",
-      text: "Hostile traffic is stopped at the earliest layer that can recognise it",
-      hold: 4.7
+  // ---- Rogue AI · 12 captions
+  "Rogue AI": {
+    "Rogue AI": {
+      step: "Rogue AI",
+      text: "A prompt-injected instance with a genuine key: what may it actually do?"
     },
-    "L2 · Flood absorbed": {
-      step: "L2 · Flood absorbed",
-      text: "A botnet floods the edge; it is absorbed across the CDN networks and never reaches a region",
-      hold: 5.6
+    "1 · Outside the mandate": {
+      step: "1 · Outside its scope",
+      text: "It tries to list every account; the genuine signature passes the edge"
     },
-    "L2 · Agent classification": {
-      step: "L2 · Agent classification",
-      text: "An unregistered agent scrapes pages it has no delegation or mandate for; agent classification blocks it at the edge",
-      hold: 7.1   // animation
+    "1 · Refused at L4": {
+      step: "1 · Refused at L4",
+      text: "accounts.read isn't in its scope: L4 refuses, nothing reaches L5"
     },
-    "L3 · Direct to origin": {
-      step: "L3 · Direct to origin",
-      text: "An attacker skips the CDN and targets the regional perimeter directly",
-      hold: 7.5   // animation
+    "2 · Over the limit": {
+      step: "2 · Over the limit",
+      text: "It tries $2,000,000 to a beneficiary it has never paid"
     },
-    "L4 · Contract violation": {
-      step: "L4 · Contract violation",
-      text: "A syntactically clean request passes the edge and WAF, but breaks the route policy generated from the API contract",
-      hold: 21.1   // animation
+    "2 · Step-up to a human": {
+      step: "2 · Step-up to a human",
+      text: "The workload sees the limit breached and a new payee: ask a human"
+    },
+    "3 · A burst": {
+      step: "3 · A burst",
+      text: "It retries in a burst of small payments"
+    },
+    "3 · Revoke the session": {
+      step: "3 · Revoke the session",
+      text: "Observability shows refusals and a burst; L4 revokes the session, alerts owner"
+    },
+    "3 · Contained": {
+      step: "3 · Contained",
+      text: "Its next request is refused: session revoked, re-authentication required"
+    },
+    "4 · The same pattern elsewhere": {
+      step: "4 · The same pattern elsewhere",
+      text: "A second instance, same poisoned invoice, same refusals"
+    },
+    "4 · Suspend the registration": {
+      step: "4 · Suspend the registration",
+      text: "The pattern spans sessions: suspend the registration, revoke every session"
+    },
+    "5 · Back with a human in the loop": {
+      step: "5 · Back with a human in the loop",
+      text: "The owner approves on their phone; a clean start with reduced mandate"
+    },
+    "Containment, not trust": {
+      step: "Containment, not trust",
+      text: "Mandates limit, humans approve, signals revoke; nothing returns without review"
     }
   }
 };
