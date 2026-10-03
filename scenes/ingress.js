@@ -400,6 +400,71 @@
        card: { from: [355, 30, 1045, 1000], to: [215, 12, 1185, 1008], lift: 45, color: LAYERS[4].color },   // the L4 AWS tile lifts out and grows
        title: 'L4 · Enforcement Tier (AWS)', shot: { x: 700, y: -60, z: 665, rx: -58, ry: 0, d: 1880 } });   // aimed towards the front so the bottom of the diagram (and the P2 run below it) is in view
 
+  // L4 on-prem: the T2 gateway inside sESF, on Gaia infrastructure with no orchestration. Every component is a GVSI (Gaia
+  // VSI) running the Gaia Container Platform (GCP, a Docker runtime like Docker Desktop, not a scheduler) with one
+  // container on it. Traffic from L3 (PSaaS+ F5 WAF pool) and P1 (BP PSaaS) arrives at the tier 2 VIP, which spreads it
+  // across the Envoy (web) and Kong (API) gateway GVSIs, each container with its validator sidecar. The control plane runs
+  // on its own, separate GVSIs. The sidecars' caches are GemFire in L5. PostgreSQL for the Kong control plane is assumed.
+  // Onward to L5 is mTLS.
+  new FK.Detail(stage, D.t2, ({ box, flow, group, iconTop, tag }) => {
+    const KONG_BG = '#001408', GV = '#5C6BC0';
+    // one GVSI: a slab (the VSI) with the GVSI and GCP marks on its front edge, and one container standing on it
+    const node = (x, z, c, icon, bg, side = true) => {
+      box({ x, y: -6, z, w: 120, h: 12, d: 80, c: '#1F2660' });
+      iconTop({ x: x - 40, y: -12, z: z + 28, icon: AWS.gvsi, size: 20, bg: '#fff' });
+      iconTop({ x: x + 40, y: -12, z: z + 28, icon: AWS.gcp, size: 20, bg: '#fff' });
+      box({ x, y: -34, z: z - 8, w: 44, h: 44, d: 44, c });
+      if (side) box({ x: x + 30, y: -25, z: z - 8, w: 18, h: 26, d: 18, c: '#166534' });   // validator sidecar
+      if (icon) iconTop({ x, y: -56, z: z - 8, icon, size: 28, bg });
+    };
+    group({ x1: 250, z1: -990, x2: 1150, z2: -40, color: '#22D3EE', title: 'sESF', sub: 'Tier 2 · on-prem · GVSIs running GCP (Docker), no orchestration', hw: 400, width: 4, fill: .04 });
+    // tier 2 VIP at the edge of sESF: both L3 (PSaaS+) and P1 (BP PSaaS) arrive here
+    box({ x: 300, y: -15, z: -450, w: 50, h: 30, d: 70, c: '#0F2A4A' });
+    tag({ x: 300, z: -388, text: 'Tier 2<br>VIP', w: 90, h: 44, size: 14 });
+    // PostgreSQL for the Kong control plane (assumed)
+    box({ x: 300, y: -20, z: -800, w: 60, h: 40, d: 50, c: '#1E2A44' });
+    tag({ x: 300, z: -755, text: 'PostgreSQL', sub: 'Kong control plane', w: 110, h: 40, size: 12 });
+    // control plane: one container per service, each on its own GVSI, separate from the gateway GVSIs
+    group({ x1: 400, z1: -945, x2: 1105, z2: -695, color: GV, title: 'Control plane', sub: 'separate GVSIs', hw: 170, hh: 36, width: 3, dash: '6 6' });
+    for (const [x, c, icon, bg, name] of [
+      [530, '#1A2A05', AWS.kong, KONG_BG, 'Kong control plane'],
+      [670, '#3B1636', AWS.envoy, '#fff', 'Envoy xDS control plane'],
+      [810, '#334155', null, null, 'config distributor'],
+      [950, '#4A1530', null, null, 'signal receiver']]) {
+      node(x, -810, c, icon, bg, false);
+      tag({ x, z: -738, text: name, w: 130, h: 20, size: 11 });
+    }
+    // gateway GVSIs: the Envoy (web) and Kong (API) containers, one per GVSI, behind the tier 2 VIP
+    group({ x1: 400, z1: -680, x2: 1085, z2: -420, color: '#D163CE', icon: AWS.envoy, iconBg: '#fff', title: 'Envoy', sub: 'web gateway · Docker image on GCP', hw: 230, hh: 40, width: 3, dash: '8 6' });
+    group({ x1: 400, z1: -405, x2: 1085, z2: -110, color: '#CCFF00', icon: AWS.kong, iconBg: KONG_BG, title: 'Kong', sub: 'API gateway · Docker image on GCP', hw: 230, hh: 40, width: 3, dash: '8 6' });
+    [600, 760, 920].forEach((x, i) => { node(x, -565, '#3B1636', AWS.envoy, '#fff'); tag({ x, z: -500, text: `GVSI ${i + 1}`, w: 80, h: 18, size: 11 }); });
+    [600, 760, 920].forEach((x, i) => { node(x, -290, '#1A2A05', AWS.kong, KONG_BG); tag({ x, z: -225, text: `GVSI ${i + 1}`, w: 80, h: 18, size: 11 }); });
+    tag({ x: 760, z: -452, text: 'session-validator sidecars (green)', sub: 'session check · token exchange · ext_authz policies', w: 320, h: 34, size: 13 });
+    tag({ x: 760, z: -165, text: 'API validator sidecars (green)', sub: 'OAS validation · token validation · tokenization', w: 320, h: 34, size: 13 });
+    // flows, left to right
+    flow([80, -4, -450], [273, -4, -450], '#FBBF24');             // from L3 (the PSaaS+ F5 WAF pool), replacing the L3 cable
+    // from P1: BP PSaaS at the back, replacing the P1 cable; right angles around the outside of sESF so it crosses nothing
+    for (const [a, b] of [[[670, -1230], [670, -1030]], [[670, -1030], [232, -1030]], [[232, -1030], [232, -472]], [[232, -472], [273, -472]]])
+      flow([a[0], -4, a[1]], [b[0], -4, b[1]], '#2DD4BF', 4);
+    flow([327, -4, -460], [400, -4, -565], '#22D3EE');            // VIP -> the Envoy GVSIs (web): any of them can take it
+    flow([327, -4, -440], [400, -4, -290], '#22D3EE', 4);         // VIP -> the Kong GVSIs (API)
+    flow([1085, -4, -540], [1150, -4, -470], '#22D3EE', 4);       // the gateways -> L5 over mTLS
+    flow([1085, -4, -290], [1150, -4, -460], '#22D3EE', 4);
+    flow([1150, -4, -465], [1330, -4, -450], '#22D3EE');          // on to the L5 workloads, replacing the onward cable
+    flow([1085, -4, -640], [1340, -4, -640], '#F87171', 4);       // the sidecars' caches: GemFire in L5
+    flow([400, -4, -800], [330, -4, -800], '#94A3B8', 4);         // control plane <-> PostgreSQL (Kong control plane)
+    // CAEP risk signals into the signal receiver (source still to be decided)
+    flow([1340, -4, -860], [1105, -4, -820], '#F472B6', 4);
+    // floor labels
+    tag({ x: 175, z: -418, text: 'from L3', sub: 'PSaaS+', w: 100, h: 36, size: 14 });
+    tag({ x: 450, z: -1062, text: 'from P1', sub: 'BP PSaaS (L3)', w: 200, h: 40, size: 14 });
+    tag({ x: 1225, z: -905, text: 'CAEP risk signals', sub: 'source TBC', w: 170, h: 36, size: 12 });
+    tag({ x: 1235, z: -680, text: 'GemFire (L5)', sub: 'sidecar caches: token · revoke · policy', w: 190, h: 36, size: 12 });
+    tag({ x: 1195, z: -415, text: 'to L5', sub: 'mTLS', w: 80, h: 40, size: 14 });
+  }, { near: 2050, far: 3150, at: [700, 0, -500], links: [L.psT2, L.bpT2, L.t2On], walls: [W2, W3],
+       card: { from: [355, -950, 1045, -30], to: [215, -1008, 1185, -12], lift: 45, color: LAYERS[4].color },   // the L4 on-prem tile lifts out and grows
+       title: 'L4 · Enforcement Tier (on-prem)', shot: { x: 700, y: -60, z: -580, rx: -58, ry: 0, d: 1960 } });
+
   // L2: one deployment diagram per CDN, each lifting its half of the L2 column (Akamai at the back, Cloudflare at the
   // front). Left to right: traffic from L1, the security stages (attacks stopped where they are caught, in red), the
   // CDN edge, then out to both L3 perimeters with origin lockdown. Vendor-hosted, so no logos or AWS icons here.
