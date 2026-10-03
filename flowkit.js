@@ -234,7 +234,7 @@
       this.viewT = { ...this.view };
       this.explore = null; this.ex = null;                        // free camera target, when exploring
       this.bbs = []; this.onFrame = []; this.beforeFrame = []; this.resetters = [];
-      this.devices = []; this.links = [];
+      this.devices = []; this.links = []; this.details = [];
       this.resetters.push(() => this.frame.classList.remove('fk-presenting')); this.spinners = []; this.layers = []; this.tracker = null;
       this.scale = 1;
       this.readTime = 900;
@@ -257,6 +257,14 @@
       z += this.P - c.d;
       const s = this.P / (this.P - z);
       return { x: 640 + x * s, y: 360 + y * s, s, z };
+    }
+    // Inverse of project() for a horizontal plane: the world point at height yPlane under stage pixel (sx, sy), or null
+    unproject(sx, sy, yPlane = 0) {
+      const c = this.e, P = this.P, a = c.rx * D2R, b = c.ry * D2R, u = sx - 640, v = sy - 360;
+      const den = v * Math.cos(a) / P - Math.sin(a); if (Math.abs(den) < 1e-6) return null;
+      const w = (yPlane - c.y - c.d * Math.sin(a)) / den; if (!(w > 0)) return null;
+      const x2 = u * w / P, y3 = v * w / P, z3 = c.d - w, z2 = -y3 * Math.sin(a) + z3 * Math.cos(a);
+      return [c.x + x2 * Math.cos(b) - z2 * Math.sin(b), yPlane, c.z + x2 * Math.sin(b) + z2 * Math.cos(b)];
     }
     // A billboard always faces the camera. screen: true draws it in the 2D overlay (crisp, never occluded).
     billboard(parent, html, { screen = false, cls = '', p = [0, 0, 0], scale = false } = {}) {
@@ -302,6 +310,7 @@
       this._trackLayer();
       const free = !!this.explore || Math.abs(T.rx) > .5 || Math.abs(T.ry) > .5 || Math.abs(T.zoom - 1) > .01 || Math.abs(T.px) > 1 || Math.abs(T.pz) > 1;
       if (free !== this._free) { this._free = free; this.freeEl.classList.toggle('on', free); }
+      for (const d of this.details) d.update(e, free);
       requestAnimationFrame(this.render);
     }
     setCam(s) { Object.assign(this.cam, s); }
@@ -375,7 +384,11 @@
       f.addEventListener('wheel', e => {
         if (e.target.closest('.fk-hud-i')) return;
         e.preventDefault();
-        this.viewT.zoom = clamp(this.viewT.zoom * Math.exp(e.deltaY * .0015), .2, 3);
+        // Zoom towards the floor point under the cursor, so you can wheel straight into a part of the scene
+        const T = this.viewT, r = f.getBoundingClientRect(), z0 = T.zoom, z1 = clamp(z0 * Math.exp(e.deltaY * .0015), .2, 3), k = z1 / z0;
+        const p = this.unproject((e.clientX - r.left) / this.scale, (e.clientY - r.top) / this.scale);
+        T.zoom = z1;
+        if (p) { T.px += (p[0] - this.e.x) * (1 - k); T.pz += (p[2] - this.e.z) * (1 - k); }
       }, { passive: false });
       f.addEventListener('contextmenu', e => e.preventDefault());
     }
@@ -479,7 +492,7 @@
     // Once the chapter is built: each caption fades in at its position and stays until the next one crossfades in.
     // The card only moves to make room for a deployment view (stage.present), and moves back afterwards.
     _layout(tl) {
-      const { CY, TY, DS } = this, e = this.el, pres = (tl._pres || []).slice().sort((a, b) => a.pos - b.pos);
+      const { TY, DS } = this, CY = tl.capY ?? this.CY, e = this.el, pres = (tl._pres || []).slice().sort((a, b) => a.pos - b.pos);   // tl.capY: a chapter's own caption height
       const onAt = t => pres.reduce((v, p) => p.pos <= t ? p.v : v, false);
       const caps = tl._caps.slice().sort((a, b) => a.pos - b.pos);
       caps.forEach((c, i) => {
@@ -734,14 +747,15 @@
       ring3(spin, 90, 'rotateX(72deg)', accent); ring3(spin, 90, 'rotateY(60deg) rotateX(72deg)', accent); ring3(spin, 90, 'rotateY(-60deg) rotateX(72deg)', accent);
       this.stage.billboard(wrap, `<div style="width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,${accent} 60%);box-shadow:0 0 22px 6px ${accent}"></div>`, { p: [0, 0, 0] });
       this.stage.spinners.push({ el: spin, speed: .06 });
-      return 225;
+      return 165;   // label just above the core, not above the orbit's empty space
     },
     // Private connectivity endpoint: a glowing ring traffic passes through
     portal(p, { accent, o }) {
-      const fx = o.facing === 'x';
-      box(p, { y: -8, w: fx ? 60 : 210, h: 16, d: fx ? 210 : 60, c: '#0F172A' });
-      const R = 170, ring = plane(p, { w: R, h: R, t: `translate3d(0,${-16 - R / 2}px,0)${fx ? ' rotateY(90deg)' : ''}`, two: true });
-      ring.style.cssText += `border-radius:50%;border:12px solid ${accent};box-shadow:0 0 30px ${accent}, inset 0 0 30px ${accent};background:radial-gradient(closest-side, ${accent}40, transparent)`;
+      const fx = o.facing === 'x', R = o.r || 170, bw = R + 40;   // r: ring diameter; the plinth scales with it
+      box(p, { y: -8, w: fx ? 60 : bw, h: 16, d: fx ? bw : 60, c: '#0F172A' });
+      const ring = plane(p, { w: R, h: R, t: `translate3d(0,${-16 - R / 2}px,0)${fx ? ' rotateY(90deg)' : ''}`, two: true });
+      const rim = Math.max(5, Math.round(R * .07)), glow = Math.round(R * .18);
+      ring.style.cssText += `border-radius:50%;border:${rim}px solid ${accent};box-shadow:0 0 ${glow}px ${accent}, inset 0 0 ${glow}px ${accent};background:radial-gradient(closest-side, ${accent}40, transparent)`;
       return 16 + R + 10;
     },
     pods(p, { color, o }) {
@@ -764,7 +778,7 @@
       b.front.style.borderRadius = '12px';
       b.front.innerHTML = `<div class="scr" style="position:absolute;inset:5px;background:#0F172A;border-radius:9px;overflow:hidden;color:#E2E8F0;font:9px system-ui;text-align:center">${this.o.screen || ''}</div>`;
       this.screen = b.front.querySelector('.scr');
-      return 285;
+      return 235;   // label just over the top of the screen (which reaches 260), like the other devices
     }
   };
 
@@ -1095,6 +1109,47 @@
     return pos + dur;
   }
 
+  /* ---------- Detail: level of detail for a device ---------- */
+  // When you take the camera (zoom, orbit, pan) and close in on a device, the device sinks away and a detailed
+  // sub-scene grows in its place. It follows the camera only, never the timeline, so scripted playback is unchanged.
+  //   new Detail(stage, device, ({ g, box, label, outline, flow }) => { ...build in world coordinates... }, { near, far, at })
+  // near / far: camera distance (zoom distance plus how far the view centre is from the device) where the detail is
+  // fully shown / starts to appear.
+  const d0 = d => d.g.style.display !== 'none';
+  class Detail {
+    constructor(stage, dev, build, { near = 1300, far = 2300, at } = {}) {
+      Object.assign(this, { stage, dev, near, far, f: 0, c: at || [dev.x, 0, dev.z], labels: [] });
+      this.g = g(stage.world, 0, 0, 0); this.g.classList.add('fk-lod'); this.g.style.display = 'none';
+      const G = this.g;
+      build({
+        g: G,
+        box: o => box(G, o),
+        outline: o => outline(stage, G, o),
+        label: (p, html, cls = '') => { const b = stage.billboard(null, `<div class="fk-label lod ${cls}">${html}</div>`, { screen: true, p }); b.el.style.display = 'none'; this.labels.push(b); return b; },
+        // an animated flow line along the floor (or at height y) from a to b
+        flow: (a, b, color = '#22D3EE', w = 6) => { const n = el('div', 'fk-n fk-lodflow', G); n.style.transform = orient(a, b); n.style.setProperty('--pc', color); plane(n, { w, h: 100, t: 'rotateX(90deg)', two: true, bg: '' }); return n; }
+      });
+      stage.details.push(this);
+    }
+    update(cam, free) {
+      const d = this.dev, [cx, , cz] = this.c, reach = cam.d + Math.hypot(cam.x - cx, cam.z - cz);
+      const goal = free && d0(this.dev) ? clamp((this.far - reach) / (this.far - this.near), 0, 1) : 0;   // only for a device that is on stage
+      this.f += (goal - this.f) * .06; if (Math.abs(goal - this.f) < .003) this.f = goal;   // eased: things change slowly as you move in
+      const f = this.f;
+      if (f === this._f) return; this._f = f;
+      this.g.style.display = f > .01 ? '' : 'none';
+      const s = .7 + .3 * f;
+      this.g.style.transform = `translate3d(${cx}px,0,${cz}px) scale3d(${s},${s},${s}) translate3d(${-cx}px,0,${-cz}px)`;
+      this.g.style.setProperty('--lod', f.toFixed(3));
+      const k = clamp(1 - f * 1.4, 0, 1);   // the device has gone by the time the detail is two-thirds in
+      d.g.style.transform = `translate3d(${d.x}px,0,${d.z}px)` + (k < 1 ? ` scale3d(${k.toFixed(3)},${k.toFixed(3)},${k.toFixed(3)})` : '');
+      d.g.style.visibility = k < .02 ? 'hidden' : '';
+      d.labelBB.el.style.opacity = k < 1 ? k.toFixed(3) : '';
+      const lo = clamp((f - .4) / .6, 0, 1);
+      for (const b of this.labels) { b.el.style.display = lo > 0 ? '' : 'none'; b.el.style.opacity = lo.toFixed(3); }
+    }
+  }
+
   /* ---------- Player: chapters, transport, fine scrubbing ---------- */
   const ICON = {
     start: '<path d="M6 5v14M19 5l-10 7 10 7z"/>',
@@ -1125,37 +1180,43 @@
     _ui(host) {
       host.classList.add('fk-player'); this.host = host;
       host.innerHTML = `
-        <div class="fk-chapters"></div>
         <div class="fk-scrub">
           <div class="fk-steps"></div>
           <div class="fk-track"><div class="fk-ruler"></div><div class="fk-fill"></div><div class="fk-marks"></div><div class="fk-head"><i></i></div><div class="fk-tip"></div></div>
         </div>
-        <div class="fk-transport">
-          <div class="grp">
-            <button data-a="start" title="Go to start (Home)">${svg('start')}</button>
-            <button data-a="prevStep" title="Previous step ( [ )">${svg('prevStep')}</button>
-            <button data-a="back" title="Back one frame ( , or ← ) · Shift: 1 s">${svg('back')}</button>
-            <button data-a="rev" title="Play backwards (J)">${svg('rev')}</button>
-            <button data-a="play" class="big" title="Play / pause (Space)">${svg('play')}</button>
-            <button data-a="fwd" title="Forward one frame ( . or → ) · Shift: 1 s">${svg('fwd')}</button>
-            <button data-a="nextStep" title="Next step ( ] )">${svg('nextStep')}</button>
-            <button data-a="end" title="Go to end (End)">${svg('end')}</button>
+        <div class="fk-transport fk-bar">
+          <div class="side l">
+            <div class="grp views">
+              <button data-t="trace" class="tg on" title="Trace panel (T)">Trace</button>
+              <button data-t="labels" class="tg on" title="Device labels (N)">Labels</button>
+              <button data-t="legend" class="tg on" title="Layer legend (Y)">Layers</button>
+            </div>
+            <button data-a="reset" title="Reset camera (R)">Reset view</button>
           </div>
-          <div class="fk-time"><span class="cur">00:00.000</span><span class="dur">/ 00:00.000</span></div>
-          <div class="fk-stepname"></div>
-          <div class="sp"></div>
-          <div class="grp speed" title="Playback speed (J / K / L shuttle)">${SPEEDS.map(s => `<button data-s="${s}">${s}×</button>`).join('')}</div>
-          <button data-a="loop" class="tg" title="Loop chapter">${svg('loop')}</button>
+          <div class="mid">
+            <div class="grp">
+              <button data-a="start" title="Go to start (Home)">${svg('start')}</button>
+              <button data-a="prevStep" title="Previous step ( [ )">${svg('prevStep')}</button>
+              <button data-a="back" title="Back one frame ( , or ← ) · Shift: 1 s">${svg('back')}</button>
+              <button data-a="rev" title="Play backwards (J)">${svg('rev')}</button>
+              <button data-a="play" class="big" title="Play / pause (Space)">${svg('play')}</button>
+              <button data-a="fwd" title="Forward one frame ( . or → ) · Shift: 1 s">${svg('fwd')}</button>
+              <button data-a="nextStep" title="Next step ( ] )">${svg('nextStep')}</button>
+              <button data-a="end" title="Go to end (End)">${svg('end')}</button>
+            </div>
+          </div>
+          <div class="side r">
+            <div class="grp speed" title="Playback speed (J / K / L shuttle)">${SPEEDS.map(s => `<button data-s="${s}">${s}×</button>`).join('')}</div>
+            <button data-a="loop" class="tg" title="Loop this scene">${svg('loop')}</button>
+          </div>
         </div>
-        <div class="fk-options">
-          <button data-a="all" class="tg" title="Play every chapter in order">Play all chapters</button>
-          <div class="sp"></div>
-          <button data-t="trace" class="tg on" title="Trace panel (T)">Trace</button>
-          <button data-t="labels" class="tg on" title="Device labels (N)">Labels</button>
-          <button data-t="legend" class="tg on" title="Layer legend (Y)">Layers</button>
-          <button data-a="reset" title="Reset camera (R)">Reset view</button>
-          <button data-a="link" title="Copy a link to this exact moment">Copy link</button>
-          <button data-a="help" title="Keyboard shortcuts (?)">?</button>
+        <div class="fk-time"><span class="cur">00:00.000</span><span class="dur">/ 00:00.000</span></div>
+        <hr class="fk-div">
+        <div class="fk-chapters">
+          <div class="fk-chhead"><b>Scenes</b><span>Select a scene to play it</span><div class="sp"></div>
+            <button data-a="all" class="tg" title="Play every scene in order">Play all scenes</button>
+            <button data-a="link" title="Copy a link to this exact moment">Copy link</button>
+            <button data-a="help" title="Keyboard shortcuts (?)">?</button></div>
         </div>
         <div class="fk-help" hidden>
           <b>Playback</b><span>Space play / pause · J reverse · K pause · L forward (press again to speed up)</span>
@@ -1163,12 +1224,12 @@
           <b>Timeline</b><span>Drag to scrub · hold Shift while dragging for 10× finer control · wheel over the timeline steps frame by frame · click a step to jump to it</span>
           <b>Camera</b><span>Drag the scene to orbit · right-drag or Shift-drag to pan · wheel to zoom · double-click or R to reset · F to follow the script</span>
           <b>Explore</b><span>Click any device for details · hover a layer in the legend to isolate it · click a layer to fly there</span>
-          <b>Chapters</b><span>1–9 pick from the first row · Shift+1–9 from the second · T trace · N labels · Y layers · Esc close panels</span>
+          <b>Scenes</b><span>1–9 pick from the first row · Shift+1–9 from the second · T trace · N labels · Y layers · Esc close panels</span>
         </div>`;
       const q = s => host.querySelector(s);
       this.ui = {
         chapters: q('.fk-chapters'), steps: q('.fk-steps'), track: q('.fk-track'), ruler: q('.fk-ruler'), fill: q('.fk-fill'), marks: q('.fk-marks'),
-        head: q('.fk-head'), tip: q('.fk-tip'), cur: q('.fk-time .cur'), dur: q('.fk-time .dur'), stepname: q('.fk-stepname'),
+        head: q('.fk-head'), tip: q('.fk-tip'), cur: q('.fk-time .cur'), dur: q('.fk-time .dur'), time: q('.fk-time'),
         play: q('[data-a=play]'), rev: q('[data-a=rev]'), loop: q('[data-a=loop]'), all: q('[data-a=all]'), help: q('.fk-help'), scrub: q('.fk-scrub')
       };
       // Chapters can be grouped into labelled rows (e.g. Layers / Journeys); keys 1-9 pick from the first row, Shift+1-9 from the second
@@ -1256,7 +1317,6 @@
       if (k !== this._step) {
         this._step = k;
         [...this.ui.steps.children].forEach((c, i) => c.classList.toggle('on', i === k));
-        this.ui.stepname.textContent = k >= 0 ? m[k].step : '';
       }
     }
     _paintButtons() {
@@ -1266,7 +1326,7 @@
       this.ui.rev.classList.toggle('on', this.playing && this.dir < 0);
       this.ui.loop.classList.toggle('on', this.loop); this.ui.all.classList.toggle('on', this.all);
       this.host.querySelectorAll('[data-s]').forEach(b => b.classList.toggle('on', +b.dataset.s === this.rate));
-      if (!SPEEDS.includes(this.rate)) this.ui.stepname.dataset.rate = this.rate + '×'; else delete this.ui.stepname.dataset.rate;
+      if (!SPEEDS.includes(this.rate)) this.ui.time.dataset.rate = this.rate + '×'; else delete this.ui.time.dataset.rate;
     }
     _buildTimeline() {
       const D = this.duration || 1, m = this.tl.markers;
@@ -1293,11 +1353,14 @@
       let drag = null;
       scrub.addEventListener('pointerdown', e => {
         if (!this.tl) return;
-        const seg = e.target.closest('.fk-steps > div');
-        drag = { x: e.clientX, wasPlaying: this.playing, seg, moved: false };
+        const seg = e.target.closest('.fk-steps > div'), knob = e.target.closest('.fk-head i');
+        // Grabbing the playhead's dot keeps the grip offset, so the playhead doesn't jump to the pointer
+        const off = knob ? e.clientX - (knob.getBoundingClientRect().left + knob.getBoundingClientRect().width / 2) : 0;
+        drag = { x: e.clientX, wasPlaying: this.playing, seg, moved: false, off };
         this.pause(); scrub.setPointerCapture(e.pointerId);
-        if (!seg) this.seek(tAt(e.clientX));
-        showTip(e.clientX, this.time, e.shiftKey);
+        if (knob) scrub.classList.add('grabbing');
+        else if (!seg) this.seek(tAt(e.clientX));
+        showTip(e.clientX - off, this.time, e.shiftKey);
       });
       scrub.addEventListener('pointermove', e => {
         if (!this.tl) return;
@@ -1305,13 +1368,14 @@
         const dx = e.clientX - drag.x; if (Math.abs(dx) < 1) return;
         drag.moved = true; drag.x = e.clientX;
         if (e.shiftKey) this.seek(this.time + dx * msPerPx() * .1);
-        else this.seek(tAt(e.clientX));
-        showTip(e.clientX, this.time, e.shiftKey);
+        else this.seek(tAt(e.clientX - drag.off));
+        showTip(e.clientX - drag.off, this.time, e.shiftKey);
       });
       const end = e => {
         if (!drag) return;
         if (drag.seg && !drag.moved) this.seek(this.tl.markers[+drag.seg.dataset.i].pos);
         if (drag.wasPlaying) this.play(this.dir);
+        scrub.classList.remove('grabbing');
         drag = null;
       };
       scrub.addEventListener('pointerup', end); scrub.addEventListener('pointercancel', end);
@@ -1369,5 +1433,5 @@
     }
   }
 
-  global.FlowKit = { el, g, box, plane, orient, pathFn, arc, lerp3, route, shade, ease, invEase, Timeline, Stage, Trace, Budget, ObsWall, Device, Wall, Link, Packet, Dot, Drill, zone, outline, ring, fly, Player, COLORS };
+  global.FlowKit = { el, g, box, plane, orient, pathFn, arc, lerp3, route, shade, ease, invEase, Timeline, Stage, Trace, Budget, ObsWall, Device, Wall, Link, Packet, Dot, Drill, Detail, zone, outline, ring, fly, Player, COLORS };
 })(window);

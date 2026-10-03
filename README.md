@@ -22,7 +22,7 @@ Deep link: `ingress.html?ch=2&t=7000` opens chapter 2 paused at 7 seconds. **Cop
 | Layer | Name | Components |
 |---|---|---|
 | L0 | DNS control plane (ahead of the request path, left of the clients) | 4 JPMorgan primary NS (CNAME → Akamai GTM) + 3 Cloudflare secondary NS (zone transfer; Cloudflare LB via override) |
-| L1 | Client | Browser · Mobile app · API client · Delegated agent · Autonomous agent · M2M (workforce users arrive over P3) |
+| L1 | Client | Browser · Mobile app · API client · Delegated agent · Autonomous agent · M2M |
 | L2 | Edge protection / CDN | Akamai · Cloudflare, active-active from one ruleset. Classifies callers; does not establish identity |
 | L3 | Regional perimeter | PSaaS+ with Akamai SiteShield (on-prem, 9 DCs) · AWS WAF (8 regions). CDN traffic only |
 | L4 | Enforcement tier · SESF / Tier 2 | T2 gateway on-prem and on EKS (Envoy / Kong): session validator, token exchange, global and route policies, signal receiver. The single enforcement point; fails closed |
@@ -30,15 +30,16 @@ Deep link: `ingress.html?ch=2&t=7000` opens chapter 2 paused at 7 seconds. **Cop
 | L6 | Internal network | Downstream services, systems of record, session manager, signal manager, message broker, config pipeline |
 | P1 | Private connectivity | Institutional client over VAN / private circuit / leased line → BP PSaaS, entering at L3 |
 | P2 | Cloud private connectivity | Partner service in its own AWS VPC → interface endpoint → PrivateLink → our endpoint service + NLB, entering at L4 |
-| P3 | Internal network ingress | Workforce users on the internal network, entering at L4 |
 
-Layers run left to right; L0 is a box to the left of the client column. Akamai and on-prem use the back lane, Cloudflare and AWS the front lane, and L3 to L5 are split into on-prem and AWS. The back corridor holds P1 (left) and P3 (right); the partner VPC sits in front of our VPC inside the AWS network. Firewalls with doors separate L2/L3, L3/L4 (SESF), L4/L5 (IFA zone) and L5/L6. All names, roles, footprints and the illustrative control checklists live in `LAYERS`, `NAMES`, `FOOTPRINT`, `ROLES` and `CHECKS` at the top of `scenes/ingress.js`; the per-client-type table (L2 defences, what is presented and resolved at L4, step-up, risk response, injected identity) lives in `CT`.
+Layers run left to right; L0 is a box to the left of the client column. Akamai and on-prem use the back lane, Cloudflare and AWS the front lane, and L3 to L5 are split into on-prem and AWS. The back corridor holds P1; the partner VPC sits in front of our VPC inside the AWS network. Firewalls with doors separate L2/L3, L3/L4 (SESF), L4/L5 (IFA zone) and L5/L6. All names, roles, footprints and the illustrative control checklists live in `LAYERS`, `NAMES`, `FOOTPRINT`, `ROLES` and `CHECKS` at the top of `scenes/ingress.js`; the per-client-type table (L2 defences, what is presented and resolved at L4, step-up, risk response, injected identity) lives in `CT`.
 
 DNS (L0): jpmorgan.com is delegated to 4 JPMorgan-hosted nameservers (ns1, ns2, ns05, ns06.jpmorganchase.com, the primary) and 3 Cloudflare nameservers (ns0098, ns0134, ns0221.secondary.cloudflare.com), secondary via zone transfer. The primary hands app hostnames off by CNAME to Akamai GTM; Cloudflare answers overridden hostnames via Cloudflare LB. A quiet pink "DNS lookups" pipe links the client column to the box; in the chapters a lookup is a small white dot travelling client → pipe → NS → GTM / LB → back, before the request leaves along the floor. Lookups live in `DNSQ`.
 
 L4 deployment views (modelled on `../jpmc/ingress-poc`): the on-prem T2 node expands into gateway-envoy's filter chain (listener → route match → ext_authz → router) over auth-service, which resolves the session (session validator, revoke cache), exchanges the token and evaluates the Rego payload policies in order: the global policy (`ingress.policy.payload.global`, blocklist) and the route policy generated from the workload's code (e.g. `route_users_register`, default deny). An evaluation panel shows the request JSON, each rule and the result (201, or 403 with the reason). A second view shows live state: the session validator against the session manager (L6), and a CAEP risk-level-change from the signal manager (L6) arriving through the message broker at the signal receiver, which turns it into step-up; the next request gets a 401. Content lives in `T2D`, `PAY`, `t2Run`, `T3D`, `t3Html`, `t3Run`, `t3Signal` and `signalStory`.
 
-Chapters are in two rows. **Layers** (keys 1–9): The layers, L0 DNS Control Plane, L1 Client, L2 Edge Protection / CDN, L3 Regional Perimeter, L4 Enforcement Tier, L5 IFA Workload Zone, L6 Internal Network, P Private Connectivity. Each explains what the layer is, what it does, why it exists and its latency budget (`LAYER_CH`). **Journeys** (Shift+1–7): Web on-prem, Client types at L4, Payload policies at L4, API into AWS, Private connectivity (P1, P2, P3), Failover, Defense in depth.
+Chapters are in two rows. **Layers** (keys 1–9): The layers, L0 DNS Control Plane, L1 Client, L2 Edge Protection / CDN, L3 Regional Perimeter, L4 Enforcement Tier, L5 IFA Workload Zone, L6 Internal Network, P Private Connectivity. Each explains what the layer is, what it does, why it exists and its latency budget (`LAYER_CH`). **Journeys** (Shift+1–7): Web on-prem, Client types at L4, Payload policies at L4, API into AWS, Private connectivity (P1, P2), Failover, Defense in depth.
+
+Detail views: zoom in with the mouse wheel over the AWS T2 gateway (L4) and the tower gives way to the L4 architecture on AWS: our VPC's private subnets across three AZs; the internet-facing ALB with AWS WAF (L3) targeting the gateway pods directly, and the VPC endpoint service (P2) fronting an internal NLB that targets the same pods; EKS cluster `ingress-l4` with namespace `ingress-gateway` (Envoy and Kong data planes, each pod with a session-validator sidecar, auth-service with OPA global and route policies, token exchange) and namespace `ingress-control` (xDS and Kong control planes, config distributor, signal receiver); ElastiCache for the token, revoke and policy caches; mTLS onward to L5. Defined in `scenes/ingress.js` under "Detail views".
 
 Latency budget: 50 ms p95 from L1 to L5, warm connections, a well-placed NA user (draft, in `BUDGET`). Network legs (striped; they depend on where the user is): client → edge 8, edge → region 10. JPMC processing: edge 3, perimeter 3, L4 inspect + policy 10, L4 live state + exchange 14. DNS is cached per TTL and workload time is the application's own, so both sit outside it.
 
@@ -57,7 +58,7 @@ Latency budget: 50 ms p95 from L1 to L5, warm connections, a well-placed NA user
 | Loop, play all | buttons | |
 | Chapters | buttons | 1 to 9 |
 
-Camera: drag to orbit, right-drag or Shift-drag to pan, wheel to zoom, double-click or R to reset, F to follow the script again. Click a device (or its label) for an info card with its layer, role, regional footprint and controls. Hover a layer in the legend to isolate it; click a layer to fly there. T, N and Y toggle the trace, labels and legend.
+Camera: drag to orbit, right-drag or Shift-drag to pan, wheel to zoom (towards the cursor), double-click or R to reset, F to follow the script again. Click a device (or its label) for an info card with its layer, role, regional footprint and controls. Hover a layer in the legend to isolate it; click a layer to fly there. T, N and Y toggle the trace, labels and legend.
 
 ## Time model
 
@@ -95,6 +96,7 @@ Do not start real-time animations or change the DOM from a chapter's build funct
 | `stage.caption.at(tl, pos, step, text)` | Caption card and scrubber step: crossfades in near the top of the stage and stays until the next step; moves up into a compact banner while a deployment view is open |
 | `stage.shot(tl, pos, shot, dur)` | Camera move; a shot is `{x, y, z, rx, ry, d}` |
 | `new Drill(stage, {at, title, sub, frame, stages, side})` | Deployment view that slides out of a node: `open`, `enter`, `visit(i)`, `sideVisit`, `exit`, `close`. A token walks the internal stages; each stage ticks its checks |
+| `new Detail(stage, device, build, {near, far, at})` | Level of detail: when you take the camera and close in on a device, it sinks away and a detailed sub-scene grows in its place (`build` gets `box`, `outline`, `label`, `flow`). Camera-driven only, so scripted playback is unchanged |
 | `new Budget(stage, {target, legs, title})` | Latency budget HUD: `begin(tl, pos, focusLegs)`, `spend(tl, pos, leg, ms)` |
 | `stage.flag(tl, pos, cls, on)` | Toggle a frame class for a timeline (e.g. `fk-notrace`) |
 | `stage.present(tl, pos, on)` | Presentation mode: hides the trace and legend panels (used while a deployment view is open) |

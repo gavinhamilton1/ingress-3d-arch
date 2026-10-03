@@ -15,27 +15,22 @@
  */
 window.FK_CAPTIONS = {
 
-  // ---- Layers · The layers · 13 captions · 101.2 s
+  // ---- Layers · The layers · 11 captions · 86.2 s
   "The layers": {
     "The layers": {
       step: "The layers",
-      text: "Every request is resolved at L0, then crosses up to six layers from the client to the internal network",
-      hold: 6.1
-    },
-    "L0 · DNS control plane": {
-      step: "L0 · DNS control plane",
-      text: "Resolves the hostname to an edge address before any request is made, from beside the request path rather than in it",
-      hold: 6.7
+      text: "From the client to the internal network, with L0 steering from the side",
+      hold: 3.0
     },
     "L1 · Client": {
       step: "L1 · Client",
       text: "Browsers, mobile apps, API clients, delegated and autonomous agents and M2M callers. Every request starts here, untrusted regardless of type",
       hold: 7.8
     },
-    "Resolve first": {
-      step: "Resolve first",
-      text: "Before a client sends anything, its resolver asks L0 for an edge address",
-      hold: 9.4   // animation
+    "L0 · DNS control plane": {
+      step: "L0 · DNS control plane",
+      text: "Before a client sends anything, its resolver asks L0 for an edge address. L0 answers from beside the request path, never in it",
+      hold: 10.2   // animation
     },
     "L2 · Edge protection / CDN": {
       step: "L2 · Edge protection / CDN",
@@ -72,15 +67,10 @@ window.FK_CAPTIONS = {
       text: "Partner services in their own AWS VPC reach our endpoint service privately, entering at L4",
       hold: 5.6
     },
-    "P3 · Internal network": {
-      step: "P3 · Internal network",
-      text: "Workforce users on the internal network reach L4 directly, subject to the same enforcement",
-      hold: 5.6
-    },
     "All together": {
       step: "All together",
-      text: "Web on-prem, an API call into AWS, M2M on-prem, partners over P1 and P2 and a workforce user over P3, all at once",
-      hold: 19.1   // animation
+      text: "Web on-prem, an API call into AWS, M2M on-prem and partners over P1 and P2, all at once",
+      hold: 18.6   // animation
     }
   },
 
@@ -113,7 +103,7 @@ window.FK_CAPTIONS = {
     }
   },
 
-  // ---- Layers · L1 · Client · 5 captions · 42.6 s
+  // ---- Layers · L1 · Client · 5 captions · 41.3 s
   "L1 · Client": {
     "L1 · Client": {
       step: "L1 · Client",
@@ -125,10 +115,10 @@ window.FK_CAPTIONS = {
       text: "Human, machine and agent are not security categories: any of them can hold a credential. What counts is the credential, and the key it is bound to",
       hold: 8.1
     },
-    "Three ways in": {
-      step: "Three ways in",
-      text: "Over the internet through L2 and L3, over private connectivity (P1 enters at L3, P2 at L4), or from the internal network (P3, at L4). The path changes; the check at L4 does not",
-      hold: 9.0
+    "Two ways in": {
+      step: "Two ways in",
+      text: "Over the internet through L2 and L3, or over private connectivity: P1 enters at L3 and P2 at L4. The path changes; the check at L4 does not",
+      hold: 7.8
     },
     "Why: assume compromise": {
       step: "Why: assume compromise",
@@ -244,7 +234,7 @@ window.FK_CAPTIONS = {
     },
     "Why one enforcement point": {
       step: "Why one enforcement point",
-      text: "Internet, private and internal paths all converge here, so identity, payload policy and signals are enforced once, consistently. Onward to L5 is mutual TLS, and the workload verifies the client certificate",
+      text: "Internet and partner paths all converge here, so identity, payload policy and signals are enforced once, consistently. Onward to L5 is mutual TLS, and the workload verifies the client certificate",
       hold: 9.0
     },
     "Latency · 24 ms": {
@@ -307,12 +297,12 @@ window.FK_CAPTIONS = {
     }
   },
 
-  // ---- Layers · P · Private Connectivity · 6 captions · 49.2 s
+  // ---- Layers · P · Private Connectivity · 5 captions · 40.9 s
   "P · Private Connectivity": {
     "P · Private connectivity": {
       step: "P · Private connectivity",
-      text: "Three paths that skip part of the internet route. On every one, the client is still L1 and still carries a credential",
-      hold: 6.8
+      text: "Two paths that skip part of the internet route. On both, the client is still L1 and still carries a credential",
+      hold: 6.5
     },
     "P1 · VAN → BP PSaaS": {
       step: "P1 · VAN → BP PSaaS",
@@ -322,17 +312,12 @@ window.FK_CAPTIONS = {
     "P2 · AWS PrivateLink": {
       step: "P2 · AWS PrivateLink",
       text: "A partner service in its own AWS VPC never touches the internet: it bypasses L0, L2 and L3 and enters at L4, through our endpoint service and its load balancer",
-      hold: 9.7   // animation
-    },
-    "P3 · Internal network ingress": {
-      step: "P3 · Internal network ingress",
-      text: "Workforce users on the internal network arrive at L4 without the edge or the perimeter, and get exactly the same enforcement",
-      hold: 7.6   // animation
+      hold: 10.7   // animation
     },
     "Why they still converge on L4": {
       step: "Why they still converge on L4",
-      text: "Each path secures its own hop, but none of them replaces the credential check: every one is enforced at L4 like internet traffic",
-      hold: 7.3
+      text: "Each path secures its own hop, but neither replaces the credential check: both are enforced at L4 like internet traffic",
+      hold: 6.9
     },
     "Latency": {
       step: "Latency",
@@ -552,12 +537,12 @@ window.FK_CAPTIONS = {
     }
   },
 
-  // ---- Journeys · Private connectivity · 15 captions · 97.3 s
+  // ---- Journeys · Private connectivity · 13 captions · 82.2 s
   "Private connectivity": {
     "Private connectivity": {
       step: "Private connectivity",
-      text: "Institutional clients, partner services and workforce users can skip part of the internet route",
-      hold: 5.8
+      text: "Institutional clients and partner services can skip part of the internet route",
+      hold: 5.0
     },
     "Distinct routes, one enforcement point": {
       step: "Distinct routes, one enforcement point",
@@ -614,20 +599,10 @@ window.FK_CAPTIONS = {
       text: "A credential is still required: the T2 gateway on EKS terminates mTLS and resolves the partner’s signed assertion to workload identity",
       hold: 11.1   // animation
     },
-    "P3 · Internal network": {
-      step: "P3 · Internal network",
-      text: "An employee on the internal network opens a case in an internal tool",
-      hold: 4.6
-    },
-    "P3 · Straight to L4": {
-      step: "P3 · Straight to L4",
-      text: "No edge and no perimeter, but no shortcut either: the T2 gateway enforces exactly what it enforces for internet traffic",
-      hold: 9.6   // animation
-    },
-    "Three private paths, one enforcement point": {
-      step: "Three private paths, one enforcement point",
-      text: "Internet traffic comes through L2 and L3. P1 enters at L3, P2 and P3 at L4, and all of it meets the same L4 enforcement",
-      hold: 6.9
+    "Two private paths, one enforcement point": {
+      step: "Two private paths, one enforcement point",
+      text: "Internet traffic comes through L2 and L3. P1 enters at L3 and P2 at L4, and all of it meets the same L4 enforcement",
+      hold: 6.7
     }
   },
 
